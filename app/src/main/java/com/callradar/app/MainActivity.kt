@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
                     })
                     1 -> com.callradar.app.screen.RecordsScreen(userId = userId)
                     2 -> com.callradar.app.screen.AirportScreen()
-                    3 -> MoreScreen(userId = userId, onLogout = onLogout)
+                    3 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout)
                 }
             }
             NavigationBar(containerColor = card) {
@@ -230,79 +230,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 @Composable
-    fun MoreScreen(userId: String, onLogout: () -> Unit) {
-        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280); val red = Color(0xFFEF4444)
-        val context = LocalContext.current
-        var selectedTab by remember { mutableStateOf(0) }
-        var showLogoutConfirm by remember { mutableStateOf(false) }
-        if (showLogoutConfirm) { AlertDialog(onDismissRequest = { showLogoutConfirm = false }, title = { Text("로그아웃", color = Color.White, fontWeight = FontWeight.Bold) }, text = { Text("다른 계정으로 로그인하시려면 로그아웃하세요. 이 기기에 저장된 로그인 정보가 삭제돼요.", color = Color(0xFF9CA3AF), fontSize = 14.sp) }, confirmButton = { Button(onClick = { showLogoutConfirm = false; onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("로그아웃", color = Color.White) } }, dismissButton = { OutlinedButton(onClick = { showLogoutConfirm = false }) { Text("취소") } }, containerColor = Color(0xFF111827)) }
-        Column(modifier = Modifier.fillMaxSize().background(bg)) {
-            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 48.dp, bottom = 8.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("분석", "랭킹", "링크", "설정").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 13.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
-           when (selectedTab) {
-                0 -> com.callradar.app.screen.StatsScreen(userId = userId)
-                1 -> com.callradar.app.screen.RankingScreen(userId = userId)
-                2 -> LinksScreen(context = context, card = card, accent = accent, muted = muted)
-                3 -> Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text("계정", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                            Text("여러 기기(폰)에서 같은 카카오 계정으로 로그인하면, 모든 운행기록이 자동으로 한곳에 합쳐져요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 16.dp))
-                            OutlinedButton(onClick = { showLogoutConfirm = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = red)) { Text("로그아웃", fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun LinksScreen(context: Context, card: Color, accent: Color, muted: Color) {
-        val green = Color(0xFF10B981)
-        data class LinkItem(val emoji: String, val title: String, val desc: String, val url: String)
-        data class LinkSection(val title: String, val color: Color, val links: List<LinkItem>)
-        val sections = listOf(
-            LinkSection("✈️ 공항 기사용", accent, listOf(
-                LinkItem("🛬", "인천국제공항", "실시간 항공편·혼잡도 확인", "https://www.airport.kr"),
-                LinkItem("🛫", "김포공항", "국내선 항공편 확인", "https://www.airport.kr/ap/ko/dep/apKimpo.do"),
-                LinkItem("🚄", "공항철도 시간표", "AREX 운행 정보", "https://www.arex.or.kr"),
-                LinkItem("🌍", "FlightRadar24", "실시간 항공기 추적", "https://www.flightradar24.com/37.46,126.44/10"),
-                LinkItem("🛣️", "서울 도시고속도로", "공항로·올림픽대로 실시간", "https://www.seoulexpressway.co.kr"),
-                LinkItem("🌤️", "항공기상청", "공항 기상 정보", "https://amo.kma.go.kr"),
-                LinkItem("🚢", "인천항 크루즈 일정", "입항 크루즈 하선 일정", "https://www.icfba.or.kr")
-            )),
-            LinkSection("🚖 예비기사·정보", green, listOf(
-                LinkItem("📋", "택시운전자격시험", "시험 일정·접수·합격조회", "https://www.kotsa.or.kr"),
-                LinkItem("🏛️", "교통안전공단", "자격증 발급·갱신 안내", "https://www.kotsa.or.kr"),
-                LinkItem("🤝", "전국택시운송조합", "조합원 서비스·정보", "https://www.taxi.or.kr"),
-                LinkItem("🟡", "카카오T 기사 가입", "카카오T 드라이버 가입", "https://www.kakaomobility.com/driver"),
-                LinkItem("🔵", "티머니GO 가입", "티머니GO 기사 가입", "https://tmoneytaxi.com")
-            ))
-        )
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            sections.forEach { section ->
-                item {
-                    Text(section.title, fontSize = 13.sp, color = section.color, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
-                        Column {
-                            section.links.forEachIndexed { index, link ->
-                                Row(modifier = Modifier.fillMaxWidth().clickable { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } catch (e: Exception) { } }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(link.emoji, fontSize = 22.sp, modifier = Modifier.padding(end = 12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(link.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                        Text(link.desc, fontSize = 12.sp, color = muted)
-                                    }
-                                    Text("→", fontSize = 16.sp, color = muted)
-                                }
-                                if (index < section.links.size - 1) HorizontalDivider(color = Color(0xFF1F2937), modifier = Modifier.padding(horizontal = 16.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
     fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
         val bg = Color(0xFF0A0E1A); val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
         var showWebView by remember { mutableStateOf(false) }

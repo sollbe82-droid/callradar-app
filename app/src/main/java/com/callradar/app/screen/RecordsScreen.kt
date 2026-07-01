@@ -48,12 +48,17 @@ fun RecordsScreen(userId: String) {
     var editOrigin by remember { mutableStateOf("") }
     var editFare by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showQuickFare by remember { mutableStateOf(false) }
+    var quickFareTrip by remember { mutableStateOf<TripRecord?>(null) }
+    var quickFareInput by remember { mutableStateOf("") }
     var deletingTrip by remember { mutableStateOf<TripRecord?>(null) }
     var showManualDialog by remember { mutableStateOf(false) }
+    var isReportMode by remember { mutableStateOf(false) }
     var manualOrigin by remember { mutableStateOf("") }
     var manualDest by remember { mutableStateOf("") }
     var manualFare by remember { mutableStateOf("") }
-    var manualHour by remember { mutableStateOf("") }
+    var manualHour by remember { mutableStateOf("") } 
+    var manualPlatform by remember { mutableStateOf("길빵/예약") }
     var manualMinute by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -105,7 +110,18 @@ fun RecordsScreen(userId: String) {
             confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", editFare.toInt()) }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; showEditDialog = false; loadData() } catch (e: Exception) { showEditDialog = false } } }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showEditDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
     }
-
+// 빠른 금액 입력
+if (showQuickFare && quickFareTrip != null) {
+AlertDialog(onDismissRequest = { showQuickFare = false },
+title = { Text("금액 입력", color = Color.White, fontWeight = FontWeight.Bold) },
+text = { Column {
+Text("${quickFareTrip!!.destination}", fontSize = 14.sp, color = Color.White, modifier = Modifier.padding(bottom = 8.dp))
+OutlinedTextField(value = quickFareInput, onValueChange = { quickFareInput = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf(5000, 10000, 15000, 30000, 50000).forEach { amount -> OutlinedButton(onClick = { quickFareInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("${amount/1000}천", fontSize = 11.sp) } } }
+} },
+confirmButton = { Button(onClick = { val f = quickFareInput.toIntOrNull(); if (f != null && f > 0) { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); put("fare", f) }; val conn = (URL("$SERVER_URL/api/trips/${quickFareTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData() } catch (e: Exception) { } } }; showQuickFare = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+dismissButton = { OutlinedButton(onClick = { showQuickFare = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+}
     // 삭제 확인
     if (showDeleteConfirm && deletingTrip != null) {
         AlertDialog(onDismissRequest = { showDeleteConfirm = false },
@@ -118,8 +134,11 @@ fun RecordsScreen(userId: String) {
     // 직접추가
     if (showManualDialog) {
         AlertDialog(onDismissRequest = { showManualDialog = false },
-            title = { Text("운행 추가", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text(if (isReportMode) "콜 제보" else "운행 추가", color = Color.White, fontWeight = FontWeight.Bold) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = manualPlatform == p, onClick = { manualPlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFF59E0B), selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = Color(0xFF6B7280))) } }
+                Spacer(Modifier.height(8.dp))
                 Text("시간", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedTextField(value = manualHour, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 23) manualHour = f }, label = { Text("시", color = muted) }, modifier = Modifier.width(72.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
@@ -133,7 +152,7 @@ fun RecordsScreen(userId: String) {
             } },
             confirmButton = { Button(onClick = {
                 if (manualDest.isNotBlank()) { scope.launch { try { withContext(Dispatchers.IO) {
-                    val json = JSONObject().apply { put("user_id", userId); put("platform", "길빵/예약"); put("originName", manualOrigin); put("destName", manualDest); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0)
+                    val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0)
                         if (manualHour.isNotEmpty() && manualMinute.isNotEmpty()) { val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val today = sdf.format(Date()); val h = manualHour.padStart(2, '0'); val m = manualMinute.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
                     }; val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
                 }; showManualDialog = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; loadData() } catch (e: Exception) { showManualDialog = false } } }
@@ -145,7 +164,7 @@ fun RecordsScreen(userId: String) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
-            if (selectedTab == 0) { TextButton(onClick = { manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+            if (selectedTab == 0) { TextButton(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }) { Text("제보", fontSize = 12.sp, color = Color(0xFF60A5FA)) }; TextButton(onClick = { isReportMode = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
         }
         when (selectedTab) {
             0 -> {
@@ -180,7 +199,7 @@ fun RecordsScreen(userId: String) {
                                         Text("${trip.platform} · ${trip.date} · ${trip.time}", fontSize = 11.sp, color = muted)
                                     }
                                     if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
-                                    else { Text("금액입력", fontSize = 12.sp, color = accent) }
+                                    else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; showQuickFare = true }) }
                                     Spacer(Modifier.width(8.dp))
                                     TextButton(onClick = { deletingTrip = trip; showDeleteConfirm = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("🗑", fontSize = 13.sp) }
                                 }

@@ -61,6 +61,30 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     val naviEnabled = remember { isNaviEnabled(context) }
     val scope = rememberCoroutineScope()
 
+    // LPG/지출 설정 읽기
+    val lpgType = prefs.getInt("lpg_type", 0) // 0=기사부담, 1=회사한도, 2=회사무료
+    val lpgPrice = prefs.getInt("lpg_price", 0)
+    val lpgDaily = prefs.getInt("lpg_daily", 0)
+    val lpgCompanyLimit = prefs.getInt("lpg_company_limit", 0)
+    val dailyExpense = prefs.getInt("daily_expense", 0)
+    val subsidy = 221
+
+    fun calcDailyLpgCost(): Int {
+        val totalCost = lpgPrice * lpgDaily
+        val subsidyTotal = subsidy * lpgDaily
+        return when (lpgType) {
+            0 -> totalCost - subsidyTotal // 기사 전액 부담 - 보조금
+            1 -> { val overL = maxOf(0, lpgDaily - lpgCompanyLimit); (lpgPrice * overL) - subsidyTotal } // 초과분만 - 보조금
+            2 -> -subsidyTotal // 회사 무료, 보조금만 받음
+            else -> totalCost - subsidyTotal
+        }
+    }
+
+    fun calcNetIncome(fare: Int, days: Int): Int {
+        val lpgNet = calcDailyLpgCost()
+        return fare - (dailySanap * days) - (lpgNet * days) - (dailyExpense * days)
+    }
+
     if (showGoalDialog) {
         AlertDialog(onDismissRequest = { showGoalDialog = false },
             title = { Text("목표/사납금 설정", color = Color.White, fontWeight = FontWeight.Bold) },
@@ -74,10 +98,6 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 OutlinedTextField(value = sanapInput, onValueChange = { sanapInput = it.filter { c -> c.isDigit() } }, label = { Text("사납금 (원, 없으면 0)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0, 100000, 120000, 150000).forEach { amount -> OutlinedButton(onClick = { sanapInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text(if (amount == 0) "없음" else "${amount/10000}만", fontSize = 12.sp) } } }
-                if (sanapInput.isNotEmpty() && (sanapInput.toIntOrNull() ?: 0) > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Text("개인택시는 0원, 법인택시만 입력하세요", fontSize = 11.sp, color = muted)
-                }
             } },
             confirmButton = { Button(onClick = {
                 val g = goalInput.toIntOrNull(); if (g != null && g > 0) goalFare = g
@@ -164,9 +184,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("${month}월 누적", fontSize = 13.sp, color = muted)
-                        if (dailySanap > 0) {
+                        if (dailySanap > 0 || lpgPrice > 0 || dailyExpense > 0) {
                             val workDays = cal.get(Calendar.DAY_OF_MONTH)
-                            val netIncome = monthFare - (dailySanap * workDays)
+                            val netIncome = calcNetIncome(monthFare, workDays)
                             Text("순수익 ${String.format("%,d", netIncome)}원", fontSize = 11.sp, color = if (netIncome > 0) accent else red)
                         }
                     }
@@ -181,9 +201,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         Column {
                             Text("오늘 매출", fontSize = 12.sp, color = muted)
                             Text(if (todayFare > 0) "${String.format("%,d", todayFare)}원" else "0원", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
-                            if (dailySanap > 0) {
-                                val todayNet = todayFare - dailySanap
-                                Text("사납금 ${String.format("%,d", dailySanap)}원 | 순수익 ${String.format("%,d", todayNet)}원", fontSize = 11.sp, color = if (todayNet > 0) accent else red)
+                            if (dailySanap > 0 || lpgPrice > 0 || dailyExpense > 0) {
+                                val todayNet = calcNetIncome(todayFare, 1)
+                                Text("순수익 ${String.format("%,d", todayNet)}원", fontSize = 11.sp, color = if (todayNet > 0) accent else red)
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
@@ -211,13 +231,21 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text("플랫폼별 매출", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                        val feeKakao = prefs.getInt("fee_kakao", 0)
+                        val feeUber = prefs.getInt("fee_uber", 0)
+                        val feeTmoney = prefs.getInt("fee_tmoney", 0)
                         platformStats.forEach { stat ->
+                            val feeRate = when { stat.platform.contains("카카오") -> feeKakao; stat.platform.contains("우버") -> feeUber; stat.platform.contains("티머니") -> feeTmoney; else -> 0 }
+                            val netFare = stat.totalFare * (100 - feeRate) / 100
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(stat.platform, fontSize = 13.sp, color = Color.White)
                                     Text("${stat.count}건", fontSize = 12.sp, color = muted)
                                 }
-                                Text("${String.format("%,d", stat.totalFare)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("${String.format("%,d", stat.totalFare)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green)
+                                    if (feeRate > 0) { Text("실수령 ${String.format("%,d", netFare)}원 (${feeRate}%)", fontSize = 10.sp, color = accent) }
+                                }
                             }
                         }
                     }
