@@ -57,7 +57,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var profile by remember { mutableStateOf<HomeProfile?>(null) }
     var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
     var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(true) } 
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val naviEnabled = remember { isNaviEnabled(context) }
     val scope = rememberCoroutineScope()
 
@@ -156,7 +157,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } catch (e: Exception) { }
 
                 isLoading = false
-            } catch (e: Exception) { isLoading = false }
+            } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false }
         }
     }
 
@@ -251,7 +252,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     }
                 }
             }
-
+// 에러 메시지
+if (errorMessage != null) {
+Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)), shape = RoundedCornerShape(10.dp)) {
+Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+Text("⚠️ $errorMessage", fontSize = 12.sp, color = Color.White)
+TextButton(onClick = { errorMessage = null; isLoading = true; scope.launch { try { val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }; val todayJson = JSONObject(todayResponse); todayTrips = todayJson.optInt("tripCount", 0); todayFare = todayJson.optInt("todayFare", 0); errorMessage = null; isLoading = false } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false } } }) { Text("재시도", fontSize = 11.sp, color = accent) }
+}
+}
+}
             // 최근 운행
             if (recentTrips.isNotEmpty()) {
                 Text("최근 운행", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = muted)
