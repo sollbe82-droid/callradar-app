@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CallRadar</string>
+    <string name="accessibility_service_description">콜레이더가 택시 콜 정보를 수집합니다</string>
+</resources>

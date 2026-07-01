@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 배경 원 -->
+    <path
+        android:fillColor="#0A0E1A"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
+
+    <!-- 레이더 원 외각 -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z"/>
+
+    <!-- 레이더 원 중간 -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.6"
+        android:fillColor="#00000000"
+        android:pathData="M54,30 A24,24 0 1,1 53.99,30 Z"/>
+
+    <!-- 레이더 원 내부 -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="1"
+        android:strokeAlpha="0.3"
+        android:fillColor="#00000000"
+        android:pathData="M54,40 A14,14 0 1,1 53.99,40 Z"/>
+
+    <!-- 레이더 스윕 라인 -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M54,54 L75,33"/>
+
+    <!-- 중심점 -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,54 A3,3 0 1,1 53.99,54 Z"/>
+
+    <!-- 콜 신호 점 -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M72,36 A3,3 0 1,1 71.99,36 Z"/>
+
+    <path
+        android:fillColor="#F59E0B"
+        android:strokeAlpha="0.5"
+        android:pathData="M45,65 A2,2 0 1,1 44.99,65 Z"/>
+
+    <!-- C 글자 (콜레이더) -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M62,80 A10,8 0 1,1 62,96"/>
+
+</vector>

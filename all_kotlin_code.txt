@@ -1,0 +1,3089 @@
+﻿===== C:\CallRadar\app\src\main\java\com\callradar\app\ArrivalNotificationService.kt =====
+package com.callradar.app
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.location.Location
+import android.os.IBinder
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.google.android.gms.location.*
+import java.util.Locale
+
+/**
+ * ?꾩갑 ?덉젙 ?뚮┝ ?쒕퉬??
+ *
+ * ?묐룞 諛⑹떇:
+ * 1. NaviIntentReceiver媛 紐⑹쟻吏 媛먯? ?????쒕퉬???쒖옉
+ * 2. GPS濡?紐⑹쟻吏源뚯? 嫄곕━ ?ㅼ떆媛?怨꾩궛
+ * 3. ?꾩갑 5遺??????쒖뒪???뚮┝ + TTS ?뚯꽦 ?덈궡
+ * 4. 湲곗궗媛 ?뚮┝ ????MainActivity AI 異붿쿇 ?붾㈃ ?대┝
+ * 5. 諛깃렇?쇱슫?쒖뿉????긽 ?묐룞
+ */
+class ArrivalNotificationService : Service(), TextToSpeech.OnInitListener {
+
+    companion object {
+        private const val TAG = "CallRadar"
+        const val CHANNEL_AI = "callradar_ai_alert"
+        const val CHANNEL_FG = "callradar_foreground"
+        const val NOTIF_FG_ID = 10
+        const val NOTIF_AI_ID = 11
+
+        // Intent ??
+        const val KEY_DEST_NAME = "destName"
+        const val KEY_DEST_LAT = "destLat"
+        const val KEY_DEST_LNG = "destLng"
+
+        // 異붿쿇 ?レ뒪??(?ㅼ젣濡쒕뒗 ?쒕쾭?먯꽌 諛쏆븘??
+        val HOTSPOTS = listOf(
+            HotSpot("媛?곕뵒吏?몃떒吏", 37.4796, 126.8820, 78, "?κ굅由??????덉쓬"),
+            HotSpot("援щ줈?붿??몃떒吏", 37.4851, 126.8990, 65, "IT湲곗뾽 諛吏?),
+            HotSpot("媛뺣궓??, 37.4979, 127.0276, 87, "??긽 ?レ뒪??),
+            HotSpot("?ъ쓽??, 37.5219, 126.9245, 72, "湲덉쑖沅??닿렐 肄?),
+            HotSpot("?띾??낃뎄", 37.5571, 126.9238, 68, "?쇨컙 ?섏슂"),
+        )
+    }
+
+    data class HotSpot(
+        val name: String,
+        val lat: Double,
+        val lng: Double,
+        val callRate: Int,
+        val reason: String
+    )
+
+    // TTS ?붿쭊
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+
+    // GPS
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+
+    // 紐⑹쟻吏 ?뺣낫
+    private var destName = ""
+    private var destLat = 0.0
+    private var destLng = 0.0
+
+    // ?뚮┝ ?곹깭
+    private var notifiedAt5Min = false
+    private var notifiedAtArrival = false
+
+    override fun onCreate() {
+        super.onCreate()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        tts = TextToSpeech(this, this)
+        createNotificationChannels()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 紐⑹쟻吏 ?뺣낫 諛쏄린
+        destName = intent?.getStringExtra(KEY_DEST_NAME) ?: ""
+        destLat  = intent?.getDoubleExtra(KEY_DEST_LAT, 0.0) ?: 0.0
+        destLng  = intent?.getDoubleExtra(KEY_DEST_LNG, 0.0) ?: 0.0
+
+        Log.d(TAG, "?렞 ?꾩갑?뚮┝ ?쒕퉬???쒖옉: $destName ($destLat, $destLng)")
+
+        // ?ш렇?쇱슫???쒕퉬?ㅻ줈 ?ㅽ뻾 (諛깃렇?쇱슫???좎?)
+        startForeground(NOTIF_FG_ID, buildForegroundNotification())
+
+        // GPS ?몃옒???쒖옉
+        startLocationTracking()
+
+        return START_STICKY
+    }
+
+    // ?? GPS ?몃옒??????????????????????????????????????????????
+    private fun startLocationTracking() {
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val loc = result.lastLocation ?: return
+                checkArrival(loc)
+            }
+        }
+
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 10000L // 10珥덈쭏??
+        ).setMinUpdateDistanceMeters(50f).build()
+
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                request, locationCallback, Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+            Log.e(TAG, "?꾩튂 沅뚰븳 ?놁쓬")
+        }
+    }
+
+    // ?? ?꾩갑 ?щ? 泥댄겕 ????????????????????????????????????????
+    private fun checkArrival(currentLoc: Location) {
+        if (destLat == 0.0 || destLng == 0.0) return
+
+        val results = FloatArray(1)
+        Location.distanceBetween(
+            currentLoc.latitude, currentLoc.longitude,
+            destLat, destLng,
+            results
+        )
+        val distanceM = results[0]
+        val speedKmh = currentLoc.speed * 3.6f
+
+        // ?덉긽 ?꾩갑 ?쒓컙 怨꾩궛 (遺?
+        val etaMin = if (speedKmh > 5) (distanceM / (speedKmh * 1000 / 60)).toInt() else 99
+
+        Log.d(TAG, "?뱧 紐⑹쟻吏源뚯?: ${distanceM.toInt()}m / ?덉긽 ${etaMin}遺?/ ?띾룄 ${speedKmh.toInt()}km/h")
+
+        when {
+            // ?꾩갑 5遺???
+            etaMin in 3..6 && !notifiedAt5Min -> {
+                notifiedAt5Min = true
+                onNearArrival(distanceM)
+            }
+            // ?꾩갑 (200m ?대궡)
+            distanceM < 200 && !notifiedAtArrival -> {
+                notifiedAtArrival = true
+                onArrived()
+            }
+        }
+    }
+
+    // ?? ?꾩갑 5遺????뚮┝ (?꾩옱 鍮꾪솢?깊솕: ?レ뒪???곗씠???뺥솗??遺議? ??
+    private fun onNearArrival(distanceM: Float) {
+        Log.d(TAG, "?꾩갑 5遺???(?뚮┝ 鍮꾪솢?깊솕 ?곹깭)")
+        notifiedAt5Min = true
+    }
+
+    // ?? ?꾩갑 ?뚮┝ ?????????????????????????????????????????????
+    private fun onArrived() {
+        Log.d(TAG, "?꾩갑: $destName")
+
+        speakAfterDelay("$destName ?꾩갑?덉뒿?덈떎.", 300)
+
+        showSimpleArrivalNotification()
+
+        // ?쇱젙 ?쒓컙 ???쒕퉬??醫낅즺
+        android.os.Handler(Looper.getMainLooper()).postDelayed({
+            stopSelf()
+        }, 30000)
+    }
+
+    // ?? ?⑥닚 ?꾩갑 ?뚮┝ (?レ뒪??異붿쿇 ?놁쓬) ????????????????????
+    private fun showSimpleArrivalNotification() {
+        val notification = NotificationCompat.Builder(this, CHANNEL_AI)
+            .setSmallIcon(android.R.drawable.ic_dialog_map)
+            .setContentTitle("??$destName ?꾩갑!")
+            .setContentText("?댄뻾 湲곕줉????λ릱?댁슂")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.notify(NOTIF_AI_ID, notification)
+        Log.d(TAG, "?꾩갑 ?뚮┝ ?쒖떆: $destName")
+    }
+
+    // ?? TTS ?뚯꽦 硫섑듃 鍮뚮뱶 ????????????????????????????????????
+    private fun buildTtsScript(
+        dest: String,
+        best: HotSpot,
+        second: HotSpot?
+    ): String {
+        val sb = StringBuilder()
+        sb.append("${dest} ?꾩갑 ?덉젙?낅땲?? ")
+
+        if (best.callRate >= 70) {
+            sb.append("${best.name}?먯꽌 ?κ굅由??????덉뒿?덈떎. ")
+            sb.append("肄??뺣쪧 ${best.callRate}?쇱꽱?몄엯?덈떎. ")
+        } else {
+            sb.append("?꾩옱 肄??뺣쪧????븘?? ")
+            sb.append("${best.name}?쇰줈 ?대룞??異붿쿇?⑸땲?? ")
+        }
+
+        second?.let {
+            sb.append("?놁쑝硫?${it.name}?먯꽌 ")
+            if (it.callRate >= 60) sb.append("?κ굅由??먮뒗 ")
+            sb.append("肄??몃━?몄슂.")
+        }
+
+        return sb.toString()
+    }
+
+    // ?? ?쒖뒪???뚮┝ ?쒖떆 ??????????????????????????????????????
+    private fun showAiNotification(
+        title: String,
+        message: String,
+        spots: List<HotSpot>
+    ) {
+        // ??븯硫?MainActivity AI ?붾㈃?쇰줈 ?대룞
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("openTab", "ai")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // ???뚮┝ (?ㅽ???
+        val bigTextStyle = NotificationCompat.BigTextStyle()
+            .bigText(
+                spots.joinToString("\n") { spot ->
+                    "??${spot.name} 肄?${spot.callRate}% - ${spot.reason}"
+                }
+            )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_AI)
+            .setSmallIcon(android.R.drawable.ic_dialog_map)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(bigTextStyle)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
+            // ?≪뀡 踰꾪듉
+            .addAction(
+                android.R.drawable.ic_media_play,
+                "?대룞?섍린",
+                pendingIntent
+            )
+            .build()
+
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.notify(NOTIF_AI_ID, notification)
+
+        Log.d(TAG, "?뵒 AI ?뚮┝ ?쒖떆: $title")
+    }
+
+    // ?? TTS ???????????????????????????????????????????????????
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts?.setLanguage(Locale.KOREAN)
+            ttsReady = result != TextToSpeech.LANG_MISSING_DATA
+            Log.d(TAG, "TTS 珥덇린???꾨즺: $ttsReady")
+        }
+    }
+
+    private fun speakAfterDelay(text: String, delayMs: Long = 0) {
+        android.os.Handler(Looper.getMainLooper()).postDelayed({
+            if (ttsReady) {
+                tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "callradar_tts")
+                Log.d(TAG, "?뵄 TTS: $text")
+            }
+        }, delayMs)
+    }
+
+    // ?? ?뚮┝ 梨꾨꼸 ?앹꽦 ????????????????????????????????????????
+    private fun createNotificationChannels() {
+        val nm = getSystemService(NotificationManager::class.java)
+
+        // AI ?뚮┝ 梨꾨꼸 (以묒슂???믪쓬)
+        NotificationChannel(
+            CHANNEL_AI,
+            "肄쒕젅?대뜑 AI ?뚮┝",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "?꾩갑 ?덉젙 肄?異붿쿇 ?뚮┝"
+            enableVibration(true)
+            nm.createNotificationChannel(this)
+        }
+
+        // ?ш렇?쇱슫??梨꾨꼸 (??쓬)
+        NotificationChannel(
+            CHANNEL_FG,
+            "肄쒕젅?대뜑 ?ㅽ뻾 以?,
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "肄쒕젅?대뜑 諛깃렇?쇱슫???ㅽ뻾"
+            nm.createNotificationChannel(this)
+        }
+    }
+
+    private fun buildForegroundNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_FG)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle("肄쒕젅?대뜑 ??)
+            .setContentText("$destName ?꾩갑 ?덉젙 쨌 AI ?덈궡 ?湲?以?)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        Log.d(TAG, "ArrivalNotificationService 醫낅즺")
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\BootReceiver.kt =====
+package com.callradar.app
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                Log.d("CallRadar", "?먮룞 ?쒖옉: ${intent.action}")
+                startServices(context)
+            }
+        }
+    }
+
+    private fun startServices(context: Context) {
+        val locationIntent = Intent(context, LocationTrackingService::class.java)
+        context.startForegroundService(locationIntent)
+    }
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\CallRadarForegroundService.kt =====
+package com.callradar.app
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+
+class CallRadarForegroundService : Service() {
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(1, createNotification())
+        return START_STICKY
+    }
+
+    private fun createNotification(): Notification {
+        val channel = NotificationChannel(
+            "callradar_channel",
+            "肄쒕젅?대뜑 ?쒕퉬??,
+            NotificationManager.IMPORTANCE_LOW
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
+
+        return NotificationCompat.Builder(this, "callradar_channel")
+            .setContentTitle("肄쒕젅?대뜑")
+            .setContentText("肄??섏쭛 以?..")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setOngoing(true)
+            .build()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\LocationTrackingService.kt =====
+package com.callradar.app
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.location.Location
+import android.os.IBinder
+import android.os.Looper
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.google.android.gms.location.*
+
+/**
+ * GPS ?꾩튂 異붿쟻 ?쒕퉬??
+ *
+ * - 5珥덈쭏???꾩튂 ?낅뜲?댄듃
+ * - NaviIntentReceiver???꾩옱 ?꾩튂 ?꾨떖
+ * - ?댄뻾 ?쒖옉/醫낅즺 ?먮룞 媛먯?
+ * - 諛고꽣由?理쒖쟻??(?댄뻾 以?媛꾧꺽 以꾩엫)
+ */
+class LocationTrackingService : Service() {
+
+    companion object {
+        private const val TAG = "CallRadar"
+        private const val CHANNEL_ID = "callradar_location"
+        private const val NOTIF_ID = 3
+
+        // ?꾩옱 ?꾩튂 (?꾩뿭 怨듭쑀)
+        var currentLat: Double = 0.0
+        var currentLng: Double = 0.0
+        var isMoving: Boolean = false
+        var currentSpeed: Float = 0f
+    }
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+    private var isTracking = false
+
+    // ?댄뻾 媛먯???
+    private var lastLat: Double = 0.0
+    private var lastLng: Double = 0.0
+    private var stationaryCount: Int = 0
+    private val STATIONARY_THRESHOLD = 6 // 30珥??댁긽 ?뺤? = ?湲?以?
+
+    override fun onCreate() {
+        super.onCreate()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        setupLocationCallback()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(NOTIF_ID, createNotification())
+        startLocationTracking()
+        return START_STICKY
+    }
+
+    private fun setupLocationCallback() {
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val location = result.lastLocation ?: return
+                updateLocation(location)
+            }
+        }
+    }
+
+    private fun startLocationTracking() {
+        if (isTracking) return
+
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 5000L // 5珥덈쭏??
+        ).apply {
+            setMinUpdateDistanceMeters(10f) // 10m ?댁긽 ?대룞 ??
+            setGranularity(Granularity.GRANULARITY_FINE)
+        }.build()
+
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                request, locationCallback, Looper.getMainLooper()
+            )
+            isTracking = true
+            Log.d(TAG, "??GPS 異붿쟻 ?쒖옉")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "?꾩튂 沅뚰븳 ?놁쓬: ${e.message}")
+        }
+    }
+
+    private fun updateLocation(location: Location) {
+        currentLat = location.latitude
+        currentLng = location.longitude
+        currentSpeed = location.speed * 3.6f // m/s ??km/h
+
+        // NaviIntentReceiver???꾩튂 ?꾨떖
+        // (?ㅼ젣 ?깆뿉?쒕뒗 諛붿씤???먮뒗 釉뚮줈?쒖틦?ㅽ듃濡??꾨떖)
+        isMoving = currentSpeed > 5f // 5km/h ?댁긽?대㈃ ?대룞 以?
+
+        // ?뺤?/?대룞 媛먯?
+        val distance = FloatArray(1)
+        Location.distanceBetween(lastLat, lastLng, currentLat, currentLng, distance)
+
+        if (distance[0] < 20f) { // 20m 誘몃쭔 ?대룞
+            stationaryCount++
+        } else {
+            stationaryCount = 0
+            lastLat = currentLat
+            lastLng = currentLng
+        }
+
+        val status = when {
+            currentSpeed > 30 -> "怨좎냽?대룞"
+            currentSpeed > 5 -> "?대룞以?
+            stationaryCount > STATIONARY_THRESHOLD -> "?湲곗쨷"
+            else -> "?쒗뻾"
+        }
+
+        Log.d(TAG, "?뱧 ?꾩튂: $currentLat, $currentLng | ?띾룄: ${currentSpeed.toInt()}km/h | $status")
+    }
+
+    private fun createNotification(): Notification {
+        val channel = NotificationChannel(
+            CHANNEL_ID, "肄쒕젅?대뜑 ?꾩튂 異붿쟻",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("肄쒕젅?대뜑 ?댄뻾 以?)
+            .setContentText("GPS 異붿쟻 以?..")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setOngoing(true)
+            .build()
+    }
+
+    override fun onDestroy() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        isTracking = false
+        Log.d(TAG, "GPS 異붿쟻 醫낅즺")
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\MainActivity.kt =====
+package com.callradar.app
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Bundle
+import android.provider.Settings
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.callradar.app.ui.theme.CallRadarTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
+
+class MainActivity : ComponentActivity() {
+
+    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val PREFS_NAME = "callradar_prefs"
+    private val KEY_USER_ID = "user_id"
+    private val KEY_NICKNAME = "nickname"
+    private val KEY_ONBOARDING_DONE = "onboarding_done"
+
+    private val receiptLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    private val locationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) startLocationService()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        checkAndStartServices()
+        setContent {
+            CallRadarTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0E1A)) { AppContent() }
+            }
+        }
+    }
+
+    data class OnboardingStep(val emoji: String, val title: String, val desc: String, val buttonText: String, val isAction: Boolean)
+    data class TodaySummary(val tripCount: Int, val topDest: String, val todayFare: Int)
+    data class TripItem(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String)
+    data class DailyItem(val date: String, val tripCount: Int, val totalFare: Int)
+    data class MonthlyItem(val month: String, val tripCount: Int, val totalFare: Int)
+    data class HourlyItem(val hour: Int, val count: Int)
+    data class DestItem(val destination: String, val count: Int)
+    data class RankItem(val rank: Int, val nickname: String, val companyName: String, val weekTrips: Int, val points: Int, val isMe: Boolean)
+    data class GuildItem(val id: Int, val name: String, val memberCount: Int, val weekTrips: Int, val avgTrips: Double)
+    data class GuildMember(val id: Int, val nickname: String, val role: String)
+    data class MyGuild(val id: Int, val name: String, val inviteCode: String, val role: String, val memberCount: Int, val members: List<GuildMember>)
+    data class Badge(val emoji: String, val name: String)
+    data class LevelInfo(val level: Int, val title: String, val next: Int)
+    data class ProfileData(val nickname: String, val points: Int, val totalTrips: Int, val levelInfo: LevelInfo, val badges: List<Badge>, val guildName: String, val guildId: Int)
+
+    @Composable
+    fun AppContent() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var isLoggedIn by remember { mutableStateOf(prefs.getString(KEY_NICKNAME, null) != null) }
+        var userNickname by remember { mutableStateOf(prefs.getString(KEY_NICKNAME, "") ?: "") }
+        var userId by remember { mutableStateOf(prefs.getString(KEY_USER_ID, "") ?: "") }
+        var onboardingDone by remember { mutableStateOf(prefs.getBoolean(KEY_ONBOARDING_DONE, false)) }
+        when {
+            !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
+                prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
+                userId = uid; userNickname = nickname; isLoggedIn = true
+            })
+            !onboardingDone -> OnboardingScreen(nickname = userNickname, onDone = {
+                prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
+            })
+            else -> MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
+                stopService(Intent(this, LocationTrackingService::class.java))
+            }, onLogout = {
+                prefs.edit().clear().apply()
+                stopService(Intent(this, LocationTrackingService::class.java))
+                isLoggedIn = false; userNickname = ""; userId = ""; onboardingDone = false
+            })
+        }
+    }
+
+    @Composable
+    fun OnboardingScreen(nickname: String, onDone: () -> Unit) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
+        var currentStep by remember { mutableStateOf(0) }
+        val naviEnabled = isNaviReceiverEnabled()
+        val steps = listOf(
+            OnboardingStep("?몝", "${nickname}?? ?섏쁺?댁슂!", "肄쒕젅?대뜑???앹떆 ?댄뻾???먮룞?쇰줈 湲곕줉?섍퀬\n?섏엯 ?⑦꽩??遺꾩꽍?대뱶?ㅼ슂.\n\n?ㅼ젙 2?④퀎留??섎㈃ 諛붾줈 ?쒖옉?????덉뼱??", "?쒖옉?섍린", false),
+            OnboardingStep("?뱧", "GPS ?꾩튂 沅뚰븳", "?댄뻾 以??꾩튂瑜??먮룞?쇰줈 湲곕줉?댁슂.\n?뱀감/?섏감 ?꾩튂媛 ??λ릺??n??肄?吏?꾨? 留뚮뱾 ???덉뼱??", "沅뚰븳 ?덉슜????, false),
+            OnboardingStep("?㎛", "?먮룞 湲곕줉 沅뚰븳 ?ㅼ젙", "肄??섎씫 ???대퉬 ?ㅽ뻾 ??n異쒕컻吏/紐⑹쟻吏瑜??먮룞?쇰줈 湲곕줉?대뱶?ㅼ슂.\n\n?묎렐???쒕퉬?ㅼ뿉??n'肄쒕젅?대뜑'瑜?李얠븘 耳쒖＜?몄슂.", if (naviEnabled) "?쒖꽦?붾맖 ?? else "?묎렐???ㅼ젙 ?닿린", !naviEnabled),
+            OnboardingStep("??", "以鍮??꾨즺!", "???붾㈃?먯꽌 ?먮룞?쇰줈\n?대퉬 紐⑹쟻吏媛 湲곕줉?쇱슂.\n\n諛붾줈 ?쒖옉?대낵源뚯슂?", "?쒖옉?섍린", false)
+        )
+        Column(modifier = Modifier.fillMaxSize().background(bg).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(40.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                steps.forEachIndexed { i, _ -> Box(modifier = Modifier.height(4.dp).width(if (i == currentStep) 32.dp else 16.dp).background(if (i <= currentStep) accent else Color(0xFF1F2937), RoundedCornerShape(2.dp))) }
+            }
+            Spacer(Modifier.height(48.dp))
+            val step = steps[currentStep]
+            Text(step.emoji, fontSize = 64.sp); Spacer(Modifier.height(24.dp))
+            Text(step.title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center); Spacer(Modifier.height(16.dp))
+            Text(step.desc, fontSize = 15.sp, color = muted, textAlign = TextAlign.Center, lineHeight = 24.sp)
+            if (currentStep == 2 && !isNaviReceiverEnabled()) {
+                Spacer(Modifier.height(24.dp))
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        listOf("1. ?꾨옒 踰꾪듉 ?뚮윭 ?묎렐???ㅼ젙 ?닿린", "2. '?ㅼ튂???? ?먮뒗 '?ㅼ슫濡쒕뱶???? 李얘린", "3. '肄쒕젅?대뜑' ?좏깮", "4. ?좉? 耳쒓린 ???덉슜").forEach { Text(it, fontSize = 13.sp, color = Color(0xFFD1D5DB), modifier = Modifier.padding(vertical = 4.dp)) }
+                    }
+                }
+            }
+            if (currentStep == 2 && isNaviReceiverEnabled()) {
+                Spacer(Modifier.height(24.dp))
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B)), shape = RoundedCornerShape(12.dp)) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Text("??, fontSize = 20.sp); Spacer(Modifier.width(12.dp)); Text("?먮룞 湲곕줉???쒖꽦?붾릺???덉뼱??", fontSize = 14.sp, color = green) }
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = { if (currentStep == 2 && !isNaviReceiverEnabled()) startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) else if (currentStep == steps.size - 1) onDone() else currentStep++ },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (currentStep == 2 && isNaviReceiverEnabled()) green else accent), shape = RoundedCornerShape(14.dp)
+            ) { Text(if (currentStep == 2 && isNaviReceiverEnabled()) "?ㅼ쓬?쇰줈 ?? else step.buttonText, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            if (currentStep > 0) { Spacer(Modifier.height(12.dp)); TextButton(onClick = { currentStep-- }) { Text("?댁쟾", color = muted) } }
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+
+    @Composable
+    fun MainWithTabs(nickname: String, userId: String, onEndShift: () -> Unit, onLogout: () -> Unit) {
+        var selectedTab by remember { mutableStateOf(0) }
+        var homeRefreshKey by remember { mutableStateOf(0) }
+        val accent = Color(0xFFF59E0B); val card = Color(0xFF111827); val red = Color(0xFFEF4444); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
+        var showLogoutDialog by remember { mutableStateOf(false) }
+        var todaySummary by remember { mutableStateOf<TodaySummary?>(null) }
+        val scope = rememberCoroutineScope()
+
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = { Text("?닿렐?섍린 ?룧", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        todaySummary?.let { s ->
+                            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0E1A)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("?ㅻ뒛 ?섎（ ?붿빟", fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("珥?肄?, fontSize = 14.sp, color = Color(0xFF9CA3AF)); Text("${s.tripCount}嫄?, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
+                                    if (s.todayFare > 0) { Spacer(Modifier.height(6.dp)); Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("?ㅻ뒛 留ㅼ텧", fontSize = 14.sp, color = Color(0xFF9CA3AF)); Text("${String.format("%,d", s.todayFare)}??, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent) } }
+                                    if (s.topDest.isNotEmpty()) { Spacer(Modifier.height(6.dp)); Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("理쒕떎 紐⑹쟻吏", fontSize = 14.sp, color = Color(0xFF9CA3AF)); Text(s.topDest.take(15), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White) } }
+                                }
+                            }
+                        } ?: CircularProgressIndicator(color = accent, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Text("?ㅻ뒛 ?댄뻾??醫낅즺?좉퉴?? 濡쒓렇???곹깭???좎??쇱슂.", color = Color(0xFF9CA3AF), fontSize = 14.sp)
+                    }
+                },
+                confirmButton = { Button(onClick = { showLogoutDialog = false; onEndShift() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("?닿렐", color = Color.White) } },
+                dismissButton = { OutlinedButton(onClick = { showLogoutDialog = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0E1A))) {
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    0 -> HomeScreen(nickname = nickname, userId = userId, refreshKey = homeRefreshKey, onLogout = {
+                        scope.launch {
+                            try {
+                                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                                val json = JSONObject(response)
+                                todaySummary = TodaySummary(json.optInt("tripCount", 0), json.optString("topDest", ""), json.optInt("todayFare", 0))
+                            } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
+                        }
+                        showLogoutDialog = true
+                    })
+                    1 -> RecordsScreen(userId = userId)
+                    2 -> StatsScreen(userId = userId)
+                    3 -> MoreScreen(userId = userId, onLogout = onLogout)
+                }
+            }
+            NavigationBar(containerColor = card) {
+                listOf("?? to "?룧", "?닿린濡? to "?뱥", "遺꾩꽍" to "?뱤", "?붾낫湲? to "??).forEachIndexed { index, (title, emoji) ->
+                    NavigationBarItem(selected = selectedTab == index, onClick = { if (index == 0) homeRefreshKey++; selectedTab = index }, icon = { Text(emoji, fontSize = 20.sp) }, label = { Text(title, fontSize = 11.sp, color = if (selectedTab == index) Color(0xFFF59E0B) else Color(0xFF6B7280)) })
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var goalFare by remember { mutableStateOf(prefs.getInt("goal_fare", 300000)) }
+        var showGoalDialog by remember { mutableStateOf(false) }
+        var goalInput by remember { mutableStateOf("") }
+        var todayTrips by remember { mutableStateOf(0) }
+        var todayFare by remember { mutableStateOf(0) }
+        var profile by remember { mutableStateOf<ProfileData?>(null) }
+        var naviEnabled by remember { mutableStateOf(isNaviReceiverEnabled()) }
+        var isLoading by remember { mutableStateOf(true) }
+        val scope = rememberCoroutineScope()
+
+        if (showGoalDialog) {
+            AlertDialog(
+                onDismissRequest = { showGoalDialog = false },
+                title = { Text("?쇱씪 紐⑺몴 湲덉븸 ?ㅼ젙", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("?섎（ 紐⑺몴 留ㅼ텧???낅젰?섏꽭??, fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                        OutlinedTextField(value = goalInput, onValueChange = { goalInput = it.filter { c -> c.isDigit() } }, label = { Text("紐⑺몴 湲덉븸 (??", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(200000, 300000, 400000, 500000).forEach { amount ->
+                                OutlinedButton(onClick = { goalInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("${amount/10000}留?, fontSize = 12.sp) }
+                            }
+                        }
+                    }
+                },
+                confirmButton = { Button(onClick = { val newGoal = goalInput.toIntOrNull(); if (newGoal != null && newGoal > 0) { goalFare = newGoal; prefs.edit().putInt("goal_fare", newGoal).apply() }; showGoalDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("???, color = Color.Black) } },
+                dismissButton = { OutlinedButton(onClick = { showGoalDialog = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        LaunchedEffect(userId, refreshKey) {
+            if (userId.isEmpty()) { isLoading = false; return@LaunchedEffect }
+            scope.launch {
+                try {
+                    val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
+                    val todayJson = JSONObject(todayResponse)
+                    todayTrips = todayJson.optInt("tripCount", 0)
+                    todayFare = todayJson.optInt("todayFare", 0)
+                    val profileResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val json = JSONObject(profileResponse)
+                    val levelJson = json.optJSONObject("levelInfo")
+                    val badgesJson = json.optJSONArray("badges")
+                    val badges = mutableListOf<Badge>()
+                    if (badgesJson != null) for (i in 0 until badgesJson.length()) { val b = badgesJson.getJSONObject(i); badges.add(Badge(b.getString("emoji"), b.getString("name"))) }
+                    profile = ProfileData(json.optString("nickname", nickname), json.optInt("points", 0), json.optInt("total_trips", 0), LevelInfo(levelJson?.optInt("level", 1) ?: 1, levelJson?.optString("title", "?뵲 ?좎엯湲곗궗") ?: "?뵲 ?좎엯湲곗궗", levelJson?.optInt("next", 100) ?: 100), badges, json.optString("guild_name", ""), json.optInt("guild_id", 0))
+                    isLoading = false
+                } catch (e: Exception) { isLoading = false }
+            }
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState())) {
+            // ?ㅻ뜑
+            Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 20.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column { Text("肄쒕젅?대뜑", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = accent); Text("?덈뀞?섏꽭?? ${nickname}??, fontSize = 13.sp, color = muted) }
+                    Button(onClick = { onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) { Text("?닿렐", fontSize = 13.sp, color = Color.White) }
+                }
+            }
+
+            Column(modifier = Modifier.padding(16.dp)) {
+
+               // ?슄 ?댄뻾 ?곹깭 移대뱶 (?곸떆 ?먮룞媛먯?, 踰꾪듉 ?놁쓬)
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B)), shape = RoundedCornerShape(20.dp)) {
+                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("?슄 ?먮룞 湲곕줉 以?, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green, modifier = Modifier.padding(bottom = 8.dp))
+                        Text("?대퉬 紐⑹쟻吏媛 ?먮룞?쇰줈 湲곕줉?쇱슂", fontSize = 13.sp, color = muted)
+                    }
+                }
+
+                // ?ㅻ뒛 留ㅼ텧 移대뱶
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text("?ㅻ뒛 留ㅼ텧", fontSize = 14.sp, color = muted)
+                        Spacer(Modifier.height(4.dp))
+                        Text(if (todayFare > 0) "${String.format("%,d", todayFare)}?? else "?댄뻾 ?쒖옉 ??, fontSize = if (todayFare > 0) 36.sp else 24.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
+                        Spacer(Modifier.height(16.dp))
+                        val progress = (todayFare.toFloat() / goalFare.toFloat()).coerceIn(0f, 1f)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { goalInput = goalFare.toString(); showGoalDialog = true }, contentPadding = PaddingValues(0.dp)) { Text("紐⑺몴 ${String.format("%,d", goalFare)}???륅툘", fontSize = 12.sp, color = muted) }
+                            Text("${(progress * 100).toInt()}%", fontSize = 13.sp, color = if (progress >= 1f) green else accent, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp), color = if (progress >= 1f) green else accent, trackColor = Color(0xFF1F2937))
+                        Spacer(Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("$todayTrips", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("?ㅻ뒛 肄?, fontSize = 12.sp, color = muted) }
+                            Box(modifier = Modifier.width(1.dp).height(48.dp).background(Color(0xFF1F2937)))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayTrips > 0 && todayFare > 0) "${String.format("%,d", todayFare / todayTrips)}" else "-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("肄??됯퇏", fontSize = 12.sp, color = muted) }
+                            Box(modifier = Modifier.width(1.dp).height(48.dp).background(Color(0xFF1F2937)))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayFare >= goalFare) "?꾨즺!" else "${String.format("%,d", goalFare - todayFare)}", fontSize = if (todayFare >= goalFare) 20.sp else 22.sp, fontWeight = FontWeight.Bold, color = if (todayFare >= goalFare) green else Color.White); Text(if (todayFare >= goalFare) "紐⑺몴?ъ꽦" else "紐⑺몴源뚯?", fontSize = 12.sp, color = muted) }
+                        }
+                    }
+                }
+
+                // ?덈꺼/?ъ씤??移대뱶
+                profile?.let { p ->
+                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column { Text(p.levelInfo.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent); Text("珥?${p.totalTrips}肄?| ${p.points}pt", fontSize = 12.sp, color = muted) }
+                                if (p.guildName.isNotEmpty()) { Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(8.dp)) { Text("?썳截?${p.guildName}", fontSize = 11.sp, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) } }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            val levelProgress = (p.points.toFloat() / p.levelInfo.next.toFloat()).coerceIn(0f, 1f)
+                            LinearProgressIndicator(progress = { levelProgress }, modifier = Modifier.fillMaxWidth().height(5.dp), color = accent, trackColor = Color(0xFF1F2937))
+                            Text("?ㅼ쓬 ?덈꺼源뚯? ${p.levelInfo.next - p.points}pt", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
+                            if (p.badges.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    itemsIndexed(p.badges) { _, badge -> Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(8.dp)) { Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(badge.emoji, fontSize = 16.sp); Text(badge.name, fontSize = 9.sp, color = muted) } } }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ?곹깭 移대뱶
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(8.dp).background(if (naviEnabled) green else red, RoundedCornerShape(4.dp)))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (naviEnabled) "?묎렐??沅뚰븳 ?쒖꽦?? else "?묎렐??沅뚰븳 爰쇱쭚", fontSize = 14.sp, color = if (naviEnabled) green else red, fontWeight = FontWeight.Bold)
+                            }
+                            if (!naviEnabled) { TextButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("?ㅼ젙?섍린", fontSize = 12.sp, color = accent) } }
+                        }
+                        TextButton(onClick = { naviEnabled = isNaviReceiverEnabled() }, contentPadding = PaddingValues(0.dp)) { Text("?곹깭 ?덈줈怨좎묠", fontSize = 12.sp, color = muted) }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun RecordsScreen(userId: String) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
+        var selectedTab by remember { mutableStateOf(0) }
+        var trips by remember { mutableStateOf<List<TripItem>>(emptyList()) }
+        var isLoading by remember { mutableStateOf(true) }
+        var showEditDialog by remember { mutableStateOf(false) }
+        var editingTrip by remember { mutableStateOf<TripItem?>(null) }
+        var editDest by remember { mutableStateOf("") }
+        var editOrigin by remember { mutableStateOf("") }
+        var editFare by remember { mutableStateOf("") }
+        var showDeleteConfirm by remember { mutableStateOf(false) }
+        var deletingTrip by remember { mutableStateOf<TripItem?>(null) }
+        var showManualDialog by remember { mutableStateOf(false) }
+        var manualOrigin by remember { mutableStateOf("") }
+        var manualDest by remember { mutableStateOf("") }
+        var manualFare by remember { mutableStateOf("") }
+        val scope = rememberCoroutineScope()
+
+        fun loadData() {
+            scope.launch {
+                try {
+                    isLoading = true
+                    val tripsResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?limit=100").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val tripsJson = JSONArray(tripsResponse); val tripList = mutableListOf<TripItem>()
+                    for (i in 0 until tripsJson.length()) {
+                        val obj = tripsJson.getJSONObject(i)
+                        val rawTime = obj.optString("started_at", "")
+                        val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                        val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                        tripList.add(TripItem(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "紐⑹쟻吏 ?놁쓬"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate))
+                    }
+                    trips = tripList; isLoading = false
+                } catch (e: Exception) { isLoading = false }
+            }
+        }
+
+        LaunchedEffect(Unit) { loadData() }
+
+        if (showEditDialog && editingTrip != null) {
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
+                title = { Text("?댄뻾 湲곕줉 ?섏젙", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = editOrigin, onValueChange = { editOrigin = it }, label = { Text("異쒕컻吏", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        OutlinedTextField(value = editDest, onValueChange = { editDest = it }, label = { Text("紐⑹쟻吏", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        OutlinedTextField(value = editFare, onValueChange = { editFare = it.filter { c -> c.isDigit() } }, label = { Text("湲덉븸 (??", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", editFare.toInt()) }
+                                    val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                                    conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                                }
+                                showEditDialog = false; loadData()
+                            } catch (e: Exception) { showEditDialog = false }
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("???, color = Color.Black) }
+                },
+                dismissButton = { OutlinedButton(onClick = { showEditDialog = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        if (showDeleteConfirm && deletingTrip != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("?댄뻾 湲곕줉 ??젣", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Text("???댄뻾 湲곕줉???꾩쟾????젣?⑸땲?? ??젣 ?꾩뿉??蹂듦뎄?????놁뼱??", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
+                confirmButton = {
+                    Button(onClick = {
+                        val trip = deletingTrip!!
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    val json = JSONObject().apply { put("user_id", userId) }
+                                    val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                                    conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                                }
+                                loadData()
+                            } catch (e: Exception) { }
+                        }
+                        showDeleteConfirm = false
+                    }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("??젣", color = Color.White) }
+                },
+                dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        if (showManualDialog) {
+            AlertDialog(
+                onDismissRequest = { showManualDialog = false },
+                title = { Text("湲몃뭇/?덉빟 ?댄뻾 異붽?", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("?뚮옯??肄쒖씠 ?꾨땶 吏곸젒 ?≪? ?먮떂??湲곕줉?댁슂", fontSize = 12.sp, color = muted)
+                        OutlinedTextField(value = manualOrigin, onValueChange = { manualOrigin = it }, label = { Text("異쒕컻吏", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        OutlinedTextField(value = manualDest, onValueChange = { manualDest = it }, label = { Text("紐⑹쟻吏", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        OutlinedTextField(value = manualFare, onValueChange = { manualFare = it.filter { c -> c.isDigit() } }, label = { Text("湲덉븸 (??", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (manualDest.isNotBlank()) {
+                            scope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        val json = JSONObject().apply {
+                                            put("user_id", userId)
+                                            put("platform", "湲몃뭇/?덉빟")
+                                            put("originName", manualOrigin)
+                                            put("destName", manualDest)
+                                            put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0)
+                                        }
+                                        val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
+                                        conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
+                                    }
+                                    showManualDialog = false; manualOrigin = ""; manualDest = ""; manualFare = ""
+                                    loadData()
+                                } catch (e: Exception) { showManualDialog = false }
+                            }
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("???, color = Color.Black) }
+                },
+                dismissButton = { OutlinedButton(onClick = { showManualDialog = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg)) {
+            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 48.dp, bottom = 8.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("?댄뻾湲곕줉", "?붾퀎").forEachIndexed { index, title ->
+                        FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 13.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
+                    }
+                }
+                if (selectedTab == 0) {
+                    TextButton(onClick = { manualOrigin = ""; manualDest = ""; manualFare = ""; showManualDialog = true }) { Text("+ 吏곸젒異붽?", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
+                }
+            }
+            when (selectedTab) {
+                0 -> {
+                    if (isLoading) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
+                    else if (trips.isEmpty()) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("?슄", fontSize = 48.sp); Spacer(Modifier.height(16.dp)); Text("?댄뻾 湲곕줉???놁뼱??, fontSize = 14.sp, color = muted); Text("?대퉬瑜?耳쒓퀬 ?댄뻾???쒖옉?대낫?몄슂", fontSize = 13.sp, color = muted) } } }
+                    else {
+                        LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(trips) { index, trip ->
+                                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("${trips.size - index}", fontSize = 12.sp, color = muted, modifier = Modifier.width(28.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (trip.origin.isNotEmpty()) { Text(trip.origin.take(8), fontSize = 13.sp, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(" ??", fontSize = 13.sp, color = muted) }
+                                                Text(trip.destination.take(10), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(trip.platform, fontSize = 12.sp, color = muted); Text(trip.date, fontSize = 12.sp, color = muted); Text(trip.time, fontSize = 12.sp, color = accent) }
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}??, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green) }
+                                            else { TextButton(onClick = { editingTrip = trip; editDest = trip.destination; editOrigin = trip.origin; editFare = ""; showEditDialog = true }, contentPadding = PaddingValues(4.dp)) { Text("湲덉븸?낅젰", fontSize = 12.sp, color = accent) } }
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                TextButton(onClick = { editingTrip = trip; editDest = trip.destination; editOrigin = trip.origin; editFare = if (trip.fare > 0) trip.fare.toString() else ""; showEditDialog = true }, contentPadding = PaddingValues(4.dp)) { Text("?섏젙", fontSize = 11.sp, color = accent) }
+                                                TextButton(onClick = { deletingTrip = trip; showDeleteConfirm = true }, contentPadding = PaddingValues(4.dp)) { Text("?뿊截?, fontSize = 14.sp) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> CalendarScreen(userId = userId)
+            }
+        }
+    }
+
+    @Composable
+    fun CalendarScreen(userId: String) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
+        var yearMonth by remember { mutableStateOf(SimpleDateFormat("yyyy-MM", Locale.KOREA).format(Date())) }
+        var dailyMap by remember { mutableStateOf<Map<String, DailyItem>>(emptyMap()) }
+        var isLoading by remember { mutableStateOf(true) }
+        var selectedDate by remember { mutableStateOf<String?>(null) }
+        var selectedTrips by remember { mutableStateOf<List<TripItem>>(emptyList()) }
+        var isLoadingTrips by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+
+        fun loadMonth(ym: String) {
+            scope.launch {
+                isLoading = true
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val arr = JSONArray(response); val map = mutableMapOf<String, DailyItem>()
+                    for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val date = obj.optString("date", "").take(10); map[date] = DailyItem(date, obj.optInt("trip_count", 0), obj.optInt("total_fare", 0)) }
+                    dailyMap = map
+                } catch (e: Exception) { dailyMap = emptyMap() }
+                isLoading = false
+            }
+        }
+
+        fun loadDayTrips(date: String) {
+            scope.launch {
+                isLoadingTrips = true
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$date&limit=50").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val arr = JSONArray(response); val list = mutableListOf<TripItem>()
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val rawTime = obj.optString("started_at", "")
+                        val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }
+                        list.add(TripItem(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "紐⑹쟻吏 ?놁쓬"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, date))
+                    }
+                    selectedTrips = list
+                } catch (e: Exception) { selectedTrips = emptyList() }
+                isLoadingTrips = false
+            }
+        }
+
+        LaunchedEffect(yearMonth) { loadMonth(yearMonth); selectedDate = null }
+
+        val totalFare = dailyMap.values.sumOf { it.totalFare }
+        val totalTrips = dailyMap.values.sumOf { it.tripCount }
+
+        val parts = yearMonth.split("-")
+        val cal = Calendar.getInstance(); cal.set(parts[0].toInt(), parts[1].toInt() - 1, 1)
+        val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1 // 0=?쇱슂??
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+
+        Column(modifier = Modifier.fillMaxSize().background(bg)) {
+            // ???대룞 ?ㅻ뜑 + 珥앸ℓ異?
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 16.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButtonText("?") { val c = Calendar.getInstance(); c.set(parts[0].toInt(), parts[1].toInt() - 1, 1); c.add(Calendar.MONTH, -1); yearMonth = SimpleDateFormat("yyyy-MM", Locale.KOREA).format(c.time) }
+                    Text(yearMonth.replace("-", "??") + "??, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    IconButtonText("??) { val c = Calendar.getInstance(); c.set(parts[0].toInt(), parts[1].toInt() - 1, 1); c.add(Calendar.MONTH, 1); yearMonth = SimpleDateFormat("yyyy-MM", Locale.KOREA).format(c.time) }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare)}??, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = green); Text("珥앸ℓ異?, fontSize = 11.sp, color = muted) }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${totalTrips}肄?, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent); Text("珥??댄뻾", fontSize = 11.sp, color = muted) }
+                }
+            }
+
+            if (isLoading) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) }; return@Column }
+
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+                // ?붿씪 ?ㅻ뜑
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    listOf("??, "??, "??, "??, "紐?, "湲?, "??).forEachIndexed { i, d ->
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) { Text(d, fontSize = 12.sp, color = if (i == 0) Color(0xFFEF4444) else muted, fontWeight = FontWeight.Bold) }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+
+                val totalCells = firstDayOfWeek + daysInMonth
+                val rows = (totalCells + 6) / 7
+                for (row in 0 until rows) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        for (col in 0 until 7) {
+                            val cellIndex = row * 7 + col
+                            val day = cellIndex - firstDayOfWeek + 1
+                            if (day < 1 || day > daysInMonth) {
+                                Box(modifier = Modifier.weight(1f).aspectRatio(0.8f))
+                            } else {
+                                val dateStr = "$yearMonth-${day.toString().padStart(2, '0')}"
+                                val dayData = dailyMap[dateStr]
+                                val isSelected = selectedDate == dateStr
+                                val isToday = dateStr == today
+                                Box(
+                                    modifier = Modifier.weight(1f).aspectRatio(0.8f).padding(2.dp)
+                                        .background(if (isSelected) accent else if (dayData != null && dayData.totalFare > 0) Color(0xFF1F2937) else Color.Transparent, RoundedCornerShape(8.dp))
+                                        .clickable { selectedDate = dateStr; loadDayTrips(dateStr) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("$day", fontSize = 13.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else Color.White)
+                                        if (dayData != null && dayData.totalFare > 0) {
+                                            Text("${dayData.totalFare / 10000}留?, fontSize = 10.sp, color = if (isSelected) Color.Black else green, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedDate != null) {
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider(color = Color(0xFF1F2937))
+                    Spacer(Modifier.height(12.dp))
+                    Text("${selectedDate} ?댄뻾湲곕줉", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 8.dp))
+                    if (isLoadingTrips) { Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent, modifier = Modifier.size(24.dp)) } }
+                    else if (selectedTrips.isEmpty()) { Text("???좎? ?댄뻾 湲곕줉???놁뼱??, fontSize = 13.sp, color = muted, modifier = Modifier.padding(vertical = 12.dp)) }
+                    else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            selectedTrips.forEach { trip ->
+                                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (trip.origin.isNotEmpty()) { Text(trip.origin.take(8), fontSize = 12.sp, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(" ??", fontSize = 12.sp, color = muted) }
+                                                Text(trip.destination.take(12), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            Text(trip.time, fontSize = 11.sp, color = accent, modifier = Modifier.padding(top = 2.dp))
+                                        }
+                                        Text(if (trip.fare > 0) "${String.format("%,d", trip.fare)}?? else "-", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (trip.fare > 0) green else muted)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun IconButtonText(text: String, onClick: () -> Unit) {
+        Box(modifier = Modifier.size(40.dp).clickable { onClick() }, contentAlignment = Alignment.Center) { Text(text, fontSize = 18.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold) }
+    }
+
+    data class SpotItem(val id: Int, val name: String)
+    data class HeatmapCell(val dayOfWeek: Int, val hour: Int, val count: Int)
+    data class ComparisonData(val thisWeekTrips: Int, val thisWeekFare: Int, val lastWeekTrips: Int, val lastWeekFare: Int, val thisMonthTrips: Int, val thisMonthFare: Int, val lastMonthTrips: Int, val lastMonthFare: Int)
+    data class DayOfWeekItem(val day: String, val avgFare: Int, val tripCount: Int)
+    data class InsightsData(val dayOfWeek: List<DayOfWeekItem>, val weekdayAvgFare: Int, val weekendAvgFare: Int, val streak: Int)
+
+    @Composable
+    fun StatsScreen(userId: String) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
+        var hourlyPattern by remember { mutableStateOf<List<HourlyItem>>(emptyList()) }
+        var topDests by remember { mutableStateOf<List<DestItem>>(emptyList()) }
+        var spots by remember { mutableStateOf<List<SpotItem>>(emptyList()) }
+        var isLoading by remember { mutableStateOf(true) }
+        var expandedSpotId by remember { mutableStateOf<Int?>(null) }
+        var heatmapCells by remember { mutableStateOf<List<HeatmapCell>>(emptyList()) }
+        var isLoadingHeatmap by remember { mutableStateOf(false) }
+        var categoryTotals by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+        var spotDestinations by remember { mutableStateOf<List<DestItem>>(emptyList()) }
+        var selectedCategory by remember { mutableStateOf("normal") }
+        var showAddDialog by remember { mutableStateOf(false) }
+        var addSpotName by remember { mutableStateOf("") }
+        var showOtherStats by remember { mutableStateOf(false) }
+        var showSpotsSection by remember { mutableStateOf(false) }
+        var comparison by remember { mutableStateOf<ComparisonData?>(null) }
+        var insights by remember { mutableStateOf<InsightsData?>(null) }
+        val scope = rememberCoroutineScope()
+
+        fun loadSpots() {
+            scope.launch {
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/spots/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val arr = JSONArray(response); val list = mutableListOf<SpotItem>()
+                    for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); list.add(SpotItem(obj.getInt("id"), obj.getString("name"))) }
+                    spots = list
+                } catch (e: Exception) { }
+            }
+        }
+
+        fun loadCategoryTotals(spotId: Int) {
+            scope.launch {
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/spots/$spotId/heatmap?user_id=$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val json = JSONObject(response)
+                    val totalsJson = json.optJSONObject("categoryTotals")
+                    val map = mutableMapOf<String, Int>()
+                    if (totalsJson != null) { map["airport"] = totalsJson.optInt("airport", 0); map["long"] = totalsJson.optInt("long", 0); map["normal"] = totalsJson.optInt("normal", 0) }
+                    categoryTotals = map
+                } catch (e: Exception) { categoryTotals = emptyMap() }
+            }
+        }
+
+        fun loadHeatmap(spotId: Int, category: String) {
+            scope.launch {
+                isLoadingHeatmap = true
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/spots/$spotId/heatmap?user_id=$userId&category=$category").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val json = JSONObject(response)
+                    val cellsArray = json.getJSONArray("cells"); val list = mutableListOf<HeatmapCell>()
+                    for (i in 0 until cellsArray.length()) { val obj = cellsArray.getJSONObject(i); list.add(HeatmapCell(obj.getInt("day_of_week"), obj.getInt("hour"), obj.optInt("count", 0))) }
+                    heatmapCells = list
+                    val destArray = json.optJSONArray("destinations")
+                    val destList = mutableListOf<DestItem>()
+                    if (destArray != null) for (i in 0 until destArray.length()) { val obj = destArray.getJSONObject(i); destList.add(DestItem(obj.getString("destination"), obj.getInt("count"))) }
+                    spotDestinations = destList
+                } catch (e: Exception) { heatmapCells = emptyList(); spotDestinations = emptyList() }
+                isLoadingHeatmap = false
+            }
+        }
+
+        fun addSpot(name: String) {
+            if (name.isBlank()) return
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val json = JSONObject().apply { put("user_id", userId); put("name", name.trim()) }
+                        val conn = (URL("$SERVER_URL/api/spots").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
+                        conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
+                    }
+                    loadSpots()
+                } catch (e: Exception) { }
+            }
+        }
+
+        fun deleteSpot(spotId: Int) {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val json = JSONObject().apply { put("user_id", userId) }
+                        val conn = (URL("$SERVER_URL/api/spots/$spotId").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
+                        conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
+                    }
+                    if (expandedSpotId == spotId) expandedSpotId = null
+                    loadSpots()
+                } catch (e: Exception) { }
+            }
+        }
+
+        LaunchedEffect(userId) {
+            if (userId.isEmpty()) { isLoading = false; return@LaunchedEffect }
+            scope.launch {
+                try {
+                    val patternResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/pattern/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val patternJson = JSONObject(patternResponse)
+                    val hourlyArray = patternJson.getJSONArray("hourly"); val hourlyList = mutableListOf<HourlyItem>()
+                    for (i in 0 until hourlyArray.length()) { val obj = hourlyArray.getJSONObject(i); hourlyList.add(HourlyItem(obj.getDouble("hour").toInt(), obj.getInt("count"))) }
+                    val destsArray = patternJson.getJSONArray("destinations"); val destList = mutableListOf<DestItem>()
+                    for (i in 0 until destsArray.length()) { val obj = destsArray.getJSONObject(i); destList.add(DestItem(obj.getString("destination"), obj.getInt("count"))) }
+                    hourlyPattern = hourlyList; topDests = destList; isLoading = false
+                } catch (e: Exception) { isLoading = false }
+            }
+            scope.launch {
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/comparison/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val json = JSONObject(response)
+                    comparison = ComparisonData(
+                        json.optInt("thisWeekTrips", 0), json.optInt("thisWeekFare", 0),
+                        json.optInt("lastWeekTrips", 0), json.optInt("lastWeekFare", 0),
+                        json.optInt("thisMonthTrips", 0), json.optInt("thisMonthFare", 0),
+                        json.optInt("lastMonthTrips", 0), json.optInt("lastMonthFare", 0)
+                    )
+                } catch (e: Exception) { comparison = null }
+            }
+            scope.launch {
+                try {
+                    val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/insights/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val json = JSONObject(response)
+                    val dowArray = json.getJSONArray("dayOfWeek"); val dowList = mutableListOf<DayOfWeekItem>()
+                    for (i in 0 until dowArray.length()) { val obj = dowArray.getJSONObject(i); dowList.add(DayOfWeekItem(obj.getString("day"), obj.getInt("avgFare"), obj.getInt("tripCount"))) }
+                    insights = InsightsData(dowList, json.optInt("weekdayAvgFare", 0), json.optInt("weekendAvgFare", 0), json.optInt("streak", 0))
+                } catch (e: Exception) { insights = null }
+            }
+            loadSpots()
+        }
+
+        if (showAddDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddDialog = false },
+                title = { Text("???μ냼 ?깅줉", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("?먯＜ 媛??怨녹쓽 ?대쫫???낅젰?섏꽭??, fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                        OutlinedTextField(value = addSpotName, onValueChange = { addSpotName = it }, placeholder = { Text("?? 媛뺣궓??, color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        if (topDests.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("?먯＜ 媛?怨녹뿉???좏깮", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                topDests.take(5).forEach { dest ->
+                                    OutlinedButton(onClick = { addSpotName = dest.destination }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text(dest.destination.take(20), fontSize = 12.sp) }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = { Button(onClick = { addSpot(addSpotName); addSpotName = ""; showAddDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("?깅줉", color = Color.Black) } },
+                dismissButton = { OutlinedButton(onClick = { showAddDialog = false; addSpotName = "" }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg)) {
+            Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)) { Text("???⑦꽩 遺꾩꽍", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+            if (isLoading) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) }; return@Column }
+            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                // ?뱤 ?몄궗?댄듃 移대뱶 (二쇨컙/?붽컙 鍮꾧탳, ?붿씪蹂??⑦꽩, ?ㅽ듃由?
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("?뱤 ???섏엯 ?몄궗?댄듃", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(12.dp))
+
+                        insights?.let { ins ->
+                            if (ins.streak > 0) {
+                                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B)), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("?뵦", fontSize = 18.sp); Spacer(Modifier.width(8.dp))
+                                        Text("${ins.streak}???곗냽 ?댄뻾 湲곕줉 以?", fontSize = 13.sp, color = green, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        comparison?.let { c ->
+                            // ?대쾲 二?vs 吏??二?
+                            val weekDiff = c.thisWeekFare - c.lastWeekFare
+                            val weekPct = if (c.lastWeekFare > 0) (weekDiff * 100 / c.lastWeekFare) else 0
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text("?대쾲 二?, fontSize = 12.sp, color = muted)
+                                    Text("${String.format("%,d", c.thisWeekFare)}??, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                if (c.lastWeekFare > 0) {
+                                    Text(
+                                        if (weekDiff >= 0) "??${weekPct}% (吏?쒖＜ ?鍮?" else "??${-weekPct}% (吏?쒖＜ ?鍮?",
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                        color = if (weekDiff >= 0) green else Color(0xFFEF4444)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(color = Color(0xFF1F2937))
+                            Spacer(Modifier.height(10.dp))
+                            // ?대쾲 ??vs 吏????
+                            val monthDiff = c.thisMonthFare - c.lastMonthFare
+                            val monthPct = if (c.lastMonthFare > 0) (monthDiff * 100 / c.lastMonthFare) else 0
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text("?대쾲 ??, fontSize = 12.sp, color = muted)
+                                    Text("${String.format("%,d", c.thisMonthFare)}??, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                if (c.lastMonthFare > 0) {
+                                    Text(
+                                        if (monthDiff >= 0) "??${monthPct}% (吏?쒕떖 ?鍮?" else "??${-monthPct}% (吏?쒕떖 ?鍮?",
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                        color = if (monthDiff >= 0) green else Color(0xFFEF4444)
+                                    )
+                                }
+                            }
+                        } ?: Text("?곗씠?곌? ???볦씠硫?鍮꾧탳 遺꾩꽍??蹂댁뿬?쒕젮??, fontSize = 12.sp, color = muted)
+
+                        insights?.let { ins ->
+                            if (ins.weekdayAvgFare > 0 || ins.weekendAvgFare > 0) {
+                                Spacer(Modifier.height(10.dp))
+                                HorizontalDivider(color = Color(0xFF1F2937))
+                                Spacer(Modifier.height(10.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("?됱씪 ?쇳룊洹?, fontSize = 11.sp, color = muted)
+                                        Text("${String.format("%,d", ins.weekdayAvgFare)}??, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(Color(0xFF1F2937)))
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("二쇰쭚 ?쇳룊洹?, fontSize = 11.sp, color = muted)
+                                        Text("${String.format("%,d", ins.weekendAvgFare)}??, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            }
+                            if (ins.dayOfWeek.any { it.tripCount > 0 }) {
+                                Spacer(Modifier.height(14.dp))
+                                HorizontalDivider(color = Color(0xFF1F2937))
+                                Spacer(Modifier.height(10.dp))
+                                Text("?붿씪蹂??됯퇏 ?섏엯", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                                val maxAvg = (ins.dayOfWeek.maxOfOrNull { it.avgFare } ?: 1).coerceAtLeast(1)
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
+                                    ins.dayOfWeek.forEach { d ->
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                            Text(if (d.avgFare > 0) "${d.avgFare / 10000}留? else "", fontSize = 9.sp, color = muted)
+                                            Box(modifier = Modifier.width(20.dp).height((50 * d.avgFare / maxAvg).coerceAtLeast(2).dp).background(if (d.day == "??) Color(0xFFEF4444) else accent, RoundedCornerShape(3.dp)))
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(d.day, fontSize = 11.sp, color = if (d.day == "??) Color(0xFFEF4444) else muted, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ?뱦 ???μ냼 (?묎린/?쇱튂湲? 湲곕낯 ?묓옒)
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().clickable { showSpotsSection = !showSpotsSection }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (showSpotsSection) "???뱦 ???μ냼" else "???뱦 ???μ냼", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold)
+                            if (showSpotsSection) { TextButton(onClick = { showAddDialog = true }, contentPadding = PaddingValues(0.dp)) { Text("+ 異붽?", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+                        }
+                        if (showSpotsSection) {
+                        Spacer(Modifier.height(8.dp))
+                        if (spots.isEmpty()) { Text("?깅줉???μ냼媛 ?놁뼱?? ?먯＜ 媛??怨녹쓣 異붽??대낫?몄슂.", fontSize = 13.sp, color = muted) }
+                        else {
+                            spots.forEach { spot ->
+                                val isExpanded = expandedSpotId == spot.id
+                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth().clickable {
+                                        if (isExpanded) { expandedSpotId = null } else { expandedSpotId = spot.id; selectedCategory = "normal"; loadCategoryTotals(spot.id); loadHeatmap(spot.id, "normal") }
+                                    }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(if (isExpanded) "?? else "??, fontSize = 11.sp, color = muted, modifier = Modifier.padding(end = 8.dp))
+                                            Text(spot.name, fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                        TextButton(onClick = { deleteSpot(spot.id) }, contentPadding = PaddingValues(4.dp)) { Text("??젣", fontSize = 11.sp, color = Color(0xFFEF4444)) }
+                                    }
+                                    if (isExpanded) {
+                                        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf("normal" to "?쇰컲", "long" to "?κ굅由?, "airport" to "怨듯빆").forEach { (cat, label) ->
+                                                val count = categoryTotals[cat] ?: 0
+                                                FilterChip(
+                                                    selected = selectedCategory == cat,
+                                                    onClick = { selectedCategory = cat; loadHeatmap(spot.id, cat) },
+                                                    label = { Text("$label (${count})", fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)
+                                                )
+                                            }
+                                        }
+                                        if (isLoadingHeatmap) { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp)) } }
+                                        else {
+                                            if (spotDestinations.isNotEmpty()) {
+                                                Text("二쇱슂 紐⑹쟻吏", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
+                                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    spotDestinations.take(8).forEach { dest ->
+                                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                            Text(dest.destination.take(20), fontSize = 12.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                                            Text("${dest.count}??, fontSize = 12.sp, color = green, fontWeight = FontWeight.Bold)
+                                                        }
+                                                    }
+                                                }
+                                                Spacer(Modifier.height(12.dp))
+                                            }
+                                            HeatmapView(heatmapCells)
+                                        }
+                                    }
+                                    HorizontalDivider(color = Color(0xFF1F2937), thickness = 0.5.dp, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+                        }
+                        }
+                    }
+                }
+
+                // ??洹????듦퀎 (?묎린/?쇱튂湲?
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().clickable { showOtherStats = !showOtherStats }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (showOtherStats) "????留롮? ?듦퀎 蹂닿린" else "????留롮? ?듦퀎 蹂닿린", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold)
+                        }
+                        if (showOtherStats) {
+                            Spacer(Modifier.height(16.dp))
+                            Text("???쒓컙?蹂?肄??⑦꽩", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 12.dp))
+                            if (hourlyPattern.isEmpty()) { Text("?곗씠???볦씠??以?..", fontSize = 13.sp, color = muted) }
+                            else { val maxCount = hourlyPattern.maxOf { it.count }.toFloat(); hourlyPattern.forEach { item -> Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) { Text("${item.hour}??, fontSize = 12.sp, color = muted, modifier = Modifier.width(36.dp)); Box(modifier = Modifier.weight(1f).height(20.dp).background(Color(0xFF1F2937), RoundedCornerShape(4.dp))) { Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(item.count / maxCount).background(accent, RoundedCornerShape(4.dp))) }; Text(" ${item.count}??, fontSize = 12.sp, color = green, modifier = Modifier.width(40.dp)) } } }
+
+                            Spacer(Modifier.height(20.dp))
+                            HorizontalDivider(color = Color(0xFF1F2937))
+                            Spacer(Modifier.height(20.dp))
+
+                            Text("?뱧 ?먯＜ 媛?紐⑹쟻吏 TOP 10", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 12.dp))
+                            if (topDests.isEmpty()) { Text("?곗씠???볦씠??以?..", fontSize = 13.sp, color = muted) }
+                            else { topDests.forEachIndexed { index, dest -> Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Row(verticalAlignment = Alignment.CenterVertically) { Text("${index + 1}", fontSize = 13.sp, color = if (index < 3) accent else muted, modifier = Modifier.width(24.dp), fontWeight = if (index < 3) FontWeight.Bold else FontWeight.Normal); Text(dest.destination.take(20), fontSize = 13.sp, color = Color.White) }; Text("${dest.count}??, fontSize = 13.sp, color = green, fontWeight = FontWeight.Bold) }; if (index < topDests.size - 1) HorizontalDivider(color = Color(0xFF1F2937), thickness = 0.5.dp) } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun HeatmapView(cells: List<HeatmapCell>) {
+        val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+        if (cells.isEmpty()) {
+            Text("???μ냼?먯꽌 異쒕컻???댄뻾 ?곗씠?곌? ?꾩쭅 ?놁뼱??, fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 12.dp))
+            return
+        }
+        val maxCount = cells.maxOf { it.count }.toFloat()
+        val cellMap = cells.associateBy { "${it.dayOfWeek}-${it.hour}" }
+        val dayLabels = listOf("??, "??, "??, "??, "紐?, "湲?, "??)
+        Column(modifier = Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState())) {
+            Row {
+                Box(modifier = Modifier.width(28.dp))
+                for (h in 0..23) { Box(modifier = Modifier.width(18.dp), contentAlignment = Alignment.Center) { if (h % 3 == 0) Text("$h", fontSize = 8.sp, color = muted) } }
+            }
+            for (d in 0..6) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) { Text(dayLabels[d], fontSize = 10.sp, color = if (d == 0) Color(0xFFEF4444) else muted, fontWeight = FontWeight.Bold) }
+                    for (h in 0..23) {
+                        val count = cellMap["$d-$h"]?.count ?: 0
+                        val alpha = if (count > 0) (0.25f + 0.75f * (count / maxCount)) else 0f
+                        Box(modifier = Modifier.size(18.dp).padding(1.dp).background(if (count > 0) accent.copy(alpha = alpha) else Color(0xFF1F2937), RoundedCornerShape(3.dp)))
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun MoreScreen(userId: String, onLogout: () -> Unit) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280); val red = Color(0xFFEF4444)
+        var selectedTab by remember { mutableStateOf(0) }
+        var showLogoutConfirm by remember { mutableStateOf(false) }
+
+        if (showLogoutConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLogoutConfirm = false },
+                title = { Text("濡쒓렇?꾩썐", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Text("?ㅻⅨ 怨꾩젙?쇰줈 濡쒓렇?명븯?쒕젮硫?濡쒓렇?꾩썐?섏꽭?? ??湲곌린????λ맂 濡쒓렇???뺣낫媛 ??젣?쇱슂.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
+                confirmButton = { Button(onClick = { showLogoutConfirm = false; onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("濡쒓렇?꾩썐", color = Color.White) } },
+                dismissButton = { OutlinedButton(onClick = { showLogoutConfirm = false }) { Text("痍⑥냼") } },
+                containerColor = Color(0xFF111827)
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg)) {
+            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 48.dp, bottom = 8.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("??궧", "?곸닔利?, "?ㅼ젙").forEachIndexed { index, title ->
+                    FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 13.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
+                }
+            }
+            when (selectedTab) {
+                0 -> RankingScreen(userId = userId)
+                1 -> ReceiptScreen()
+                2 -> Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text("怨꾩젙", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                            Text("?щ윭 湲곌린(???먯꽌 媛숈? 移댁뭅??怨꾩젙?쇰줈 濡쒓렇?명븯硫? 紐⑤뱺 ?댄뻾湲곕줉???먮룞?쇰줈 ?쒓납???⑹퀜?몄슂.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 16.dp))
+                            OutlinedButton(onClick = { showLogoutConfirm = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = red)) { Text("濡쒓렇?꾩썐", fontWeight = FontWeight.Bold) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun RankingScreen(userId: String) {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280); val red = Color(0xFFEF4444)
+        var selectedTab by remember { mutableStateOf(0) }
+        var individualRanking by remember { mutableStateOf<List<RankItem>>(emptyList()) }
+        var companyRanking by remember { mutableStateOf<List<Triple<String, Int, Double>>>(emptyList()) }
+        var guildRanking by remember { mutableStateOf<List<GuildItem>>(emptyList()) }
+        var myGuild by remember { mutableStateOf<MyGuild?>(null) }
+        var isLoading by remember { mutableStateOf(true) }
+        var showProfileDialog by remember { mutableStateOf(false) }
+        var showGuildDialog by remember { mutableStateOf(false) }
+        var showMyGuildDialog by remember { mutableStateOf(false) }
+        var guildDialogMode by remember { mutableStateOf("") }
+        var companyInput by remember { mutableStateOf("") }
+        var driverTypeInput by remember { mutableStateOf("personal") }
+        var guildNameInput by remember { mutableStateOf("") }
+        var guildDescInput by remember { mutableStateOf("") }
+        var guildCodeInput by remember { mutableStateOf("") }
+        var statusMsg by remember { mutableStateOf("") }
+        var statusIsSuccess by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+
+        fun loadData() {
+            scope.launch {
+                try {
+                    val indResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/individual").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val indArray = JSONArray(indResponse); val indList = mutableListOf<RankItem>()
+                    for (i in 0 until indArray.length()) { val obj = indArray.getJSONObject(i); indList.add(RankItem(i+1, obj.optString("nickname","湲곗궗??), obj.optString("company_name",""), obj.optInt("week_trips",0), obj.optInt("points",0), obj.optString("id")==userId||obj.optInt("id").toString()==userId)) }
+                    val compResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/company").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val compArray = JSONArray(compResponse); val compList = mutableListOf<Triple<String, Int, Double>>()
+                    for (i in 0 until compArray.length()) { val obj = compArray.getJSONObject(i); compList.add(Triple(obj.optString("company_name",""), obj.optInt("member_count",0), obj.optDouble("avg_trips",0.0))) }
+                    val guildResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/guild").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val guildArray = JSONArray(guildResponse); val guildList = mutableListOf<GuildItem>()
+                    for (i in 0 until guildArray.length()) { val obj = guildArray.getJSONObject(i); guildList.add(GuildItem(obj.optInt("id"), obj.optString("name",""), obj.optInt("member_count",0), obj.optInt("week_trips",0), obj.optDouble("avg_trips",0.0))) }
+                    val myGuildResponse = withContext(Dispatchers.IO) { try { val conn = (URL("$SERVER_URL/api/guilds/my/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() } catch (e: Exception) { "null" } }
+                    if (myGuildResponse != "null" && myGuildResponse.isNotEmpty()) {
+                        try { val mg = JSONObject(myGuildResponse); val membersArray = mg.optJSONArray("members"); val membersList = mutableListOf<GuildMember>(); if (membersArray != null) for (i in 0 until membersArray.length()) { val m = membersArray.getJSONObject(i); membersList.add(GuildMember(m.optInt("id"), m.optString("nickname",""), m.optString("role","member"))) }; myGuild = MyGuild(mg.optInt("id"), mg.optString("name",""), mg.optString("invite_code",""), mg.optString("role","member"), mg.optInt("member_count",0), membersList) } catch (e: Exception) { myGuild = null }
+                    }
+                    individualRanking = indList; companyRanking = compList; guildRanking = guildList; isLoading = false
+                } catch (e: Exception) { isLoading = false }
+            }
+        }
+
+        LaunchedEffect(Unit) { loadData() }
+
+        if (showProfileDialog) {
+            AlertDialog(onDismissRequest = { showProfileDialog = false }, title = { Text("?꾨줈???ㅼ젙", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Column { Text("?뚯궗紐?, fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 4.dp)); OutlinedTextField(value = companyInput, onValueChange = { companyInput = it }, placeholder = { Text("?? ?쒖슱?앹떆", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White)); Spacer(Modifier.height(12.dp)); Text("湲곗궗 ?좏삎", fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("personal" to "媛쒖씤?앹떆", "corporate" to "踰뺤씤?앹떆").forEach { (type, label) -> FilterChip(selected = driverTypeInput == type, onClick = { driverTypeInput = type }, label = { Text(label, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } } } },
+                confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("company_name", companyInput); put("driver_type", driverTypeInput) }; val conn = (URL("$SERVER_URL/api/users/$userId").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode } } catch (e: Exception) { } }; showProfileDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("???, color = Color.Black) } },
+                dismissButton = { OutlinedButton(onClick = { showProfileDialog = false }) { Text("痍⑥냼") } }, containerColor = Color(0xFF111827))
+        }
+
+        if (showGuildDialog) {
+            AlertDialog(onDismissRequest = { showGuildDialog = false; statusMsg = "" }, title = { Text(if (guildDialogMode == "create") "湲몃뱶 留뚮뱾湲??썳截? else "湲몃뱶 媛???썳截?, color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Column { if (guildDialogMode == "create") { OutlinedTextField(value = guildNameInput, onValueChange = { guildNameInput = it }, label = { Text("湲몃뱶 ?대쫫", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White)); Spacer(Modifier.height(8.dp)); OutlinedTextField(value = guildDescInput, onValueChange = { guildDescInput = it }, label = { Text("?뚭컻 (?좏깮)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White)) } else { OutlinedTextField(value = guildCodeInput, onValueChange = { guildCodeInput = it.uppercase() }, label = { Text("珥덈? 肄붾뱶 6?먮━", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }; if (statusMsg.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Card(colors = CardDefaults.cardColors(containerColor = if (statusIsSuccess) Color(0xFF064E3B) else Color(0xFF7F1D1D)), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) { Text(statusMsg, fontSize = 13.sp, color = if (statusIsSuccess) green else Color(0xFFFCA5A5), modifier = Modifier.padding(12.dp)) } } } },
+                confirmButton = { if (!statusIsSuccess) Button(onClick = { scope.launch { try { val response = withContext(Dispatchers.IO) { if (guildDialogMode == "create") { val json = JSONObject().apply { put("user_id", userId); put("name", guildNameInput); put("description", guildDescInput) }; val conn = (URL("$SERVER_URL/api/guilds").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.inputStream.bufferedReader().readText() } else { val json = JSONObject().apply { put("user_id", userId); put("invite_code", guildCodeInput) }; val conn = (URL("$SERVER_URL/api/guilds/join").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.inputStream.bufferedReader().readText() } }; val json = JSONObject(response); statusIsSuccess = true; statusMsg = if (guildDialogMode == "create") "??'${json.optString("name")}' ?앹꽦 ?꾨즺!\n珥덈?肄붾뱶: ${json.optString("invite_code")}" else "??媛???꾨즺!"; loadData() } catch (e: Exception) { statusIsSuccess = false; statusMsg = "?ㅻ쪟媛 諛쒖깮?덉뼱?? } } }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text(if (guildDialogMode == "create") "留뚮뱾湲? else "媛??, color = Color.Black) } },
+                dismissButton = { OutlinedButton(onClick = { showGuildDialog = false; statusMsg = ""; statusIsSuccess = false }) { Text(if (statusIsSuccess) "?リ린" else "痍⑥냼") } }, containerColor = Color(0xFF111827))
+        }
+
+        if (showMyGuildDialog && myGuild != null) {
+            val mg = myGuild!!
+            AlertDialog(onDismissRequest = { showMyGuildDialog = false }, title = { Text("?썳截?${mg.name}", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Column { if (mg.role == "master") { Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) { Column(modifier = Modifier.padding(12.dp)) { Text("珥덈?肄붾뱶", fontSize = 12.sp, color = muted); Text(mg.inviteCode, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = accent, letterSpacing = 4.sp); Text("硫ㅻ쾭?먭쾶 ??肄붾뱶瑜?怨듭쑀?섏꽭??, fontSize = 11.sp, color = muted) } } }; Text("硫ㅻ쾭 ${mg.memberCount}紐?, fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp)); mg.members.forEach { member -> Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Row(verticalAlignment = Alignment.CenterVertically) { Text(if (member.role == "master") "?몣" else "?뫀", fontSize = 14.sp); Spacer(Modifier.width(8.dp)); Text(member.nickname, fontSize = 14.sp, color = if (member.role == "master") accent else Color.White) }; if (mg.role == "master" && member.role != "master") { TextButton(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/guilds/${mg.id}/members/${member.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData(); showMyGuildDialog = false } catch (e: Exception) { } } }) { Text("異붾갑", fontSize = 12.sp, color = red) } } } } } },
+                confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val url = if (mg.role == "master") "$SERVER_URL/api/guilds/${mg.id}" else "$SERVER_URL/api/guilds/${mg.id}/leave"; val conn = (URL(url).openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; myGuild = null; showMyGuildDialog = false; loadData() } catch (e: Exception) { } } }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text(if (mg.role == "master") "湲몃뱶 ?댁껜" else "湲몃뱶 ?덊눜", color = Color.White) } },
+                dismissButton = { OutlinedButton(onClick = { showMyGuildDialog = false }) { Text("?リ린") } }, containerColor = Color(0xFF111827))
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg)) {
+            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF111827)).padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("媛쒖씤", "?뚯궗", "湲몃뱶").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 13.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Row { if (myGuild != null) { TextButton(onClick = { showMyGuildDialog = true }) { Text("??湲몃뱶", fontSize = 12.sp, color = green) } }; TextButton(onClick = { showProfileDialog = true }) { Text("?꾨줈??, fontSize = 12.sp, color = accent) } }
+            }
+            if (isLoading) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
+            else {
+                when (selectedTab) {
+                    0 -> { if (individualRanking.isEmpty()) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("?룇", fontSize = 48.sp); Spacer(Modifier.height(16.dp)); Text("?꾩쭅 ??궧 ?곗씠?곌? ?놁뼱??, fontSize = 14.sp, color = muted) } } } else { LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { itemsIndexed(individualRanking) { _, item -> Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if (item.isMe) Color(0xFF1F2937) else card), shape = RoundedCornerShape(12.dp)) { Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Text(when (item.rank) { 1->"?쪍"; 2->"?쪎"; 3->"?쪏"; else->"${item.rank}" }, fontSize = if (item.rank<=3) 20.sp else 14.sp, color = if (item.rank<=3) accent else muted, modifier = Modifier.width(36.dp)); Column(modifier = Modifier.weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(item.nickname, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (item.isMe) accent else Color.White); if (item.isMe) { Spacer(Modifier.width(6.dp)); Text("??, fontSize = 11.sp, color = accent) } }; if (item.companyName.isNotEmpty()) Text(item.companyName, fontSize = 12.sp, color = muted) }; Column(horizontalAlignment = Alignment.End) { Text("${item.weekTrips}肄?, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green); Text("${item.points}pt", fontSize = 11.sp, color = muted) } } } } } } }
+                    1 -> { if (companyRanking.isEmpty()) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("?룫", fontSize = 48.sp); Spacer(Modifier.height(16.dp)); Text("?꾩쭅 ?뚯궗 ??궧???놁뼱??, fontSize = 14.sp, color = muted); Text("?꾨줈?꾩뿉???뚯궗紐낆쓣 ?낅젰?댁＜?몄슂", fontSize = 13.sp, color = muted) } } } else { LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { itemsIndexed(companyRanking) { index, (name, members, avg) -> Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) { Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Text(when (index+1) { 1->"?쪍"; 2->"?쪎"; 3->"?쪏"; else->"${index+1}" }, fontSize = if (index<3) 20.sp else 14.sp, color = if (index<3) accent else muted, modifier = Modifier.width(36.dp)); Column(modifier = Modifier.weight(1f)) { Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("${members}紐?, fontSize = 12.sp, color = muted) }; Column(horizontalAlignment = Alignment.End) { Text("?됯퇏 ${avg}肄?, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green); Text("?대쾲 二?, fontSize = 11.sp, color = muted) } } } } } } }
+                    2 -> { Column(modifier = Modifier.fillMaxSize()) { if (myGuild == null) { Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { guildDialogMode = "create"; guildNameInput = ""; guildDescInput = ""; statusMsg = ""; statusIsSuccess = false; showGuildDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) { Text("湲몃뱶 留뚮뱾湲?, color = Color.Black, fontWeight = FontWeight.Bold) }; OutlinedButton(onClick = { guildDialogMode = "join"; guildCodeInput = ""; statusMsg = ""; statusIsSuccess = false; showGuildDialog = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("肄붾뱶濡?媛??, fontWeight = FontWeight.Bold) } } } else { Card(modifier = Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) { Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text("?썳截?${myGuild!!.name}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent); Text("${myGuild!!.memberCount}紐?| ${if (myGuild!!.role == "master") "?몣 湲몃뱶?? else "硫ㅻ쾭"}", fontSize = 12.sp, color = muted) } } } }; if (guildRanking.isEmpty()) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("?썳截?, fontSize = 48.sp); Spacer(Modifier.height(16.dp)); Text("?꾩쭅 湲몃뱶媛 ?놁뼱??, fontSize = 14.sp, color = muted) } } } else { LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { itemsIndexed(guildRanking) { index, guild -> Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if (myGuild?.id == guild.id) Color(0xFF1F2937) else card), shape = RoundedCornerShape(12.dp)) { Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Text(when (index+1) { 1->"?쪍"; 2->"?쪎"; 3->"?쪏"; else->"${index+1}" }, fontSize = if (index<3) 20.sp else 14.sp, color = if (index<3) accent else muted, modifier = Modifier.width(36.dp)); Column(modifier = Modifier.weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text("?썳截?${guild.name}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White); if (myGuild?.id == guild.id) { Spacer(Modifier.width(6.dp)); Text("??湲몃뱶", fontSize = 11.sp, color = accent) } }; Text("${guild.memberCount}紐?, fontSize = 12.sp, color = muted) }; Column(horizontalAlignment = Alignment.End) { Text("?됯퇏 ${guild.avgTrips}肄?, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green); Text("?대쾲 二?, fontSize = 11.sp, color = muted) } } } } } } } }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun ReceiptScreen() {
+        val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+        Column(modifier = Modifier.fillMaxSize().background(bg).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(20.dp)); Text("?곸닔利?, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = accent); Text("吏異??먮룞 湲곕줉", fontSize = 13.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("二쇱쑀/LPG/?몄감鍮?移댁뭅?ㅽ깮???뺤궛 ?곸닔利?珥ъ쁺", fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 16.dp))
+                    Button(onClick = { receiptLauncher.launch(Intent(this@MainActivity, ReceiptScanActivity::class.java)) }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("?곸닔利?珥ъ쁺?섍린", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                }
+            }
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    @Composable
+    fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
+        val bg = Color(0xFF0A0E1A); val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+        var showWebView by remember { mutableStateOf(false) }
+        if (showWebView) {
+            AndroidView(factory = { context ->
+                WebView(context).apply {
+                    settings.javaScriptEnabled = true; settings.domStorageEnabled = true
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                            val url = request?.url?.toString() ?: return false
+                            if (url.startsWith("$SERVER_URL/auth/kakao/callback")) { val uri = Uri.parse(url); val userId = uri.getQueryParameter("user_id"); val nickname = uri.getQueryParameter("nickname") ?: "湲곗궗??; if (userId != null) { onLoginSuccess(userId, nickname); return true } }
+                            return false
+                        }
+                    }
+                    loadUrl("$SERVER_URL/auth/kakao")
+                }
+            }, modifier = Modifier.fillMaxSize())
+        } else {
+            Column(modifier = Modifier.fillMaxSize().background(bg).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text("肄쒕젅?대뜑", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = accent)
+                Text("?앹떆 湲곗궗 ?섏엯 理쒖쟻??, fontSize = 14.sp, color = muted, modifier = Modifier.padding(top = 8.dp, bottom = 60.dp))
+                Button(onClick = { showWebView = true }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE812)), shape = RoundedCornerShape(12.dp)) { Text("移댁뭅?ㅻ줈 ?쒖옉?섍린", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            }
+        }
+    }
+
+    private fun checkAndStartServices() {
+        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (fineLocation) startLocationService() else locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    private fun startLocationService() { startForegroundService(Intent(this, LocationTrackingService::class.java)) }
+
+    private fun isNaviReceiverEnabled(): Boolean {
+        return try { Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)?.contains("com.callradar.app") == true } catch (e: Exception) { false }
+    }
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\NaviIntentReceiver.kt =====
+package com.callradar.app
+
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+import android.view.accessibility.AccessibilityEvent
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.*
+
+class NaviIntentReceiver : AccessibilityService() {
+
+    companion object {
+        private const val TAG = "CallRadar"
+        private const val KAKAO_NAVI = "com.locnall.KimGiSa"
+        private const val TMAP = "com.skt.tmap.ku"
+        private const val TMAP_TAXI = "com.skt.skaf.l001mtm091"
+        private const val NAVER_MAP = "com.nhn.android.nmap"
+        private const val KAKAO_TAXI = "com.kakao.taxi.driver"
+        private const val UBER = "com.ubercab.driver"
+        private const val TMONEYGO = "kr.co.tmoney.tia"
+        private const val TMONEYGO_NAVI = "com.thinkware.inaviair.tmoney"
+        private val NAVI_APPS = setOf(KAKAO_NAVI, TMAP, TMAP_TAXI, NAVER_MAP)
+        private val TAXI_APPS = setOf(KAKAO_TAXI, UBER, TMONEYGO, TMONEYGO_NAVI)
+        private val ALL_APPS = NAVI_APPS + TAXI_APPS
+        private val PLATFORM_NAMES = mapOf(
+            KAKAO_TAXI to "移댁뭅?짽",
+            UBER to "?곕쾭",
+            TMONEYGO to "?곕㉧?덇퀬",
+            TMONEYGO_NAVI to "?곕㉧?덇퀬"
+        )
+        private const val SERVER_URL = "https://callradar-server.onrender.com"
+        private val NOISE_LINES = listOf(
+            "異붿쿇", "異쒕컻?쒓컙", "?ㅻⅨ?쒓컙", "踰꾪듉", "?뚯꽦?쒕퉬??,
+            "?꾨땲??, "?꾩껜??젣", "紐⑹쟻吏?낅젰", "?댁슜?댁뿭", "利먭꺼李얘린",
+            "理쒓렐紐⑹쟻吏", "吏곸옣", "?댁슜?쎄?", "媛쒖씤?뺣낫", "怨좉컼?쇳꽣",
+            "DOS", "bc?쒕퉬??, "?먮떂?꾩튂", "?먮떂?묒듅", "?댄뻾以묐떒",
+            "寃곗젣痍⑥냼", "?댄뻾?대젰", "?ㅼ떆?낅젰", "寃곗젣?붿껌",
+            "吏곸젒寃곗젣", "?댄뻾?꾨즺", "二쇱감湲덉?", "吏곸젒寃곗옱"
+        )
+        private val DEST_PATTERNS = listOf(
+            Regex("[媛-??+(?밸퀎??愿묒뿭???뱀옄????\\s+[媛-??+(??援?援?\\s+[媛-??-9\\s]+(濡?湲?\\s*[0-9]+"),
+            Regex("[媛-??{2,5}援?\s+[媛-??{2,5}??\s+[0-9]+"),
+            Regex("[媛-?즑-zA-Z0-9]{2,15}(???곕???怨듯빆|蹂묒썝|??숆탳|????명뀛|留덊듃|諛깊솕???꾪뙆??鍮뚮뵫|???寃쎈줈??二쇰??쇳꽣|蹂듭?愿|二쇱감???쇳븨紐??쇳꽣|?뚮씪??愿묒옣|怨듭썝)"),
+            Regex("[媛-??{2,8}(濡?湲?\\s*[0-9]+"),
+            Regex("[媛-??{2,6}??\s*[0-9]+(-[0-9]+)?")
+        )
+        private val FARE_PATTERNS = listOf(
+            Regex("寃곗젣\\s*?붽툑\\s*[竊?]?\\s*([0-9,]+)\\s*??),
+            Regex("誘명꽣湲?\s*?붽툑\\s*[竊?]?\\s*([0-9,]+)\\s*??),
+            Regex("([0-9,]{4,})\\s*??)
+        )
+    }
+
+    private var lastPlatform = "?뚯닔?놁쓬"
+    private var lastNaviApp = ""
+    private var lastNaviTime = 0L
+    private var lastSentDest = ""
+    private var lastSentTime = 0L
+    private var lastTriggerTime = 0L
+    private var lastTripId = -1
+    private var lastTaxiPlatform = "移댁뭅?짽"
+
+    @Volatile private var isProcessingTaxiScreen = false
+    @Volatile private var isSendingTrip = false
+    @Volatile private var destinationLocked = false
+    private var clickHandledUntil = 0L
+
+    // ?대퉬 ??移댁뭅?ㅻ궡鍮??곕㏊/?ㅼ씠踰꾨㏊) 紐⑹쟻吏 ?덉젙?붿슜: 媛숈? ?꾨낫媛 ?곗냽?쇰줈 ?섏????뺤젙
+    private var pendingCandidateDest = ""
+    private var pendingCandidateCount = 0
+    private val STABLE_CONFIRM_COUNT = 2
+
+    private val TRIGGER_COOLDOWN = 1000L
+    private val SEND_COOLDOWN = 21600000L
+    private val CLICK_SUPPRESS_WINDOW = 2000L
+
+    override fun onServiceConnected() {
+        serviceInfo = AccessibilityServiceInfo().apply {
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                        AccessibilityEvent.TYPE_VIEW_CLICKED
+            packageNames = ALL_APPS.toTypedArray()
+            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            notificationTimeout = 100
+            flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
+                    AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        Log.d(TAG, "NaviIntentReceiver ?곌껐??)
+        try {
+            startForegroundService(Intent(this, LocationTrackingService::class.java))
+        } catch (e: Exception) {
+            Log.e(TAG, "GPS ?쒖옉 ?ㅽ뙣: ${e.message}")
+        }
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        event ?: return
+        val pkg = event.packageName?.toString() ?: return
+        if (pkg !in ALL_APPS) return
+
+        val now = System.currentTimeMillis()
+
+        if (pkg in TAXI_APPS) {
+            lastTaxiPlatform = PLATFORM_NAMES[pkg] ?: "移댁뭅?짽"
+            lastPlatform = lastTaxiPlatform
+
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+                val clickedText = event.contentDescription?.toString()
+                    ?: event.text?.firstOrNull()?.toString() ?: ""
+                Log.d(TAG, "?대┃ 媛먯?: $clickedText")
+                if (clickedText.contains("湲몄븞??)) {
+                    Log.d(TAG, "湲몄븞??踰꾪듉 ?대┃! 利됱떆 ?뚯떛")
+                    clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
+                    lastTriggerTime = now
+                    android.os.Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 300)
+                    return
+                }
+            }
+
+            if (now < clickHandledUntil) return
+
+            if (now - lastTriggerTime < TRIGGER_COOLDOWN) return
+            lastTriggerTime = now
+            android.os.Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 500)
+
+        } else if (pkg in NAVI_APPS) {
+            if (lastSentDest.isNotEmpty() && now - lastSentTime < SEND_COOLDOWN) return
+            if (now - lastTriggerTime < TRIGGER_COOLDOWN) return
+            lastTriggerTime = now
+            lastPlatform = lastTaxiPlatform
+            lastNaviApp = pkg
+            lastNaviTime = now
+            destinationLocked = false
+            pendingCandidateDest = ""
+            pendingCandidateCount = 0
+            android.os.Handler(mainLooper).postDelayed({ extractDestination(pkg) }, 800)
+        }
+    }
+
+    private fun extractTaxiInfo(pkg: String) {
+        if (isProcessingTaxiScreen) {
+            Log.d(TAG, "?대? 泥섎━ 以? 臾댁떆")
+            return
+        }
+        isProcessingTaxiScreen = true
+        try {
+            val root = rootInActiveWindow ?: return
+            val lines = mutableListOf<String>()
+            fun traverse(node: android.view.accessibility.AccessibilityNodeInfo?) {
+                node ?: return
+                node.text?.toString()?.trim()?.let { if (it.isNotEmpty()) lines.add(it) }
+                node.contentDescription?.toString()?.trim()?.let { if (it.isNotEmpty()) lines.add(it) }
+                for (i in 0 until node.childCount) traverse(node.getChild(i))
+            }
+            traverse(root)
+            val allText = lines.joinToString("\n")
+            Log.d(TAG, "?앹떆???붾㈃:\n${allText.take(400)}")
+
+            // ??? ?곕쾭 ?꾩슜 泥섎━ ???
+            if (pkg == UBER) {
+                // ?됯? ?붾㈃ ?ㅽ궢
+                if (allText.contains("?쇱씠??) && allText.contains("?됯?")) return
+                // 寃곗젣 ?붾㈃ 媛먯? ("?댄뻾 ?꾨즺" ?ы븿)
+                if (allText.contains("?댄뻾 ?꾨즺")) {
+                    val fare = extractFare(lines)
+                    if (fare > 0 && lastTripId > 0) {
+                        Log.d(TAG, "?곕쾭 寃곗젣 ?꾨즺! 湲덉븸: ${fare}??)
+                        updateTripFare(lastTripId, fare)
+                        synchronized(this) { lastSentDest = ""; lastSentTime = 0L }
+                    }
+                    return
+                }
+                // "?붽툑 ?낅젰?섍린" 踰꾪듉 ?붾㈃(紐⑹쟻吏 ?꾩갑 ?쒖젏)?먯꽌留?紐⑹쟻吏 ?뺤젙. 洹????밴컼?묒듅 ?????몄씠利덈줈 臾댁떆
+                if (!allText.contains("?붽툑 ?낅젰?섍린")) {
+                    return
+                }
+                // 紐⑹쟻吏 異붿텧
+                val dest = findBestDestination(lines)
+                if (dest.isNotEmpty()) {
+                    val nowTime = System.currentTimeMillis()
+                    synchronized(this) {
+                        if (dest == lastSentDest && nowTime - lastSentTime < SEND_COOLDOWN) {
+                            Log.d(TAG, "以묐났 臾댁떆: $dest")
+                            return
+                        }
+                        lastSentDest = dest
+                        lastSentTime = nowTime
+                    }
+                    Log.d(TAG, "?곕쾭 肄?媛먯?! ?꾩갑: $dest")
+                    startArrivalServiceWithGeocode(dest)
+                    sendTripData(dest, "")
+                }
+                return
+            }
+
+            // ??? 移댁뭅?짽 / 湲고? 寃곗젣 媛먯? ???
+            if (allText.contains("?먮룞寃곗젣 ?꾨즺") || allText.contains("寃곗젣 ?붽툑")) {
+                val fare = extractFare(lines)
+                if (fare > 0 && lastTripId > 0) {
+                    Log.d(TAG, "寃곗젣 ?꾨즺! 湲덉븸: ${fare}?? ?댄뻾 醫낅즺 泥섎━")
+                    updateTripFare(lastTripId, fare)
+                    synchronized(this) { lastSentDest = ""; lastSentTime = 0L }
+                    return
+                }
+            }
+
+            if (allText.contains("誘명꽣湲??붽툑") && allText.contains("寃곗젣?붿껌")) {
+                val fare = extractFare(lines)
+                if (fare > 0 && lastTripId > 0) {
+                    updateTripFare(lastTripId, fare)
+                    return
+                }
+            }
+
+            // ??? 移댁뭅?짽: 異쒕컻/?꾩갑 ?쇰꺼 諛⑹떇 ???
+            if (pkg != TMONEYGO && pkg != TMONEYGO_NAVI && allText.contains("異쒕컻") && allText.contains("?꾩갑")) {
+                var origin = ""
+                var dest = ""
+                lines.forEachIndexed { index, line ->
+                    if (line.trim() == "異쒕컻" && index + 1 < lines.size) {
+                        origin = lines[index + 1].trim()
+                    }
+                    if (line.trim() == "?꾩갑" && index + 1 < lines.size) {
+                        dest = lines[index + 1].trim()
+                    }
+                }
+                Log.d(TAG, "?뚯떛 寃곌낵 - 異쒕컻: $origin, ?꾩갑: $dest")
+                if (dest.isNotEmpty()) {
+                    val nowTime = System.currentTimeMillis()
+                    synchronized(this) {
+                        if (dest == lastSentDest && nowTime - lastSentTime < SEND_COOLDOWN) {
+                            Log.d(TAG, "以묐났 臾댁떆: $dest")
+                            return
+                        }
+                        lastSentDest = dest
+                        lastSentTime = nowTime
+                    }
+                    Log.d(TAG, "肄?媛먯?! 異쒕컻: $origin -> ?꾩갑: $dest")
+                    startArrivalServiceWithGeocode(dest)
+                    sendTripData(dest, origin)
+                }
+            } else if (pkg == TMONEYGO || pkg == TMONEYGO_NAVI) {
+                // ?곕㉧?덇퀬: "異쒕컻吏 湲몄븞?? ?먮뒗 "紐⑹쟻吏 湲몄븞?? 踰꾪듉???덈뒗 ?붾㈃留?肄??뺣낫 ?붾㈃?쇰줈 ?몄젙
+                val hasNaviButton = allText.contains("異쒕컻吏 湲몄븞??) || allText.contains("紐⑹쟻吏 湲몄븞??)
+                if (!hasNaviButton) {
+                    Log.d(TAG, "?곕㉧?덇퀬: 湲몄븞??踰꾪듉 ?놁쓬, 肄??붾㈃ ?꾨떂 -> 臾댁떆")
+                    return
+                }
+                // ?밴컼 ?묒듅 移댁슫???? "9420 ?밴컼 ?묒듅"), ?꾩갑 寃곗젣 踰꾪듉 ??UI ?띿뒪???쒖쇅
+                val candidates = lines.filter { line ->
+                    NOISE_LINES.none { noise -> line.contains(noise) } &&
+                    line.length in 3..50 &&
+                    !line.matches(Regex("[0-9:./\\s]+")) &&
+                    !line.contains("?밴컼") && !line.contains("?묒듅") &&
+                    !line.contains("肄?) && !line.contains("?깆퐳") &&
+                    !line.contains("湲몄븞??) && !line.contains("?꾩갑 寃곗젣") &&
+                    !line.matches(Regex("[0-9]{3,5}\\s*(?밴컼|?꾩갑).*"))
+                }
+                val cleanedCandidates = candidates.map { it.replace(Regex("\\([^)]*\\)"), "").trim() }.filter { it.length >= 3 }
+                // ?붾㈃ ?깆옣 ?쒖꽌 洹몃?濡? 泥??꾨낫 = ?쎌뾽?꾩튂(異쒕컻吏), ?먮쾲吏??꾨낫 = 紐⑹쟻吏
+                var origin = ""
+                var dest = ""
+                if (cleanedCandidates.size >= 2) {
+                    origin = cleanedCandidates[0]
+                    dest = cleanedCandidates[1]
+                } else if (cleanedCandidates.size == 1) {
+                    origin = cleanedCandidates[0]
+                }
+                Log.d(TAG, "?곕㉧?덇퀬 ?뚯떛 寃곌낵 - 異쒕컻: $origin, ?꾩갑: $dest")
+                if (dest.isNotEmpty()) {
+                    val nowTime = System.currentTimeMillis()
+                    synchronized(this) {
+                        if (dest == lastSentDest && nowTime - lastSentTime < SEND_COOLDOWN) {
+                            Log.d(TAG, "以묐났 臾댁떆: $dest")
+                            return
+                        }
+                        lastSentDest = dest
+                        lastSentTime = nowTime
+                    }
+                    Log.d(TAG, "肄?媛먯?! 異쒕컻: $origin -> ?꾩갑: $dest")
+                    startArrivalServiceWithGeocode(dest)
+                    sendTripData(dest, origin)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "?앹떆???ㅻ쪟: ${e.message}")
+        } finally {
+            isProcessingTaxiScreen = false
+        }
+    }
+
+    private fun extractFare(lines: List<String>): Int {
+        val allText = lines.joinToString(" ")
+        for (pattern in FARE_PATTERNS) {
+            val match = pattern.find(allText)?.groupValues?.get(1)
+            if (!match.isNullOrEmpty()) {
+                val amount = match.replace(",", "").toIntOrNull() ?: 0
+                if (amount in 1000..500000) return amount
+            }
+        }
+        return 0
+    }
+
+    private fun updateTripFare(tripId: Int, fare: Int) {
+        Thread {
+            try {
+                val json = JSONObject().apply { put("fare", fare) }
+                val conn = (URL("$SERVER_URL/api/trips/$tripId/fare").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PUT"
+                    setRequestProperty("Content-Type", "application/json")
+                    doOutput = true
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                }
+                conn.outputStream.write(json.toString().toByteArray())
+                Log.d(TAG, "?붽툑 ?낅뜲?댄듃: trip #$tripId = ${fare}??)
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e(TAG, "?붽툑 ?낅뜲?댄듃 ?ㅽ뙣: ${e.message}")
+            }
+        }.start()
+    }
+
+    private fun extractDestination(naviPkg: String) {
+        if (isProcessingTaxiScreen) return
+        if (destinationLocked) return
+        isProcessingTaxiScreen = true
+        try {
+            val root = rootInActiveWindow ?: return
+            val lines = mutableListOf<String>()
+            fun traverse(node: android.view.accessibility.AccessibilityNodeInfo?) {
+                node ?: return
+                node.text?.toString()?.trim()?.let { if (it.isNotEmpty()) lines.add(it) }
+                node.contentDescription?.toString()?.trim()?.let { if (it.isNotEmpty()) lines.add(it) }
+                for (i in 0 until node.childCount) traverse(node.getChild(i))
+            }
+            traverse(root)
+            val dest = findBestDestination(lines)
+            if (dest.isNotEmpty()) {
+                // 媛숈? ?꾨낫媛 ?곗냽 STABLE_CONFIRM_COUNT踰??섏????뺤젙 (?붾㈃ 媛깆떊/?ㅼ씤???몄씠利?諛⑹?)
+                if (dest == pendingCandidateDest) {
+                    pendingCandidateCount++
+                } else {
+                    pendingCandidateDest = dest
+                    pendingCandidateCount = 1
+                }
+                if (pendingCandidateCount < STABLE_CONFIRM_COUNT) {
+                    Log.d(TAG, "?대퉬 紐⑹쟻吏 ?꾨낫(誘명솗??$pendingCandidateCount/$STABLE_CONFIRM_COUNT): $dest")
+                    android.os.Handler(mainLooper).postDelayed({
+                        isProcessingTaxiScreen = false
+                        extractDestination(naviPkg)
+                    }, 800)
+                    return
+                }
+                val now = System.currentTimeMillis()
+                synchronized(this) {
+                    if (dest == lastSentDest && now - lastSentTime < SEND_COOLDOWN) {
+                        destinationLocked = true
+                        return
+                    }
+                    lastSentDest = dest
+                    lastSentTime = now
+                }
+                destinationLocked = true
+                pendingCandidateDest = ""
+                pendingCandidateCount = 0
+                Log.d(TAG, "?대퉬 紐⑹쟻吏 ?뺤젙 (?좉툑): $dest")
+                startArrivalServiceWithGeocode(dest)
+                sendTripData(dest, "")
+            } else {
+                pendingCandidateDest = ""
+                pendingCandidateCount = 0
+                android.os.Handler(mainLooper).postDelayed({
+                    isProcessingTaxiScreen = false
+                    extractDestination(naviPkg)
+                }, 1500)
+                return
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "紐⑹쟻吏 異붿텧 ?ㅻ쪟: ${e.message}")
+        } finally {
+            isProcessingTaxiScreen = false
+        }
+    }
+
+    private fun findBestDestination(lines: List<String>): String {
+        val cleanLines = lines.filter { line ->
+            NOISE_LINES.none { noise -> line.contains(noise) } &&
+            line.length in 3..50 &&
+            !line.matches(Regex("[0-9:./\\s]+"))
+        }
+        for (line in cleanLines) {
+            for (pattern in DEST_PATTERNS) {
+                val match = pattern.find(line)?.value?.trim()
+                if (!match.isNullOrEmpty() && match.length >= 4) return match
+            }
+        }
+        val combined = cleanLines.take(10).joinToString(" ")
+        for (pattern in DEST_PATTERNS) {
+            val match = pattern.find(combined)?.value?.trim()
+            if (!match.isNullOrEmpty() && match.length >= 4) return match
+        }
+        return ""
+    }
+
+    private fun startArrivalServiceWithGeocode(destName: String) {
+        Thread {
+            var destLat = 0.0
+            var destLng = 0.0
+            try {
+                val encoded = URLEncoder.encode(destName, "UTF-8")
+                val conn = (URL("$SERVER_URL/api/geocode?address=$encoded").openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 4000; readTimeout = 4000
+                }
+                val resJson = JSONObject(conn.inputStream.bufferedReader().readText())
+                destLat = resJson.optDouble("lat", 0.0)
+                destLng = resJson.optDouble("lng", 0.0)
+                conn.disconnect()
+                Log.d(TAG, "紐⑹쟻吏 吏?ㅼ퐫???깃났: $destName -> ($destLat, $destLng)")
+            } catch (e: Exception) {
+                Log.e(TAG, "紐⑹쟻吏 吏?ㅼ퐫???ㅽ뙣: ${e.message}")
+            }
+
+            val intent = Intent(this, ArrivalNotificationService::class.java).apply {
+                putExtra(ArrivalNotificationService.KEY_DEST_NAME, destName)
+                putExtra(ArrivalNotificationService.KEY_DEST_LAT, destLat)
+                putExtra(ArrivalNotificationService.KEY_DEST_LNG, destLng)
+            }
+            try {
+                startForegroundService(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "ArrivalNotificationService ?쒖옉 ?ㅽ뙣: ${e.message}")
+            }
+
+            pendingDestLat = destLat
+            pendingDestLng = destLng
+            pendingDestName = destName
+        }.start()
+    }
+
+    @Volatile private var pendingDestLat = 0.0
+    @Volatile private var pendingDestLng = 0.0
+    @Volatile private var pendingDestName = ""
+
+    private fun sendTripData(destName: String, originName: String) {
+        if (isSendingTrip) {
+            Log.d(TAG, "?대? ?꾩넚 以? ?ㅽ궢: $destName")
+            return
+        }
+        isSendingTrip = true
+        Thread {
+            try {
+                var depLat = LocationTrackingService.currentLat
+                var depLng = LocationTrackingService.currentLng
+                var waited = 0
+                while (depLat == 0.0 && depLng == 0.0 && waited < 10000) {
+                    Thread.sleep(500); waited += 500
+                    depLat = LocationTrackingService.currentLat
+                    depLng = LocationTrackingService.currentLng
+                }
+                if (depLat == 0.0 && depLng == 0.0) { Log.e(TAG, "GPS ?놁쓬"); return@Thread }
+
+                var resolvedOrigin = originName
+                if (resolvedOrigin.isEmpty()) {
+                    try {
+                        val addrConn = (URL("$SERVER_URL/api/address?lat=$depLat&lng=$depLng").openConnection() as HttpURLConnection).apply {
+                            connectTimeout = 3000; readTimeout = 3000
+                        }
+                        val addrJson = JSONObject(addrConn.inputStream.bufferedReader().readText())
+                        resolvedOrigin = addrJson.optString("address", "")
+                        Log.d(TAG, "異쒕컻吏 蹂?? $resolvedOrigin")
+                        addrConn.disconnect()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "二쇱냼 蹂???ㅽ뙣: ${e.message}")
+                    }
+                }
+
+                var destLat = 0.0
+                var destLng = 0.0
+                var geoWaited = 0
+                while (geoWaited < 8000) {
+                    if (pendingDestName == destName && (pendingDestLat != 0.0 || pendingDestLng != 0.0)) {
+                        destLat = pendingDestLat
+                        destLng = pendingDestLng
+                        break
+                    }
+                    Thread.sleep(300); geoWaited += 300
+                }
+                if (destLat == 0.0 && destLng == 0.0) {
+                    Log.e(TAG, "紐⑹쟻吏 醫뚰몴 蹂???ㅽ뙣 ?먮뒗 ??꾩븘?? $destName (醫뚰몴 0?쇰줈 ?꾩넚)")
+                }
+
+                val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                val userId = prefs.getString("user_id", null)
+                val now = Date()
+
+                val json = JSONObject().apply {
+                    put("user_id", userId)
+                    put("platform", lastPlatform)
+                    put("naviApp", lastNaviApp)
+                    put("depLat", depLat)
+                    put("depLng", depLng)
+                    put("destName", destName)
+                    put("destLat", destLat)
+                    put("destLng", destLng)
+                    put("originName", resolvedOrigin)
+                    put("time", SimpleDateFormat("HH:mm", Locale.KOREA).format(now))
+                    put("dayOfWeek", SimpleDateFormat("E", Locale.KOREA).format(now))
+                    put("date", SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(now))
+                    put("timestamp", lastNaviTime)
+                }
+
+                val conn = (URL("$SERVER_URL/api/trips").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json")
+                    doOutput = true
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                }
+                conn.outputStream.write(json.toString().toByteArray())
+                val responseJson = JSONObject(conn.inputStream.bufferedReader().readText())
+                lastTripId = responseJson.optInt("id", -1)
+                Log.d(TAG, "?댄뻾 ??? trip #$lastTripId | $resolvedOrigin -> $destName")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e(TAG, "?꾩넚 ?ㅽ뙣: ${e.message}")
+            } finally {
+                isSendingTrip = false
+            }
+        }.start()
+    }
+
+    override fun onInterrupt() { Log.d(TAG, "NaviIntentReceiver 以묐떒") }
+}
+
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\ReceiptOcrService.kt =====
+package com.callradar.app
+
+import android.graphics.Bitmap
+import android.util.Log
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.*
+
+class ReceiptOcrService {
+
+    companion object {
+        private const val TAG = "CallRadar"
+    }
+
+    private val recognizer = TextRecognition.getClient(
+        KoreanTextRecognizerOptions.Builder().build()
+    )
+
+    enum class ReceiptType {
+        KAKAO_TAXI,  // 移댁뭅?ㅽ깮???뺤궛 ?곸닔利?(?щ윭 湲곕뒫)
+        TMONEYGO,
+        LPG,
+        HIPASS,
+        FOOD,
+        REPAIR,
+        WASH,
+        PARKING,
+        UNKNOWN
+    }
+
+    data class ReceiptResult(
+        val type: ReceiptType,
+        val typeName: String,
+        val amount: Int,
+        val time: String,
+        val date: String,
+        val memo: String,
+        val rawText: String,
+        val liters: Float = 0f,
+        val pricePerLiter: Int = 0,
+        val distance: Float = 0f,
+        val duration: Int = 0,
+        // 移댁뭅?ㅽ깮???뺤궛 ?꾩슜
+        val callCount: Int = 0,
+        val callDetails: List<CallDetail> = emptyList()
+    )
+
+    data class CallDetail(
+        val time: String,
+        val callId: String,
+        val amount: Int
+    )
+
+    fun processReceipt(bitmap: Bitmap, onResult: (ReceiptResult?) -> Unit) {
+        val inputImage = InputImage.fromBitmap(bitmap, 0)
+        recognizer.process(inputImage)
+            .addOnSuccessListener { visionText ->
+                val text = visionText.text
+                Log.d(TAG, "OCR ?띿뒪??\n$text")
+                val result = parseReceipt(text)
+                onResult(result)
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "OCR ?ㅽ뙣: ${e.message}")
+                onResult(null)
+            }
+    }
+
+    fun parseReceipt(text: String): ReceiptResult? {
+        if (text.isEmpty()) return null
+        val type = detectReceiptType(text)
+        return when (type) {
+            ReceiptType.KAKAO_TAXI -> parseKakaoTaxiReceipt(text)
+            ReceiptType.TMONEYGO  -> parseTmoneyReceipt(text)
+            ReceiptType.LPG       -> parseLpgReceipt(text)
+            ReceiptType.HIPASS    -> parseHipassReceipt(text)
+            ReceiptType.FOOD      -> parseFoodReceipt(text)
+            ReceiptType.REPAIR    -> parseRepairReceipt(text)
+            ReceiptType.WASH      -> parseWashReceipt(text)
+            ReceiptType.PARKING   -> parseParkingReceipt(text)
+            ReceiptType.UNKNOWN   -> parseUnknownReceipt(text)
+        }
+    }
+
+    private fun detectReceiptType(text: String): ReceiptType {
+        return when {
+            text.contains("移댁뭅?ㅽ깮??) || text.contains("移댁뭅?짽") && text.contains("肄쏧D") -> ReceiptType.KAKAO_TAXI
+            text.contains("?곕㉧??) || text.contains("?뱀감") || text.contains("?섏감") && text.contains("?댄뻾") -> ReceiptType.TMONEYGO
+            text.contains("LPG") || text.contains("lpg") || text.contains("異⑹쟾") && (text.contains("由ы꽣") || text.contains("L")) -> ReceiptType.LPG
+            text.contains("?섏씠?⑥뒪") || text.contains("?듯뻾猷?) || text.contains("怨좎냽?꾨줈") -> ReceiptType.HIPASS
+            text.contains("?섎━") || text.contains("?뺣퉬") || text.contains("怨듭뾽??) -> ReceiptType.REPAIR
+            text.contains("?몄감") || text.contains("WASH") -> ReceiptType.WASH
+            text.contains("二쇱감") || text.contains("PARKING") -> ReceiptType.PARKING
+            text.contains("?앸떦") || text.contains("?몄쓽??) || text.contains("GS25") || text.contains("CU") -> ReceiptType.FOOD
+            else -> ReceiptType.UNKNOWN
+        }
+    }
+
+    /**
+     * 移댁뭅?ㅽ깮???뺤궛 ?곸닔利??뚯떛
+     * 珥앺빀怨? 移댁뭅?ㅽ깮???섏엯, 肄?嫄댁닔, 肄쒕퀎 湲덉븸 異붿텧
+     */
+    private fun parseKakaoTaxiReceipt(text: String): ReceiptResult {
+        val lines = text.lines()
+
+        // 珥앺빀怨?異붿텧
+        val totalAmount = extractKakaoTotal(text)
+
+        // 移댁뭅?ㅽ깮???섏엯 異붿텧
+        val kakaoAmount = extractKakaoIncome(text)
+
+        // ?좎쭨 異붿텧
+        val date = extractDate(text)
+        val time = extractTime(text)
+
+        // 肄?嫄댁닔 諛??곸꽭 異붿텧
+        val callDetails = extractCallDetails(text)
+
+        return ReceiptResult(
+            type = ReceiptType.KAKAO_TAXI,
+            typeName = "移댁뭅?ㅽ깮???뺤궛",
+            amount = totalAmount,
+            time = time,
+            date = date,
+            memo = "移댁뭅?ㅽ깮??${callDetails.size}肄?| 移댁뭅?ㅼ닔??${String.format("%,d", kakaoAmount)}??,
+            rawText = text,
+            callCount = callDetails.size,
+            callDetails = callDetails
+        )
+    }
+
+    private fun extractKakaoTotal(text: String): Int {
+        val patterns = listOf(
+            Regex("珥앺빀怨?\s*[竊?]?\\s*([0-9,]+)"),
+            Regex("??\s*怨?\s*[竊?]?\\s*([0-9,]+)"),
+        )
+        for (pattern in patterns) {
+            val match = pattern.find(text)?.groupValues?.get(1)
+            if (!match.isNullOrEmpty()) return match.replace(",", "").toIntOrNull() ?: 0
+        }
+        return extractAmount(text)
+    }
+
+    private fun extractKakaoIncome(text: String): Int {
+        val pattern = Regex("移댁뭅?ㅽ깮??\s*[竊?]?\\s*([0-9,]+)")
+        return pattern.find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+    }
+
+    private fun extractCallDetails(text: String): List<CallDetail> {
+        val details = mutableListOf<CallDetail>()
+        // ?⑦꽩: 06/11 08:53  0071146554  13,400 ??
+        val pattern = Regex("(\\d{2}/\\d{2}\\s+\\d{2}:\\d{2})\\s+([0-9]{10,})\\s+([0-9,]+)\\s*??)
+        pattern.findAll(text).forEach { match ->
+            val time = match.groupValues[1].trim()
+            val callId = match.groupValues[2].trim()
+            val amount = match.groupValues[3].replace(",", "").toIntOrNull() ?: 0
+            if (amount > 0) details.add(CallDetail(time, callId, amount))
+        }
+        return details
+    }
+
+    private fun parseTmoneyReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.TMONEYGO,
+            typeName = "?댄뻾?뺤궛",
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = "?곕㉧?덇퀬 ?댄뻾",
+            rawText = text
+        )
+    }
+
+    private fun parseLpgReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.LPG,
+            typeName = "異⑹쟾鍮?,
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = extractStationName(text),
+            rawText = text,
+            liters = extractLiters(text),
+            pricePerLiter = extractPricePerLiter(text)
+        )
+    }
+
+    private fun parseHipassReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.HIPASS,
+            typeName = "?듯뻾猷?,
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = extractHighwayRoute(text),
+            rawText = text
+        )
+    }
+
+    private fun parseFoodReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.FOOD,
+            typeName = "?앸퉬",
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = extractStoreName(text),
+            rawText = text
+        )
+    }
+
+    private fun parseRepairReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.REPAIR,
+            typeName = "李⑤웾?뺣퉬",
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = extractStoreName(text),
+            rawText = text
+        )
+    }
+
+    private fun parseWashReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.WASH,
+            typeName = "?몄감鍮?,
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = "?몄감",
+            rawText = text
+        )
+    }
+
+    private fun parseParkingReceipt(text: String): ReceiptResult {
+        return ReceiptResult(
+            type = ReceiptType.PARKING,
+            typeName = "二쇱감鍮?,
+            amount = extractAmount(text),
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = "二쇱감",
+            rawText = text
+        )
+    }
+
+    private fun parseUnknownReceipt(text: String): ReceiptResult? {
+        val amount = extractAmount(text)
+        if (amount == 0) return null
+        return ReceiptResult(
+            type = ReceiptType.UNKNOWN,
+            typeName = "湲고?",
+            amount = amount,
+            time = extractTime(text),
+            date = extractDate(text),
+            memo = "?뺤씤?꾩슂",
+            rawText = text
+        )
+    }
+
+    private fun extractAmount(text: String): Int {
+        val patterns = listOf(
+            Regex("??\s*怨?\s*[竊?]?\\s*[占╈궔]?\\s*([0-9,]+)\\s*??),
+            Regex("寃?\s*??\s*湲?\s*??\s*[竊?]?\\s*[占╈궔]?\\s*([0-9,]+)\\s*??),
+            Regex("珥?\s*湲?\s*??\s*[竊?]?\\s*[占╈궔]?\\s*([0-9,]+)\\s*??),
+            Regex("([0-9,]{4,})\\s*??),
+        )
+        val amounts = mutableListOf<Int>()
+        for (pattern in patterns) {
+            pattern.findAll(text).forEach { match ->
+                match.groupValues.lastOrNull()?.replace(",", "")?.toIntOrNull()?.let { amounts.add(it) }
+            }
+        }
+        return amounts.maxOrNull() ?: 0
+    }
+
+    private fun extractTime(text: String): String {
+        val pattern = Regex("([0-1]?[0-9]|2[0-3])\\s*[竊?]\\s*([0-5][0-9])")
+        return pattern.find(text)?.value?.replace("\\s".toRegex(), "") ?: ""
+    }
+
+    private fun extractDate(text: String): String {
+        val patterns = listOf(
+            Regex("(202[0-9])[./\\-](0?[1-9]|1[0-2])[./\\-](0?[1-9]|[12][0-9]|3[01])"),
+            Regex("(0?[1-9]|1[0-2])[./](0?[1-9]|[12][0-9]|3[01])")
+        )
+        for (pattern in patterns) {
+            val match = pattern.find(text)
+            if (match != null) return match.value
+        }
+        return SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+    }
+
+    private fun extractLiters(text: String): Float {
+        val patterns = listOf(
+            Regex("([0-9]+\\.?[0-9]*)\\s*[Ll]"),
+            Regex("([0-9]+\\.?[0-9]*)\\s*由ы꽣")
+        )
+        for (pattern in patterns) {
+            val match = pattern.find(text)?.groupValues?.get(1)?.toFloatOrNull()
+            if (match != null && match > 0) return match
+        }
+        return 0f
+    }
+
+    private fun extractPricePerLiter(text: String): Int {
+        val pattern = Regex("??\s*媛\\s*[竊?]?\\s*[占╈궔]?\\s*([0-9,]+)")
+        return pattern.find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+    }
+
+    private fun extractStationName(text: String): String {
+        val keywords = listOf("GS移쇳뀓??, "SK?먮꼫吏", "S-OIL", "?꾨??ㅼ씪諭낇겕", "?뚮쑑二쇱쑀??)
+        for (keyword in keywords) {
+            if (text.contains(keyword)) return keyword
+        }
+        return text.lines().firstOrNull { it.isNotBlank() }?.trim()?.take(20) ?: ""
+    }
+
+    private fun extractHighwayRoute(text: String): String {
+        val pattern = Regex("[媛-??{2,6}(IC|JC|?섎뱾紐?遺꾧린??")
+        val matches = pattern.findAll(text).map { it.value }.toList()
+        return if (matches.size >= 2) "${matches.first()} ??${matches.last()}" else matches.firstOrNull() ?: "?듯뻾猷?
+    }
+
+    private fun extractStoreName(text: String): String {
+        return text.lines().firstOrNull { it.isNotBlank() && it.length in 2..20 }?.trim() ?: ""
+    }
+
+    fun resultToJson(result: ReceiptResult): JSONObject {
+        return JSONObject().apply {
+            put("type", result.type.name)
+            put("typeName", result.typeName)
+            put("amount", result.amount)
+            put("time", result.time)
+            put("date", result.date)
+            put("memo", result.memo)
+            put("callCount", result.callCount)
+            if (result.liters > 0) put("liters", result.liters)
+            if (result.pricePerLiter > 0) put("pricePerLiter", result.pricePerLiter)
+        }
+    }
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\ReceiptScanActivity.kt =====
+package com.callradar.app
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.os.Bundle
+import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.callradar.app.ui.theme.CallRadarTheme
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+class ReceiptScanActivity : ComponentActivity() {
+
+    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val ocrService = ReceiptOcrService()
+    private var scanResult by mutableStateOf<ReceiptOcrService.ReceiptResult?>(null)
+    private var isProcessing by mutableStateOf(false)
+    private var statusMessage by mutableStateOf("?곸닔利앹쓣 珥ъ쁺?댁＜?몄슂")
+
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val bitmap = result.data?.extras?.get("data") as? Bitmap
+            if (bitmap != null) processReceipt(bitmap)
+        }
+    }
+
+    private val galleryLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, it)
+            processReceipt(bitmap)
+        }
+    }
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) openCamera()
+        else Toast.makeText(this, "移대찓??沅뚰븳???꾩슂?⑸땲??, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            CallRadarTheme {
+                ReceiptScanScreen()
+            }
+        }
+    }
+
+    private fun openCamera() {
+        cameraLauncher.launch(Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+    }
+
+    private fun processReceipt(bitmap: Bitmap) {
+        isProcessing = true
+        statusMessage = "?곸닔利?遺꾩꽍 以?."
+        scanResult = null
+        ocrService.processReceipt(bitmap) { result ->
+            runOnUiThread {
+                isProcessing = false
+                if (result != null) {
+                    scanResult = result
+                    statusMessage = "遺꾩꽍 ?꾨즺!"
+                } else {
+                    statusMessage = "遺꾩꽍 ?ㅽ뙣 - ?ㅼ떆 珥ъ쁺?댁＜?몄슂"
+                }
+            }
+        }
+    }
+
+    private fun saveResult(result: ReceiptOcrService.ReceiptResult) {
+        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+        val userId = prefs.getString("user_id", null)
+
+        Thread {
+            try {
+                val json = JSONObject().apply {
+                    put("user_id", userId)
+                    put("type", result.type.name)
+                    put("type_name", result.typeName)
+                    put("amount", result.amount)
+                    put("receipt_date", result.date)
+                    put("receipt_time", result.time)
+                    put("memo", result.memo)
+                    put("liters", result.liters)
+                    put("price_per_liter", result.pricePerLiter)
+                    put("distance", result.distance)
+                    put("duration", result.duration)
+                    put("raw_text", result.rawText.take(500))
+                }
+                val url = URL("$SERVER_URL/api/receipts")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.outputStream.write(json.toString().toByteArray())
+                Log.d("CallRadar", "?곸닔利??꾩넚: ${conn.responseCode}")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e("CallRadar", "?곸닔利??꾩넚 ?ㅽ뙣: ${e.message}")
+            }
+        }.start()
+
+        val intent = Intent().apply {
+            putExtra("type", result.type.name)
+            putExtra("typeName", result.typeName)
+            putExtra("amount", result.amount)
+            putExtra("time", result.time)
+            putExtra("date", result.date)
+            putExtra("memo", result.memo)
+        }
+        setResult(Activity.RESULT_OK, intent)
+        finish()
+    }
+
+    @Composable
+    fun ReceiptScanScreen() {
+        val bg = Color(0xFF0A0E1A)
+        val card = Color(0xFF111827)
+        val accent = Color(0xFFF59E0B)
+        val green = Color(0xFF10B981)
+        val red = Color(0xFFEF4444)
+        val muted = Color(0xFF6B7280)
+
+        Column(
+            modifier = Modifier.fillMaxSize().background(bg).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("?곸닔利??먮룞 ?낅젰", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(top = 16.dp, bottom = 16.dp))
+            Text(statusMessage, fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 16.dp))
+
+            if (isProcessing) {
+                CircularProgressIndicator(color = accent, modifier = Modifier.padding(16.dp))
+                Text("OCR 遺꾩꽍 以?.", color = muted, fontSize = 13.sp)
+            }
+
+            scanResult?.let { result ->
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    // 移댁뭅?ㅽ깮???뺤궛 ?꾩슜 移대뱶
+                    if (result.type == ReceiptOcrService.ReceiptType.KAKAO_TAXI) {
+                        KakaoTaxiResultCard(result, card, accent, green, red, muted)
+                    } else {
+                        NormalReceiptCard(result, card, accent, green, red, muted)
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Button(
+                        onClick = { saveResult(result) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("??ν븯湲?, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = { scanResult = null; statusMessage = "?곸닔利앹쓣 珥ъ쁺?댁＜?몄슂" },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)
+                    ) { Text("?ㅼ떆 珥ъ쁺", fontWeight = FontWeight.Bold) }
+                }
+            }
+
+            if (!isProcessing && scanResult == null) {
+                Spacer(Modifier.weight(1f))
+
+                Button(
+                    onClick = {
+                        if (ContextCompat.checkSelfPermission(this@ReceiptScanActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+                            openCamera()
+                        else permissionLauncher.launch(Manifest.permission.CAMERA)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("?곸닔利?珥ъ쁺?섍린", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { galleryLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)
+                ) { Text("媛ㅻ윭由ъ뿉???좏깮", fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+
+    @Composable
+    fun KakaoTaxiResultCard(result: ReceiptOcrService.ReceiptResult, card: Color, accent: Color, green: Color, red: Color, muted: Color) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("?슄 移댁뭅?ㅽ깮???뺤궛", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(result.date, fontSize = 12.sp, color = muted)
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 珥?留ㅼ텧
+                Text("珥?留ㅼ텧", fontSize = 13.sp, color = muted)
+                Text("${result.amount.formatAmount()}??, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = green)
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = Color(0xFF1F2937))
+                Spacer(Modifier.height(12.dp))
+
+                // 肄?嫄댁닔
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("珥?肄?嫄댁닔", fontSize = 14.sp, color = muted)
+                    Text("${result.callCount}嫄?, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
+                }
+
+                if (result.callCount > 0) {
+                    val avgAmount = result.amount / result.callCount
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("肄쒕떦 ?됯퇏", fontSize = 14.sp, color = muted)
+                        Text("${avgAmount.formatAmount()}??, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+
+                // 肄??곸꽭
+                if (result.callDetails.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFF1F2937))
+                    Spacer(Modifier.height(8.dp))
+                    Text("肄??곸꽭", fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    result.callDetails.forEach { detail ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(detail.time, fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                            Text("${detail.amount.formatAmount()}??, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun NormalReceiptCard(result: ReceiptOcrService.ReceiptResult, card: Color, accent: Color, green: Color, red: Color, muted: Color) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getTypeEmoji(result.type) + " " + result.typeName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(result.date, fontSize = 12.sp, color = muted)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("${result.amount.formatAmount()}??, fontSize = 36.sp, fontWeight = FontWeight.Bold, color = if (result.type == ReceiptOcrService.ReceiptType.TMONEYGO) green else red)
+                Spacer(Modifier.height(8.dp))
+                if (result.time.isNotEmpty()) DetailRow("?쒓컙", result.time, muted)
+                if (result.memo.isNotEmpty() && result.memo != "?뺤씤?꾩슂") DetailRow("?댁슜", result.memo, muted)
+                if (result.liters > 0) DetailRow("異⑹쟾??, "${result.liters}L", muted)
+                if (result.pricePerLiter > 0) DetailRow("?④?", "${result.pricePerLiter}??L", muted)
+            }
+        }
+    }
+
+    @Composable
+    fun DetailRow(label: String, value: String, muted: Color) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, fontSize = 13.sp, color = muted)
+            Text(value, fontSize = 13.sp, color = Color(0xFFE5E7EB))
+        }
+    }
+
+    private fun getTypeEmoji(type: ReceiptOcrService.ReceiptType): String {
+        return when (type) {
+            ReceiptOcrService.ReceiptType.KAKAO_TAXI -> "?슄"
+            ReceiptOcrService.ReceiptType.TMONEYGO  -> "?슄"
+            ReceiptOcrService.ReceiptType.LPG       -> "??
+            ReceiptOcrService.ReceiptType.HIPASS    -> "?썵截?
+            ReceiptOcrService.ReceiptType.FOOD      -> "?뜳"
+            ReceiptOcrService.ReceiptType.REPAIR    -> "?뵩"
+            ReceiptOcrService.ReceiptType.WASH      -> "?슼"
+            ReceiptOcrService.ReceiptType.PARKING   -> "?끏截?
+            ReceiptOcrService.ReceiptType.UNKNOWN   -> "?뱞"
+        }
+    }
+
+    private fun Int.formatAmount(): String = String.format("%,d", this)
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\ui\theme\Color.kt =====
+package com.callradar.app.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val Purple80 = Color(0xFFD0BCFF)
+val PurpleGrey80 = Color(0xFFCCC2DC)
+val Pink80 = Color(0xFFEFB8C8)
+
+val Purple40 = Color(0xFF6650a4)
+val PurpleGrey40 = Color(0xFF625b71)
+val Pink40 = Color(0xFF7D5260)
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\ui\theme\Theme.kt =====
+package com.callradar.app.ui.theme
+
+import android.app.Activity
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Purple40,
+    secondary = PurpleGrey40,
+    tertiary = Pink40
+
+    /* Other default colors to override
+    background = Color(0xFFFFFBFE),
+    surface = Color(0xFFFFFBFE),
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color(0xFF1C1B1F),
+    onSurface = Color(0xFF1C1B1F),
+    */
+)
+
+@Composable
+fun CallRadarTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+
+===== C:\CallRadar\app\src\main\java\com\callradar\app\ui\theme\Type.kt =====
+package com.callradar.app.ui.theme
+
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// Set of Material typography styles to start with
+val Typography = Typography(
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    )
+    /* Other default text styles to override
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 0.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
+    )
+    */
+)
+
