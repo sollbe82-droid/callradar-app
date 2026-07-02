@@ -37,23 +37,27 @@ class NaviIntentReceiver : AccessibilityService() {
         )
         private const val MAX_TRIP_DURATION = 5400000L
         private const val DEST_UPDATE_INTERVAL = 30000L
-        private const val TRIGGER_COOLDOWN = 1500L
     }
 
     private var lastPlatform = "알수없음"
     private var lastNaviApp = ""
+    private var lastSentDest = ""
+    private var lastSentTime = 0L
+    private var lastTriggerTime = 0L
     @Volatile private var lastTripId = -1
     private var lastTaxiPlatform = "카카오T"
     @Volatile private var tripStartedAt = 0L
     @Volatile private var tripDestUpdateInFlight = false
     @Volatile private var lastLocalTripId = -1L
+    @Volatile private var isProcessingTaxiScreen = false
     @Volatile private var isSendingTrip = false
-    @Volatile private var isProcessingScreen = false
+    private var clickHandledUntil = 0L
     private var originLat = 0.0
     private var originLng = 0.0
-    private var lastClickTime = 0L
-    private var lastTriggerTime = 0L
+    private val TRIGGER_COOLDOWN = 1000L
+    private val CLICK_SUPPRESS_WINDOW = 2000L
 
+    // 목적지 자동 갱신 타이머
     private val destUpdateHandler = Handler(Looper.getMainLooper())
     private val destUpdateRunnable = object : Runnable {
         override fun run() {
@@ -62,8 +66,8 @@ class NaviIntentReceiver : AccessibilityService() {
                 val lng = LocationTrackingService.currentLng
                 if (lat != 0.0 || lng != 0.0) {
                     val dist = distanceMeters(originLat, originLng, lat, lng)
-                    if (dist > 300 && lastTripId > 0) {
-                        Log.d(TAG, "⏱️ 타이머 갱신 (${dist.toInt()}m)")
+                    if (dist > 300) {
+                        Log.d(TAG, "⏱️ 타이머 목적지 갱신 (출발지에서 ${dist.toInt()}m)")
                         refreshTripDestination(lastTripId, lat, lng)
                     }
                 }
@@ -75,47 +79,67 @@ class NaviIntentReceiver : AccessibilityService() {
     private fun startDestUpdateTimer() {
         destUpdateHandler.removeCallbacks(destUpdateRunnable)
         destUpdateHandler.postDelayed(destUpdateRunnable, DEST_UPDATE_INTERVAL)
+        Log.d(TAG, "⏱️ 목적지 갱신 타이머 시작 (${DEST_UPDATE_INTERVAL/1000}초 간격)")
     }
-    private fun stopDestUpdateTimer() { destUpdateHandler.removeCallbacks(destUpdateRunnable) }
+
+    private fun stopDestUpdateTimer() {
+        destUpdateHandler.removeCallbacks(destUpdateRunnable)
+        Log.d(TAG, "⏱️ 목적지 갱신 타이머 중지")
+    }
 
     private fun distanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val r = 6371000.0; val dLat = Math.toRadians(lat2-lat1); val dLng = Math.toRadians(lng2-lng1)
-        val a = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2)
-        return r*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
+        val r = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2)
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
     }
 
-    // [추가] 디버그 로그 서버 전송
+    // [v3.1 추가] 디버그 로그 서버 전송
     private fun sendDebugLog(event: String, detail: String) {
         Thread {
             try {
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null) ?: return@Thread
-                val json = JSONObject().apply { put("user_id", userId); put("event", event); put("detail", detail) }
+                val json = JSONObject().apply {
+                    put("user_id", userId)
+                    put("event", event)
+                    put("detail", detail)
+                }
                 val conn = (URL("$SERVER_URL/api/debug/log").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json")
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 5000; readTimeout = 5000
                 }
-                conn.outputStream.write(json.toString().toByteArray()); conn.responseCode; conn.disconnect()
+                conn.outputStream.write(json.toString().toByteArray())
+                conn.responseCode
+                conn.disconnect()
             } catch (e: Exception) { /* 무시 */ }
         }.start()
     }
 
     override fun onServiceConnected() {
         serviceInfo = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED or
-                        AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                        AccessibilityEvent.TYPE_VIEW_CLICKED
             packageNames = TAXI_APPS.toTypedArray()
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 100
             flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
-        sendDebugLog("SERVICE", "v6.1 연결됨")
-        Log.d(TAG, "NaviIntentReceiver v6.1 연결됨")
-        Thread { Thread.sleep(5000); LocalTripDatabase.getInstance(this).syncPendingTrips(this) }.start()
-        try { startForegroundService(Intent(this, LocationTrackingService::class.java)) }
-        catch (e: Exception) { Log.e(TAG, "GPS 시작 실패: ${e.message}") }
+        sendDebugLog("SERVICE", "v3.1 연결됨")
+        Log.d(TAG, "NaviIntentReceiver v3.1 연결됨 (택시앱 전용)")
+        Thread {
+            Thread.sleep(5000)
+            LocalTripDatabase.getInstance(this).syncPendingTrips(this)
+        }.start()
+        try {
+            startForegroundService(Intent(this, LocationTrackingService::class.java))
+        } catch (e: Exception) {
+            Log.e(TAG, "GPS 시작 실패: ${e.message}")
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -125,58 +149,37 @@ class NaviIntentReceiver : AccessibilityService() {
         val now = System.currentTimeMillis()
 
         if (lastTripId > 0 && tripStartedAt > 0 && now - tripStartedAt > MAX_TRIP_DURATION) {
-            Log.d(TAG, "트립 90분 초과, 강제 마감")
+            Log.d(TAG, "트립 90분 초과, 강제 마감 처리")
             finalizeCurrentTrip(0)
         }
 
-        // [수정] 티머니 네비는 플랫폼 변경 안 함 (카카오T+티머니네비 동시 사용)
-        if (pkg != TMONEYGO_NAVI) {
-            lastTaxiPlatform = PLATFORM_NAMES[pkg] ?: "카카오T"
-            lastPlatform = lastTaxiPlatform
-        }
+        lastTaxiPlatform = PLATFORM_NAMES[pkg] ?: "카카오T"
+        lastPlatform = lastTaxiPlatform
 
-        // ★ 1순위: 클릭 이벤트 (우버/티머니만 유효, 카카오T는 Knox 차단)
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val clickedText = ((event.contentDescription?.toString() ?: "") +
-                " " + (event.text?.joinToString(" ") ?: "")).trim()
-            if (clickedText.isBlank()) return
-            if (now - lastClickTime < 1000) return
-            lastClickTime = now
-
-            Log.d(TAG, "🖱️ 클릭: '$clickedText' ($lastPlatform)")
-            sendDebugLog("CLICK", "$lastPlatform | $clickedText")
-
-            // 시작 클릭 (승객탑승만, 운행시작 제외)
-            if (clickedText.contains("승객탑승") || clickedText.contains("승객 탑승")) {
-                Log.d(TAG, "🟢 클릭→운행 시작!")
-                sendDebugLog("CLICK_START", lastPlatform)
-                startTripIfNeeded()
-                return
-            }
-
-            // 종료 클릭
-            if (clickedText.contains("승객하차") || clickedText.contains("승객 하차") ||
-                clickedText.contains("요금입력하기") || clickedText.contains("요금 입력하기") ||
-                clickedText.contains("하차 완료") || clickedText.contains("결제요청") || clickedText.contains("결제 요청")) {
-                Log.d(TAG, "🔴 클릭→운행 종료!")
-                sendDebugLog("CLICK_END", lastPlatform)
-                if (lastTripId > 0) {
-                    val fare = tryExtractFareFromScreen()
-                    finalizeCurrentTrip(fare)
-                }
+            val clickedText = event.contentDescription?.toString()
+                ?: event.text?.firstOrNull()?.toString() ?: ""
+            Log.d(TAG, "클릭 감지: $clickedText")
+            // [v3.1 추가] "손님 탑승"/"손님탑승" 추가
+            if (clickedText.contains("길안내") || clickedText.contains("탑승") || clickedText.contains("손님") || clickedText.contains("운행 완료") || clickedText.contains("운행완료")) {
+                Log.d(TAG, "길안내/탑승/손님 버튼 클릭! 즉시 파싱")
+                sendDebugLog("CLICK", "$lastPlatform | $clickedText")
+                clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
+                lastTriggerTime = now
+                Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 300)
                 return
             }
         }
 
-        // ★ 2순위: 화면 텍스트 분석
+        if (now < clickHandledUntil) return
         if (now - lastTriggerTime < TRIGGER_COOLDOWN) return
         lastTriggerTime = now
-        Handler(mainLooper).postDelayed({ analyzeScreen(pkg) }, 500)
+        Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 500)
     }
 
-    private fun analyzeScreen(pkg: String) {
-        if (isProcessingScreen) return
-        isProcessingScreen = true
+    private fun extractTaxiInfo(pkg: String) {
+        if (isProcessingTaxiScreen) return
+        isProcessingTaxiScreen = true
         try {
             val root = rootInActiveWindow ?: return
             val lines = mutableListOf<String>()
@@ -188,112 +191,91 @@ class NaviIntentReceiver : AccessibilityService() {
             }
             traverse(root)
             val allText = lines.joinToString("\n")
+            Log.d(TAG, "택시앱($lastPlatform) 화면:\n${allText.take(500)}")
 
-            // 평가 화면 무시
             if (allText.contains("라이더") && allText.contains("평가")) return
 
-            // 결제 완료 화면 → 트립 마감 (모든 플랫폼 백업)
-            if (lastTripId > 0) {
-                val isCompletion = allText.contains("자동결제 완료") ||
-                    allText.contains("결제 요금") || allText.contains("영수증") ||
-                    (pkg == UBER && allText.contains("운행 완료"))
-                if (isCompletion) {
-                    val fare = extractFare(lines)
-                    Log.d(TAG, "✅ 결제 화면 감지(백업), 요금: ${fare}원")
-                    sendDebugLog("PAYMENT", "백업감지 ${fare}원")
-                    finalizeCurrentTrip(fare)
-                    return
-                }
+            // 완료/결제 신호
+            val isCompletionSignal = when (pkg) {
+                UBER -> allText.contains("운행 완료") || allText.contains("영수증") ||
+                    allText.contains("결제 완료") || allText.contains("운행이 완료")
+                TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
+                    allText.contains("결제 요금") ||
+                    (allText.contains("미터기 요금") && allText.contains("결제요청")) ||
+                    allText.contains("밀어서 운행종료")
+                else -> allText.contains("자동결제 완료") ||
+                    allText.contains("결제 요금") ||
+                    (allText.contains("미터기 요금") && allText.contains("결제요청"))
             }
 
-            // [수정] 유령기록 방지: "설정" 필터 제거 (카카오T 화면에 "앱 이용 설정" 텍스트 때문에 전체 무시됨)
-            val isIgnoreScreen = allText.contains("콜 대기") || allText.contains("배차") ||
-                allText.contains("공지") || allText.contains("미션") ||
-                allText.contains("Samsung") || allText.contains("카카오톡") ||
-                allText.contains("콜 잡기") || allText.contains("호출") ||
-                allText.contains("홈 화면")
-            if (isIgnoreScreen) return
-
-            // ★ 카카오T 전용: 화면 텍스트로 시작/종료 (Knox 클릭 차단 우회)
-            if (pkg == KAKAO_TAXI) {
-                // [수정] "손님 위치"/"운행 중단" 화면 제외 (콜 수락 후 데리러 가는 중 = 아직 탑승 아님)
-                val kakaoActive = (allText.contains("승객탑승") || (allText.contains("길안내") && allText.contains("탑승")))
-                    && !allText.contains("콜 대기") && !allText.contains("배차") && !allText.contains("콜 잡기")
-                    && !allText.contains("손님 위치") && !allText.contains("운행 중단")
-                if (kakaoActive && lastTripId <= 0) {
-                    Log.d(TAG, "🟢 카카오T 화면→운행 시작!")
-                    sendDebugLog("KAKAO_START", "화면감지")
-                    startTripIfNeeded()
-                    return
-                }
-                if (lastTripId > 0 && (allText.contains("승객하차") || allText.contains("요금입력하기") || allText.contains("하차 완료") || allText.contains("자동결제") || allText.contains("결제 요금") || allText.contains("요금 결제 요청") || allText.contains("탑승한 손님은 어떠셨나요") || allText.contains("입력하신 요금이 맞습니까"))) {
+            if (isCompletionSignal) {
+                if (lastTripId > 0) {
                     val fare = extractFare(lines)
-                    Log.d(TAG, "🔴 카카오T 화면→종료! ${fare}원")
-                    sendDebugLog("KAKAO_END", "${fare}원")
+                    Log.d(TAG, "✅ 운행 종료 신호 ($lastPlatform), 마감 (요금: ${fare}원)")
+                    sendDebugLog("TRIP_END", "#$lastTripId | ${fare}원")
                     finalizeCurrentTrip(fare)
-                    return
-                }
-                // [수정] 카카오T GPS 갱신 — 같은 플랫폼일 때만
-                if (lastTripId > 0 && PLATFORM_NAMES[pkg] == lastTaxiPlatform) {
-                    val lat = LocationTrackingService.currentLat; val lng = LocationTrackingService.currentLng
-                    if (lat != 0.0 || lng != 0.0) { val dist = distanceMeters(originLat, originLng, lat, lng); if (dist > 300) refreshTripDestination(lastTripId, lat, lng) }
                 }
                 return
             }
 
-            // ★ 우버/티머니: 화면은 GPS 갱신만 (시작은 클릭으로만)
-            val isActiveCall = when (pkg) {
+            // 활성 콜 화면 판단 — v3 원본 그대로 + "손님 탑승" 추가
+            val isActiveCallScreen = when (pkg) {
                 UBER -> allText.contains("탑승 완료") || allText.contains("승객 탑승") ||
                     allText.contains("운행 시작") || allText.contains("요금 입력하기") ||
                     (allText.contains("목적지") && allText.contains("도착"))
-                TMONEYGO, TMONEYGO_NAVI -> (allText.contains("출발지 길안내") || allText.contains("목적지 길안내") ||
-                    allText.contains("승객 탑승")) && !allText.contains("밀어서 운행종료")
-                else -> false
+                TMONEYGO, TMONEYGO_NAVI -> (allText.contains("출발지 길안내") || allText.contains("목적지 길안내"))
+                    && !allText.contains("밀어서 운행종료")
+                    && !allText.contains("공지") && !allText.contains("미션")
+                    && !allText.contains("Samsung") && !allText.contains("카카오톡")
+                // [v3.1 수정] "손님 탑승"/"손님탑승" 추가
+                else -> (allText.contains("길안내") && allText.contains("탑승"))
+                    || allText.contains("손님 탑승") || allText.contains("손님탑승")
+                    && !allText.contains("밀어서 운행종료")
+                    && !allText.contains("콜 대기") && !allText.contains("배차")
             }
-            if (!isActiveCall) return
 
-            // [수정] GPS 갱신만 — 같은 플랫폼일 때만
-            if (lastTripId > 0 && PLATFORM_NAMES[pkg] == lastTaxiPlatform) {
-                val lat = LocationTrackingService.currentLat; val lng = LocationTrackingService.currentLng
-                if (lat != 0.0 || lng != 0.0) { val dist = distanceMeters(originLat, originLng, lat, lng); if (dist > 300) refreshTripDestination(lastTripId, lat, lng) }
+            if (!isActiveCallScreen) {
+                Log.d(TAG, "콜 화면 아님 -> 무시")
+                return
             }
 
+            val curLat = LocationTrackingService.currentLat
+            val curLng = LocationTrackingService.currentLng
+            val locationAge = System.currentTimeMillis() - LocationTrackingService.lastLocationTime
+            if (curLat == 0.0 && curLng == 0.0) {
+                Log.d(TAG, "GPS 아직 없음")
+                sendDebugLog("GPS_FAIL", "좌표없음")
+                return
+            }
+            if (locationAge > 5 * 60 * 1000L) {
+                Log.d(TAG, "GPS 스테일 (${locationAge/1000}초)")
+                sendDebugLog("GPS_FAIL", "스테일 ${locationAge/1000}초")
+                return
+            }
+
+            if (lastTripId <= 0) {
+                sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
+                createNewTripWithGps(curLat, curLng)
+            } else {
+                val dist = distanceMeters(originLat, originLng, curLat, curLng)
+                if (dist > 300) {
+                    refreshTripDestination(lastTripId, curLat, curLng)
+                }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "화면 분석 오류: ${e.message}")
+            Log.e(TAG, "택시앱 오류: ${e.message}")
         } finally {
-            isProcessingScreen = false
+            isProcessingTaxiScreen = false
         }
     }
 
-    private fun startTripIfNeeded() {
-        if (lastTripId > 0) return
-        val lat = LocationTrackingService.currentLat
-        val lng = LocationTrackingService.currentLng
-        val locationAge = System.currentTimeMillis() - LocationTrackingService.lastLocationTime
-        if (lat == 0.0 && lng == 0.0) { Log.d(TAG, "GPS 없음"); sendDebugLog("GPS_FAIL", "좌표없음"); return }
-        if (locationAge > 5 * 60 * 1000L) { Log.d(TAG, "GPS 스테일"); sendDebugLog("GPS_FAIL", "스테일 ${locationAge/1000}초"); return }
-        createNewTripWithGps(lat, lng)
-    }
-
-    private fun tryExtractFareFromScreen(): Int {
-        try {
-            val root = rootInActiveWindow ?: return 0
-            val lines = mutableListOf<String>()
-            fun traverse(node: android.view.accessibility.AccessibilityNodeInfo?) {
-                node ?: return
-                node.text?.toString()?.trim()?.let { if (it.isNotEmpty()) lines.add(it) }
-                for (i in 0 until node.childCount) traverse(node.getChild(i))
-            }
-            traverse(root)
-            return extractFare(lines)
-        } catch (e: Exception) { return 0 }
-    }
-
     private fun createNewTripWithGps(lat: Double, lng: Double) {
-        if (isSendingTrip || lastTripId > 0) return
+        if (isSendingTrip) return
+        if (lastTripId > 0) return
         isSendingTrip = true
         tripStartedAt = System.currentTimeMillis()
-        originLat = lat; originLng = lng
+        originLat = lat
+        originLng = lng
         Thread {
             try {
                 val oName = reverseGeocode(lat, lng) ?: ""
@@ -301,14 +283,18 @@ class NaviIntentReceiver : AccessibilityService() {
                 val userId = prefs.getString("user_id", null)
                 val now = Date()
                 val startedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA).format(now)
+
                 val db = LocalTripDatabase.getInstance(this)
                 val localId = db.savePending(userId, lastPlatform, oName, oName, lat, lng, lat, lng, startedAt)
                 lastLocalTripId = localId
+
                 try {
                     val json = JSONObject().apply {
-                        put("user_id", userId); put("platform", lastPlatform); put("naviApp", lastNaviApp)
-                        put("depLat", lat); put("depLng", lng); put("destName", oName)
-                        put("destLat", lat); put("destLng", lng); put("originName", oName)
+                        put("user_id", userId); put("platform", lastPlatform)
+                        put("naviApp", lastNaviApp)
+                        put("depLat", lat); put("depLng", lng)
+                        put("destName", oName); put("destLat", lat); put("destLng", lng)
+                        put("originName", oName)
                         put("time", SimpleDateFormat("HH:mm", Locale.KOREA).format(now))
                         put("dayOfWeek", SimpleDateFormat("E", Locale.KOREA).format(now))
                         put("date", SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(now))
@@ -323,14 +309,22 @@ class NaviIntentReceiver : AccessibilityService() {
                     lastTripId = resJson.optInt("id", -1)
                     if (lastTripId > 0) {
                         db.markSynced(localId, lastTripId)
-                        Log.d(TAG, "🚕 트립 생성: #$lastTripId | $oName | $lastPlatform")
-                        sendDebugLog("TRIP_START", "#$lastTripId | $oName | $lastPlatform")
+                        Log.d(TAG, "🚕 새 트립: #$lastTripId | $oName | $lastPlatform")
                     }
                     conn.disconnect()
-                } catch (e: Exception) { Log.e(TAG, "서버 전송 실패: ${e.message}"); lastTripId = -1 }
+                } catch (e: Exception) {
+                    Log.e(TAG, "서버 전송 실패: ${e.message}")
+                    lastTripId = -1
+                }
+                lastSentDest = oName
+                lastSentTime = System.currentTimeMillis()
+                // 타이머 시작
                 Handler(Looper.getMainLooper()).post { startDestUpdateTimer() }
-            } catch (e: Exception) { Log.e(TAG, "트립 생성 실패: ${e.message}") }
-            finally { isSendingTrip = false }
+            } catch (e: Exception) {
+                Log.e(TAG, "트립 생성 실패: ${e.message}")
+            } finally {
+                isSendingTrip = false
+            }
         }.start()
     }
 
@@ -343,23 +337,33 @@ class NaviIntentReceiver : AccessibilityService() {
                 if (destName.isNullOrEmpty()) return@Thread
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null)
-                val json = JSONObject().apply { put("user_id", userId); put("destination", destName); put("dest_lat", lat); put("dest_lng", lng) }
-                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 30000; readTimeout = 30000
+                val json = JSONObject().apply {
+                    put("user_id", userId); put("destination", destName)
+                    put("dest_lat", lat); put("dest_lng", lng)
                 }
-                conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
-                Log.d(TAG, "📍 목적지 갱신: #$tripId -> $destName"); conn.disconnect()
-            } catch (e: Exception) { Log.e(TAG, "목적지 갱신 실패: ${e.message}") }
-            finally { tripDestUpdateInFlight = false }
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
+                    doOutput = true; connectTimeout = 30000; readTimeout = 30000
+                }
+                conn.outputStream.write(json.toString().toByteArray())
+                conn.responseCode
+                Log.d(TAG, "📍 목적지 갱신: #$tripId -> $destName")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e(TAG, "목적지 갱신 실패: ${e.message}")
+            } finally {
+                tripDestUpdateInFlight = false
+            }
         }.start()
     }
 
     private fun finalizeCurrentTrip(fare: Int) {
-        val tripId = lastTripId; if (tripId <= 0) return
+        val tripId = lastTripId
+        if (tripId <= 0) return
         lastTripId = -1
         stopDestUpdateTimer()
-        sendDebugLog("TRIP_END", "#$tripId | ${fare}원")
-        val lat = LocationTrackingService.currentLat; val lng = LocationTrackingService.currentLng
+        val lat = LocationTrackingService.currentLat
+        val lng = LocationTrackingService.currentLng
         Thread {
             try {
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
@@ -371,40 +375,65 @@ class NaviIntentReceiver : AccessibilityService() {
                         val dist = distanceMeters(originLat, originLng, lat, lng)
                         if (dist > 300) {
                             val destName = reverseGeocode(lat, lng)
-                            if (!destName.isNullOrEmpty()) { put("destination", destName); put("dest_lat", lat); put("dest_lng", lng) }
+                            if (!destName.isNullOrEmpty()) {
+                                put("destination", destName); put("dest_lat", lat); put("dest_lng", lng)
+                            }
                         }
                     }
                 }
                 val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 30000; readTimeout = 30000
+                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
+                    doOutput = true; connectTimeout = 30000; readTimeout = 30000
                 }
-                conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
-                Log.d(TAG, "✅ 트립 마감: #$tripId (요금: ${fare}원)"); conn.disconnect()
-                if (lastLocalTripId > 0) { val destName = reverseGeocode(lat, lng) ?: ""; LocalTripDatabase.getInstance(this).updateDestination(lastLocalTripId, destName, lat, lng, fare) }
-            } catch (e: Exception) { Log.e(TAG, "트립 마감 실패: ${e.message}") }
-            finally { synchronized(this) { lastLocalTripId = -1; tripStartedAt = 0L; originLat = 0.0; originLng = 0.0 } }
+                conn.outputStream.write(json.toString().toByteArray())
+                conn.responseCode
+                Log.d(TAG, "✅ 트립 마감: #$tripId (요금: ${fare}원)")
+                conn.disconnect()
+                if (lastLocalTripId > 0) {
+                    val destName = reverseGeocode(lat, lng) ?: ""
+                    LocalTripDatabase.getInstance(this).updateDestination(lastLocalTripId, destName, lat, lng, fare)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "트립 마감 실패: ${e.message}")
+            } finally {
+                synchronized(this) {
+                    lastTripId = -1; lastLocalTripId = -1
+                    lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L
+                    originLat = 0.0; originLng = 0.0
+                }
+            }
         }.start()
     }
 
+    // [v3.1 수정] Nominatim 직접 호출 (서버 경유 제거)
     private fun reverseGeocode(lat: Double, lng: Double): String? {
         return try {
             val conn = (URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&addressdetails=1&accept-language=ko").openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10000; readTimeout = 10000; setRequestProperty("User-Agent", "CallRadar/1.0")
+                connectTimeout = 10000; readTimeout = 10000
+                setRequestProperty("User-Agent", "CallRadar/1.0")
             }
-            val raw = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-            val json = JSONObject(raw); val addr = json.optJSONObject("address")
+            val raw = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            val json = JSONObject(raw)
+            val addr = json.optJSONObject("address")
             val district = addr?.optString("borough", addr.optString("suburb", addr.optString("quarter", ""))) ?: ""
             val neighbourhood = addr?.optString("neighbourhood", addr.optString("residential", "")) ?: ""
             val city = addr?.optString("city", addr.optString("county", "")) ?: ""
             listOf(district, neighbourhood).filter { it.isNotEmpty() }.distinct().joinToString(" ").ifEmpty { city }
-        } catch (e: Exception) { Log.e(TAG, "역지오코딩 실패: ${e.message}"); null }
+        } catch (e: Exception) {
+            Log.e(TAG, "역지오코딩 실패: ${e.message}")
+            null
+        }
     }
 
     private fun extractFare(lines: List<String>): Int {
         val allText = lines.joinToString(" ")
         for (pattern in FARE_PATTERNS) {
             val match = pattern.find(allText)?.groupValues?.get(1)
-            if (!match.isNullOrEmpty()) { val amount = match.replace(",", "").toIntOrNull() ?: 0; if (amount in 1000..500000) return amount }
+            if (!match.isNullOrEmpty()) {
+                val amount = match.replace(",", "").toIntOrNull() ?: 0
+                if (amount in 1000..500000) return amount
+            }
         }
         return 0
     }
