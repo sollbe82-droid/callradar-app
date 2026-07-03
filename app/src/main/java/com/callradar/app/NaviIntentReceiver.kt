@@ -220,9 +220,10 @@ class NaviIntentReceiver : AccessibilityService() {
                     allText.contains("결제 요금") ||
                     (allText.contains("미터기 요금") && allText.contains("결제요청")) ||
                     allText.contains("밀어서 운행종료")
-                else -> allText.contains("자동결제 완료") ||
+               else -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금") ||
-                    (allText.contains("미터기 요금") && allText.contains("결제요청"))
+                    allText.contains("입력하신 요금이 맞습니까") ||
+                    allText.contains("탑승한 손님은 어떠셨나요")
             }
 
             if (isCompletionSignal) {
