@@ -210,12 +210,14 @@ class NaviIntentReceiver : AccessibilityService() {
             val allText = lines.joinToString("\n")
             Log.d(TAG, "택시앱($lastPlatform) 화면:\n${allText.take(500)}")
 
-            if (allText.contains("라이더") && allText.contains("평가")) return
+            if (lastTripId <= 0 && allText.contains("라이더") && allText.contains("평가")) return
 
             // 완료/결제 신호
             val isCompletionSignal = when (pkg) {
-                UBER -> allText.contains("영수증") ||
-                    allText.contains("결제 완료") || allText.contains("운행이 완료")
+               UBER -> allText.contains("영수증") ||
+                    allText.contains("결제 완료") || allText.contains("운행이 완료") ||
+                    ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines) > 0) ||
+                    (allText.contains("라이더") && allText.contains("평가해 주세요"))
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금") ||
                     (allText.contains("미터기 요금") && allText.contains("결제요청")) ||
