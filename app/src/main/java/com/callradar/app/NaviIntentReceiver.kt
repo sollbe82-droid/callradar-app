@@ -214,7 +214,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
             // 완료/결제 신호
             val isCompletionSignal = when (pkg) {
-               UBER -> allText.contains("영수증") ||
+                UBER -> allText.contains("영수증") ||
                     allText.contains("결제 완료") || allText.contains("운행이 완료") ||
                     ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines) > 0) ||
                     (allText.contains("라이더") && allText.contains("평가해 주세요"))
@@ -222,10 +222,11 @@ class NaviIntentReceiver : AccessibilityService() {
                     allText.contains("결제 요금") ||
                     (allText.contains("미터기 요금") && allText.contains("결제요청")) ||
                     allText.contains("밀어서 운행종료")
-               else -> allText.contains("자동결제 완료") ||
+                else -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금") ||
                     allText.contains("입력하신 요금이 맞습니까") ||
-                    allText.contains("탑승한 손님은 어떠셨나요")
+                    allText.contains("탑승한 손님은 어떠셨나요") ||
+                    allText.contains("손님이 직접결제 하셨나요")
             }
 
             if (isCompletionSignal) {
@@ -291,7 +292,12 @@ class NaviIntentReceiver : AccessibilityService() {
 
     private fun createNewTripWithGps(lat: Double, lng: Double) {
         if (isSendingTrip) return
-        if (lastTripId > 0) return
+        if (lastTripId > 0) {
+            Log.d(TAG, "⚠️ 이전 트립 #$lastTripId 미종료, 강제 마감")
+            sendDebugLog("FORCE_END", "#$lastTripId | 새콜시작으로 강제종료")
+            finalizeCurrentTrip(0)
+            Thread.sleep(500)
+        }
         isSendingTrip = true
         tripStartedAt = System.currentTimeMillis()
         originLat = lat
@@ -446,7 +452,7 @@ class NaviIntentReceiver : AccessibilityService() {
         }
     }
 
-   private fun extractFare(lines: List<String>): Int {
+    private fun extractFare(lines: List<String>): Int {
         val allText = lines.joinToString(" ")
         var maxFare = 0
         for (pattern in FARE_PATTERNS) {
