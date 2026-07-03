@@ -160,8 +160,25 @@ class NaviIntentReceiver : AccessibilityService() {
             val clickedText = event.contentDescription?.toString()
                 ?: event.text?.firstOrNull()?.toString() ?: ""
             Log.d(TAG, "클릭 감지: $clickedText")
-            // [v3.1 추가] "손님 탑승"/"손님탑승" 추가
-            if (clickedText.contains("길안내") || clickedText.contains("탑승") || clickedText.contains("손님") || clickedText.contains("운행 완료") || clickedText.contains("운행완료")) {
+            // [v3.1 수정] 우버 "운행 완료" 클릭 → 즉시 금액 읽기 (딜레이 없이)
+            if (clickedText.contains("운행 완료") || clickedText.contains("운행완료")) {
+                Log.d(TAG, "운행 완료 클릭! 즉시 금액 읽기")
+                if (lastTripId > 0) {
+                    try {
+                        val root = rootInActiveWindow
+                        if (root != null) {
+                            val fareLines = mutableListOf<String>()
+                            fun t(n: android.view.accessibility.AccessibilityNodeInfo?) { n ?: return; n.text?.toString()?.trim()?.let { if (it.isNotEmpty()) fareLines.add(it) }; for (i in 0 until n.childCount) t(n.getChild(i)) }
+                            t(root)
+                            val fare = extractFare(fareLines)
+                            sendDebugLog("CLICK_END", "$lastPlatform | $clickedText | ${fare}원")
+                            finalizeCurrentTrip(fare)
+                        }
+                    } catch (e: Exception) { Log.e(TAG, "운행완료 금액 읽기 실패: ${e.message}") }
+                }
+                return
+            }
+            if (clickedText.contains("길안내") || clickedText.contains("탑승") || clickedText.contains("손님")) {
                 Log.d(TAG, "길안내/탑승/손님 버튼 클릭! 즉시 파싱")
                 sendDebugLog("CLICK", "$lastPlatform | $clickedText")
                 clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
@@ -197,7 +214,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
             // 완료/결제 신호
             val isCompletionSignal = when (pkg) {
-                UBER -> allText.contains("운행 완료") || allText.contains("영수증") ||
+                UBER -> allText.contains("영수증") ||
                     allText.contains("결제 완료") || allText.contains("운행이 완료")
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금") ||
