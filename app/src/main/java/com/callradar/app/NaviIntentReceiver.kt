@@ -443,16 +443,17 @@ class NaviIntentReceiver : AccessibilityService() {
         }
     }
 
-    private fun extractFare(lines: List<String>): Int {
+   private fun extractFare(lines: List<String>): Int {
         val allText = lines.joinToString(" ")
+        var maxFare = 0
         for (pattern in FARE_PATTERNS) {
-            val match = pattern.find(allText)?.groupValues?.get(1)
-            if (!match.isNullOrEmpty()) {
-                val amount = match.replace(",", "").toIntOrNull() ?: 0
-                if (amount in 1000..500000) return amount
+            val matches = pattern.findAll(allText)
+            for (m in matches) {
+                val amount = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
+                if (amount in 1000..500000 && amount > maxFare) maxFare = amount
             }
         }
-        return 0
+        return maxFare
     }
 
     override fun onInterrupt() { Log.d(TAG, "NaviIntentReceiver 중단") }
