@@ -230,10 +230,10 @@ class NaviIntentReceiver : AccessibilityService() {
             }
 
             if (isCompletionSignal) {
-                if (lastTripId > 0) {
                     val fare = extractFare(lines)
                     Log.d(TAG, "✅ 운행 종료 신호 ($lastPlatform), 마감 (요금: ${fare}원)")
                     sendDebugLog("TRIP_END", "#$lastTripId | ${fare}원")
+                    sendDebugLog("END_SCREEN", allText.take(300))
                     finalizeCurrentTrip(fare)
                 }
                 return
