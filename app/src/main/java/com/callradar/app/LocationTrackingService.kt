@@ -70,11 +70,11 @@ class LocationTrackingService : Service() {
 
     private fun startLocationTracking() {
         if (isTracking) return
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000L
+       val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 10000L
         ).apply {
-            setMinUpdateDistanceMeters(30f)
             setGranularity(Granularity.GRANULARITY_FINE)
+            setMaxUpdateDelayMillis(15000L)
         }.build()
 
         try {
