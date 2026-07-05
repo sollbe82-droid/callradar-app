@@ -47,6 +47,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastTriggerTime = 0L
     @Volatile private var lastTripId = -1
     private var lastTaxiPlatform = "카카오T"
+    private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
     @Volatile private var tripStartedAt = 0L
     @Volatile private var tripDestUpdateInFlight = false
     @Volatile private var lastLocalTripId = -1L
@@ -290,6 +291,16 @@ class NaviIntentReceiver : AccessibilityService() {
             }
 
             if (lastTripId <= 0) {
+                tripPlatform = lastPlatform
+                sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
+                createNewTripWithGps(curLat, curLng)
+            } else if (lastPlatform != tripPlatform) {
+                // 다른 플랫폼 활성 화면 → 이전 트립 강제 종료 + 새 트립
+                Log.d(TAG, "⚠️ 플랫폼 변경: $tripPlatform → $lastPlatform, 이전 트립 강제 종료")
+                sendDebugLog("FORCE_END", "#$lastTripId | $tripPlatform→$lastPlatform")
+                finalizeCurrentTrip(0)
+                Thread.sleep(500)
+                tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
                 createNewTripWithGps(curLat, curLng)
             } else {
@@ -440,7 +451,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 synchronized(this) {
                     lastTripId = -1; lastLocalTripId = -1
                     lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L
-                    originLat = 0.0; originLng = 0.0
+                    originLat = 0.0; originLng = 0.0; tripPlatform = ""
                 }
             }
         }.start()
