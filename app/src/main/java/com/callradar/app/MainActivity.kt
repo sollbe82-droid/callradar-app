@@ -103,7 +103,7 @@ class MainActivity : ComponentActivity() {
         var userNickname by remember { mutableStateOf(prefs.getString(KEY_NICKNAME, "") ?: "") }
         var userId by remember { mutableStateOf(prefs.getString(KEY_USER_ID, "") ?: "") }
         var onboardingDone by remember { mutableStateOf(prefs.getBoolean(KEY_ONBOARDING_DONE, false)) }
-        var isSetupComplete by remember { mutableStateOf(prefs.getBoolean("setup_complete", false)) }
+        var isSetupComplete by remember { mutableStateOf(prefs.getBoolean("setup_complete", false) && androidx.core.content.ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
         when {
             !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
                 prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
