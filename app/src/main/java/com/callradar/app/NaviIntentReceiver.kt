@@ -219,9 +219,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines) > 0) ||
                     (allText.contains("라이더") && allText.contains("평가해 주세요"))
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
-                    allText.contains("결제 요금") ||
-                    (allText.contains("미터기 요금") && allText.contains("결제요청")) ||
-                    allText.contains("밀어서 운행종료")
+                    allText.contains("결제 요금")
                 else -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금") ||
                     allText.contains("입력하신 요금이 맞습니까") ||
@@ -454,7 +452,8 @@ class NaviIntentReceiver : AccessibilityService() {
     }
 
     private fun extractFare(lines: List<String>): Int {
-        val allText = lines.joinToString(" ")
+        val filteredLines = lines.filter { !it.contains("지급") && !it.contains("미션") && !it.contains("포인트") }
+        val allText = filteredLines.joinToString(" ")
         var maxFare = 0
         for (pattern in FARE_PATTERNS) {
             val matches = pattern.findAll(allText)
