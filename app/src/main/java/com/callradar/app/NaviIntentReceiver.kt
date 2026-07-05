@@ -31,6 +31,7 @@ class NaviIntentReceiver : AccessibilityService() {
         private val FARE_PATTERNS = listOf(
             Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
             Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
+            Regex("미터기\\s*요금\\s*\\n\\s*([0-9,]+)"),
             Regex("총\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("₩\\s*([0-9,]+)"),
             Regex("([0-9,]{4,})\\s*원")
@@ -211,6 +212,21 @@ class NaviIntentReceiver : AccessibilityService() {
             Log.d(TAG, "택시앱($lastPlatform) 화면:\n${allText.take(500)}")
 
             if (lastTripId <= 0 && allText.contains("라이더") && allText.contains("평가")) return
+
+            // 운행 중인데 대기 화면 감지 = 취소 완료
+            if (lastTripId > 0) {
+                val isCancelledToIdle = when (pkg) {
+                    TMONEYGO, TMONEYGO_NAVI -> allText.contains("콜 리스트") && !allText.contains("출발지 길안내") && !allText.contains("목적지 길안내") && !allText.contains("승객 탑승")
+                    KAKAO_TAXI -> allText.contains("콜 대기") || allText.contains("퇴근하기")
+                    else -> false
+                }
+                if (isCancelledToIdle) {
+                    Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
+                    sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
+                    finalizeCurrentTrip(0)
+                    return
+                }
+            }
 
             // 완료/결제 신호
             val isCompletionSignal = when (pkg) {
