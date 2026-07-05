@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
         var userNickname by remember { mutableStateOf(prefs.getString(KEY_NICKNAME, "") ?: "") }
         var userId by remember { mutableStateOf(prefs.getString(KEY_USER_ID, "") ?: "") }
         var onboardingDone by remember { mutableStateOf(prefs.getBoolean(KEY_ONBOARDING_DONE, false)) }
+        var isSetupComplete by remember { mutableStateOf(prefs.getBoolean("setup_complete", false)) }
         when {
             !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
                 prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
@@ -111,7 +112,7 @@ class MainActivity : ComponentActivity() {
             !onboardingDone -> OnboardingScreen(nickname = userNickname, onDone = {
                 prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
             })
-            else -> MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
+            !isSetupComplete -> com.callradar.app.screen.SetupGuideScreen(onSetupComplete = { isSetupComplete = true })             else -> MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
                 stopService(Intent(this, LocationTrackingService::class.java))
             }, onLogout = {
                 prefs.edit().clear().apply()
