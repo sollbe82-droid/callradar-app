@@ -173,7 +173,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 Card(colors = CardDefaults.cardColors(containerColor = if (naviEnabled) Color(0xFF064E3B) else Color(0xFF7F1D1D)), shape = RoundedCornerShape(6.dp)) {
                     Text(if (naviEnabled) "● ON" else "● OFF", fontSize = 11.sp, color = if (naviEnabled) green else red, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                 }
-                Button(onClick = { onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(6.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp)) { Text("종료", fontSize = 11.sp, color = Color.White) }
+                Button(onClick = { onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 5.dp)) { Text("종료", fontSize = 11.sp, color = Color.White) }
             }
         }
 
