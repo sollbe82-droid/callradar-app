@@ -422,6 +422,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 val userId = prefs.getString("user_id", null)
                 val json = JSONObject().apply {
                     put("user_id", userId)
+                    put("ended_at", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date()))
                     if (fare > 0) put("fare", fare)
                     if (lat != 0.0 || lng != 0.0) {
                         val dist = distanceMeters(originLat, originLng, lat, lng)
