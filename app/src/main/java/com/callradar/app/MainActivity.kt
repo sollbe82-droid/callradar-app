@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                 prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
             })
             !isSetupComplete -> com.callradar.app.screen.SetupGuideScreen(onSetupComplete = { isSetupComplete = true })             else -> MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
-                stopService(Intent(this, LocationTrackingService::class.java))
+                stopService(Intent(this, LocationTrackingService::class.java)); finishAffinity()
             }, onLogout = {
                 prefs.edit().clear().apply()
                 stopService(Intent(this, LocationTrackingService::class.java))
