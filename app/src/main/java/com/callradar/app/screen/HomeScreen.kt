@@ -168,10 +168,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } ?: Text("${nickname}님", fontSize = 12.sp, color = muted)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Card(modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://open.kakao.com/o/gsyuVMCi"))) }, colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE500)), shape = RoundedCornerShape(20.dp)) {
-                    Text("💬 톡방", fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Card(modifier = Modifier.height(36.dp).clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://open.kakao.com/o/gsyuVMCi"))) }, colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE500)), shape = RoundedCornerShape(20.dp)) {
+                    Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text("💬 톡방", fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
-                Button(onClick = { onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) { Text("종료", fontSize = 11.sp, color = Color.White) }
+                Button(onClick = { onLogout() }, modifier = Modifier.height(36.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text("종료", fontSize = 12.sp, color = Color.White) }
             }
         }
 

@@ -225,7 +225,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 if (isCancelledToIdle) {
                     Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
                     sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
-                    finalizeCurrentTrip(0)
+                    deleteCurrentTrip()
                     return
                 }
             }
@@ -412,6 +412,30 @@ class NaviIntentReceiver : AccessibilityService() {
             } finally {
                 tripDestUpdateInFlight = false
             }
+        }.start()
+    }
+
+    // 취소 시 트립 삭제 (0원 유령기록 방지)
+    private fun deleteCurrentTrip() {
+        val tripId = lastTripId
+        if (tripId <= 0) return
+        lastTripId = -1
+        lastDetectedFare = 0
+        stopDestUpdateTimer()
+        Thread {
+            try {
+                val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                val userId = prefs.getString("user_id", null)
+                val json = JSONObject().apply { put("user_id", userId) }
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json")
+                    doOutput = true; connectTimeout = 10000; readTimeout = 10000
+                }
+                conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                Log.d(TAG, "🗑️ 취소 트립 삭제: #$tripId"); conn.disconnect()
+                if (lastLocalTripId > 0) { LocalTripDatabase.getInstance(this).deleteTrip(lastLocalTripId) }
+            } catch (e: Exception) { Log.e(TAG, "트립 삭제 실패: ${e.message}") }
+            finally { synchronized(this) { lastTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
         }.start()
     }
 
