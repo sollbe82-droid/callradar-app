@@ -47,7 +47,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastTriggerTime = 0L
     @Volatile private var lastTripId = -1
     private var lastTaxiPlatform = "카카오T"
-    private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
+    private var tripPlatform = ""     private var lastForceEndTime = 0L  // 현재 트립이 시작된 플랫폼
     @Volatile private var tripStartedAt = 0L
     @Volatile private var tripDestUpdateInFlight = false
     @Volatile private var lastLocalTripId = -1L
@@ -294,10 +294,10 @@ class NaviIntentReceiver : AccessibilityService() {
                 tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
                 createNewTripWithGps(curLat, curLng)
-            } else if (lastPlatform != tripPlatform) {
+            } else if (lastPlatform != tripPlatform && System.currentTimeMillis() - lastForceEndTime > 60000) {
                 // 다른 플랫폼 활성 화면 → 이전 트립 강제 종료 + 새 트립
                 Log.d(TAG, "⚠️ 플랫폼 변경: $tripPlatform → $lastPlatform, 이전 트립 강제 종료")
-                sendDebugLog("FORCE_END", "#$lastTripId | $tripPlatform→$lastPlatform")
+                sendDebugLog("FORCE_END", "#$lastTripId | $tripPlatform→$lastPlatform")                 lastForceEndTime = System.currentTimeMillis()
                 finalizeCurrentTrip(0)
                 Thread.sleep(500)
                 tripPlatform = lastPlatform
