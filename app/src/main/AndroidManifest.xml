@@ -9,19 +9,13 @@
 
     <!-- 포그라운드 서비스 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- GPS -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <!-- 접근성 (네비 Intent 감지) -->
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
-        tools:ignore="ProtectedPermissions" />
 
     <!-- 카메라 (영수증 OCR) -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -64,20 +58,6 @@
             android:exported="false"
             android:label="영수증 스캔" />
 
-        <!-- 네비 Intent 감지 -->
-        <service
-            android:name=".NaviIntentReceiver"
-            android:exported="true"
-            android:label="콜레이더 네비 감지"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/navi_receiver_config" />
-        </service>
-
         <!-- 도착 알림 + TTS -->
         <service
             android:name=".ArrivalNotificationService"
@@ -109,15 +89,6 @@
             </intent-filter>
         </receiver>
 
-    <service
-            android:name=".TmoneyNotificationService"
-            android:label="티머니GO 알림 수신"
-            android:exported="true"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
     </application>
 
 </manifest>
