@@ -9,6 +9,14 @@ android {
         checkReleaseBuilds = false
         abortOnError = false
     }
+    signingConfigs {
+        create("release") {
+            storeFile = file("../callradar-release.jks")
+            storePassword = "callradar2026"
+            keyAlias = "callradar"
+            keyPassword = "callradar2026"
+        }
+    }
     defaultConfig {
         applicationId = "com.callradar.app"
         minSdk = 24
@@ -20,6 +28,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
