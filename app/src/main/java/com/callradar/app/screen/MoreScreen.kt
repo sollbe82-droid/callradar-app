@@ -141,7 +141,33 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("서비스 상태", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = muted, modifier = Modifier.padding(bottom = 4.dp))
 
-        Card(modifier = Modifier.fillMaxWidth().clickable { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+        // 문의 및 소통
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("📞 문의 및 소통", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+                Text("앱 개선에 대한 아이디어나 문의사항이 있으신가요?\n아래 오픈채팅방 또는 이메일로 언제든 연락주세요.", fontSize = 12.sp, color = Color(0xFF9CA3AF), lineHeight = 18.sp)
+                Spacer(Modifier.height(10.dp))
+                Button(onClick = { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://open.kakao.com/o/gsyuVMCi"))) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE500)), shape = RoundedCornerShape(10.dp)) { Text("카카오 오픈채팅방 바로가기", fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(6.dp))
+                Text("✉️ sollbe82@gmail.com", fontSize = 12.sp, color = Color(0xFF9CA3AF))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        // 앱 정보
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("ℹ️ 앱 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("버전", fontSize = 13.sp, color = Color(0xFF9CA3AF)); Text("1.0.0 β", fontSize = 13.sp, color = green) }
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("상태", fontSize = 13.sp, color = Color(0xFF9CA3AF)); Text("베타 테스트 중", fontSize = 13.sp, color = accent) }
+                Spacer(Modifier.height(4.dp))
+                Text("콜레이더 - 택시의신", fontSize = 11.sp, color = Color(0xFF6B7280))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Card(modifier = Modifier.fillMaxWidth().clickable { showLogoutConfirm = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column { Text("접근성 서비스", fontSize = 14.sp, color = Color.White); Text("자동 기록에 필요 (유료)", fontSize = 11.sp, color = muted) }
                 Text(if (naviEnabled) "● 켜짐" else "● 꺼짐", fontSize = 12.sp, color = if (naviEnabled) green else red)
