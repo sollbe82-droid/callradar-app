@@ -48,6 +48,7 @@ class NaviIntentReceiver : AccessibilityService() {
     @Volatile private var lastTripId = -1
     private var lastTaxiPlatform = "카카오T"
     private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
+    private var lastDetectedFare = 0  // 우버 금액 캐싱
     @Volatile private var tripStartedAt = 0L
     @Volatile private var tripDestUpdateInFlight = false
     @Volatile private var lastLocalTripId = -1L
@@ -308,6 +309,11 @@ class NaviIntentReceiver : AccessibilityService() {
                 if (dist > 300) {
                     refreshTripDestination(lastTripId, curLat, curLng)
                 }
+                // 우버 금액 캐싱: 화면에 ₩ 금액 보이면 기억
+                if (pkg == UBER && lastTripId > 0) {
+                    val fare = extractFare(lines)
+                    if (fare > 0) lastDetectedFare = fare
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "택시앱 오류: ${e.message}")
@@ -412,7 +418,9 @@ class NaviIntentReceiver : AccessibilityService() {
     private fun finalizeCurrentTrip(fare: Int) {
         val tripId = lastTripId
         if (tripId <= 0) return
+        val actualFare = if (fare > 0) fare else lastDetectedFare
         lastTripId = -1
+        lastDetectedFare = 0
         stopDestUpdateTimer()
         val lat = LocationTrackingService.currentLat
         val lng = LocationTrackingService.currentLng
@@ -422,7 +430,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 val userId = prefs.getString("user_id", null)
                 val json = JSONObject().apply {
                     put("user_id", userId)
-                    if (fare > 0) put("fare", fare)
+                    if (actualFare > 0) put("fare", actualFare)
                     if (lat != 0.0 || lng != 0.0) {
                         val dist = distanceMeters(originLat, originLng, lat, lng)
                         if (dist > 300) {
@@ -439,7 +447,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 }
                 conn.outputStream.write(json.toString().toByteArray())
                 conn.responseCode
-                Log.d(TAG, "✅ 트립 마감: #$tripId (요금: ${fare}원)")
+                Log.d(TAG, "✅ 트립 마감: #$tripId (요금: ${actualFare}원)")
                 conn.disconnect()
                 if (lastLocalTripId > 0) {
                     val destName = reverseGeocode(lat, lng) ?: ""
