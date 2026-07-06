@@ -33,6 +33,7 @@ private const val SERVER_URL = "https://callradar-server.onrender.com"
 
 data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto")
 data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int)
+data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +65,14 @@ fun RecordsScreen(userId: String) {
     var manualPlatform by remember { mutableStateOf("길빵/예약") }
     var manualMinute by remember { mutableStateOf("") }
     var manualPaymentType by remember { mutableStateOf("카드") }
+    var expenses by remember { mutableStateOf<List<ExpenseRecord>>(emptyList()) }
+    var showExpenseDialog by remember { mutableStateOf(false) }
+    var expenseCategory by remember { mutableStateOf("LPG") }
+    var expenseAmount by remember { mutableStateOf("") }
+    var expenseType by remember { mutableStateOf("business") }
+    var expenseMemo by remember { mutableStateOf("") }
+    var showDeleteExpense by remember { mutableStateOf(false) }
+    var deletingExpense by remember { mutableStateOf<ExpenseRecord?>(null) }
     val scope = rememberCoroutineScope()
 
     fun getFilterDate(): String? {
@@ -172,11 +181,61 @@ fun RecordsScreen(userId: String) {
             dismissButton = { OutlinedButton(onClick = { showManualDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
     }
 
+    fun loadExpenses() {
+        scope.launch {
+            try {
+                val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
+                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                val arr = JSONArray(response); val list = mutableListOf<ExpenseRecord>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val rawTime = obj.optString("created_at", "")
+                    val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                    list.add(ExpenseRecord(obj.getInt("id"), obj.optString("category", ""), obj.optInt("amount", 0), obj.optString("expense_type", "business"), obj.optString("memo", ""), formattedDate))
+                }
+                expenses = list
+            } catch (e: Exception) { }
+        }
+    }
+
+    // 지출 추가 다이얼로그
+    if (showExpenseDialog) {
+        AlertDialog(onDismissRequest = { showExpenseDialog = false },
+            title = { Text("지출 추가", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("카테고리", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LPG", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Text("구분", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else Color(0xFFF97316), selectedLabelColor = Color.White, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                OutlinedTextField(value = expenseMemo, onValueChange = { expenseMemo = it }, label = { Text("메모 (선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+            } },
+            confirmButton = { Button(onClick = {
+                val amt = expenseAmount.toIntOrNull()
+                if (amt != null && amt > 0) { scope.launch { try { withContext(Dispatchers.IO) {
+                    val json = JSONObject().apply { put("user_id", userId); put("category", expenseCategory); put("amount", amt); put("expense_type", expenseType); put("memo", expenseMemo) }
+                    val conn = (URL("$SERVER_URL/api/expenses").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                    conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                }; showExpenseDialog = false; expenseAmount = ""; expenseMemo = ""; loadExpenses() } catch (e: Exception) { showExpenseDialog = false } } }
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showExpenseDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+    }
+
+    // 지출 삭제 확인
+    if (showDeleteExpense && deletingExpense != null) {
+        AlertDialog(onDismissRequest = { showDeleteExpense = false },
+            title = { Text("삭제", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Text("이 지출 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
+            confirmButton = { Button(onClick = { val exp = deletingExpense!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/expenses/${exp.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadExpenses() } catch (e: Exception) { } }; showDeleteExpense = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = Color.White) } },
+            dismissButton = { OutlinedButton(onClick = { showDeleteExpense = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
-            if (selectedTab == 0) { TextButton(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }) { Text("제보", fontSize = 12.sp, color = Color(0xFF60A5FA)) }; TextButton(onClick = { isReportMode = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "카드"; showManualDialog = true }) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+            if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "카드"; showManualDialog = true }) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+            if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
         }
         when (selectedTab) {
             0 -> {
@@ -222,6 +281,55 @@ fun RecordsScreen(userId: String) {
                 }
             }
             1 -> CalendarView(userId = userId)
+            2 -> {
+                // 지출 탭
+                val businessTotal = expenses.filter { it.expenseType == "business" }.sumOf { it.amount }
+                val personalTotal = expenses.filter { it.expenseType == "personal" }.sumOf { it.amount }
+                if (businessTotal > 0 || personalTotal > 0) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(10.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                            if (businessTotal > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("사업지출", fontSize = 13.sp, color = muted); Text("-${String.format("%,d", businessTotal)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = red) } }
+                            if (personalTotal > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("개인지출", fontSize = 13.sp, color = muted); Text("-${String.format("%,d", personalTotal)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316)) } }
+                            HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 지출", fontSize = 13.sp, color = Color.White); Text("-${String.format("%,d", businessTotal + personalTotal)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red) }
+                        }
+                    }
+                }
+                if (expenses.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💰", fontSize = 48.sp); Spacer(Modifier.height(12.dp)); Text("지출 기록이 없어요", fontSize = 14.sp, color = muted); Spacer(Modifier.height(8.dp)); TextButton(onClick = { expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출 추가하기", color = accent) } } }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        itemsIndexed(expenses) { _, exp ->
+                            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(when(exp.category) { "LPG" -> "⛽"; "식비" -> "🍚"; "세차" -> "🚿"; "주차" -> "🅿️"; else -> "📝" }, fontSize = 16.sp)
+                                            Text(exp.category, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                            Card(colors = CardDefaults.cardColors(containerColor = if (exp.expenseType == "business") Color(0xFF7F1D1D) else Color(0xFF78350F)), shape = RoundedCornerShape(4.dp)) { Text(if (exp.expenseType == "business") "사업" else "개인", fontSize = 9.sp, color = Color.White, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) }
+                                        }
+                                        Text("${exp.date}${if (exp.memo.isNotEmpty()) " · ${exp.memo}" else ""}", fontSize = 11.sp, color = muted)
+                                    }
+                                    Text("-${String.format("%,d", exp.amount)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (exp.expenseType == "business") red else Color(0xFFF97316))
+                                    Spacer(Modifier.width(8.dp))
+                                    TextButton(onClick = { deletingExpense = exp; showDeleteExpense = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("🗑", fontSize = 13.sp) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            3 -> {
+                // 제보 탭 (운행 추가 다이얼로그를 제보 모드로)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📡", fontSize = 48.sp); Spacer(Modifier.height(12.dp))
+                        Text("콜 정보를 제보해주세요", fontSize = 14.sp, color = muted)
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("+ 콜 제보하기", color = Color.Black, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
         }
     }
 }
