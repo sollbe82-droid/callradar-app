@@ -1,8 +1,11 @@
 package com.callradar.app.screen
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,41 +52,26 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var goalFare by remember { mutableStateOf(prefs.getInt("goal_fare", 300000)) }
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
+    val lpgPrice = prefs.getInt("lpg_daily", 0)
+    val dailyExpense = prefs.getInt("daily_expense", 0)
+    val feePercent = prefs.getInt("fee_percent", 0)
+    var profile by remember { mutableStateOf<HomeProfile?>(null) }
+    var todayTrips by remember { mutableStateOf(0) }
+    var todayFare by remember { mutableStateOf(0) }
+    var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
+    var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var showGoalDialog by remember { mutableStateOf(false) }
     var goalInput by remember { mutableStateOf("") }
     var sanapInput by remember { mutableStateOf("") }
-    var todayTrips by remember { mutableStateOf(0) }
-    var todayFare by remember { mutableStateOf(0) }
-    var profile by remember { mutableStateOf<HomeProfile?>(null) }
-    var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
-    var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) } 
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val naviEnabled = remember { isNaviEnabled(context) }
+    var businessExpense by remember { mutableStateOf(0) }
+    var personalExpense by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    // LPG/지출 설정 읽기
-    val lpgType = prefs.getInt("lpg_type", 0) // 0=기사부담, 1=회사한도, 2=회사무료
-    val lpgPrice = prefs.getInt("lpg_price", 0)
-    val lpgDaily = prefs.getInt("lpg_daily", 0)
-    val lpgCompanyLimit = prefs.getInt("lpg_company_limit", 0)
-    val dailyExpense = prefs.getInt("daily_expense", 0)
-    val subsidy = 221
-
-    fun calcDailyLpgCost(): Int {
-        val totalCost = lpgPrice * lpgDaily
-        val subsidyTotal = subsidy * lpgDaily
-        return when (lpgType) {
-            0 -> totalCost - subsidyTotal // 기사 전액 부담 - 보조금
-            1 -> { val overL = maxOf(0, lpgDaily - lpgCompanyLimit); (lpgPrice * overL) - subsidyTotal } // 초과분만 - 보조금
-            2 -> -subsidyTotal // 회사 무료, 보조금만 받음
-            else -> totalCost - subsidyTotal
-        }
-    }
-
     fun calcNetIncome(fare: Int, days: Int): Int {
-        val lpgNet = calcDailyLpgCost()
-        return fare - (dailySanap * days) - (lpgNet * days) - (dailyExpense * days)
+        val sanap = dailySanap * days; val lpg = lpgPrice * days; val expense = dailyExpense * days
+        val fee = fare * feePercent / 100; return fare - sanap - lpg - expense - fee
     }
 
     if (showGoalDialog) {
@@ -119,30 +107,29 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
 
-                val profileResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
-                val json = JSONObject(profileResponse)
-                val levelJson = json.optJSONObject("levelInfo")
-                val badgesJson = json.optJSONArray("badges")
-                val badges = mutableListOf<Badge>()
-                if (badgesJson != null) for (i in 0 until badgesJson.length()) { val b = badgesJson.getJSONObject(i); badges.add(Badge(b.getString("emoji"), b.getString("name"))) }
-                profile = HomeProfile(
-                    json.optString("nickname", nickname), json.optInt("points", 0), json.optInt("total_trips", 0),
-                    LevelInfo(levelJson?.optInt("level", 1) ?: 1, levelJson?.optString("title", "신입기사") ?: "신입기사", levelJson?.optInt("next", 100) ?: 100),
-                    badges, json.optString("guild_name", ""), json.optInt("myRank", 0), json.optInt("monthFare", 0),
-                    json.optString("car_number", ""), json.optString("employee_id", ""),
-                    json.optString("work_type", ""), json.optString("driver_type", ""), json.optString("company_name", "")
-                )
-
-                val tripsResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?limit=3").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
-                val tripsArr = JSONArray(tripsResponse)
-                val tripList = mutableListOf<RecentTrip>()
-                for (i in 0 until tripsArr.length()) {
-                    val obj = tripsArr.getJSONObject(i)
+                val recentArr = todayJson.optJSONArray("recentTrips") ?: JSONArray()
+                val rList = mutableListOf<RecentTrip>()
+                for (i in 0 until recentArr.length()) {
+                    val obj = recentArr.getJSONObject(i)
                     val rawTime = obj.optString("started_at", "")
-                    val time = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = java.util.TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }
-                    tripList.add(RecentTrip(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", ""), obj.optInt("fare", 0), obj.optString("platform", ""), time))
+                    val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                    rList.add(RecentTrip(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", ""), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime))
                 }
-                recentTrips = tripList
+                recentTrips = rList
+
+                try {
+                    val profResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val pJson = JSONObject(profResponse); val lJson = pJson.optJSONObject("level") ?: JSONObject()
+                    val badgeArr = pJson.optJSONArray("badges") ?: JSONArray()
+                    val bList = mutableListOf<Badge>(); for (i in 0 until badgeArr.length()) { val b = badgeArr.getJSONObject(i); bList.add(Badge(b.optString("emoji", "🏅"), b.optString("name", ""))) }
+                    profile = HomeProfile(
+                        pJson.optString("nickname", nickname), pJson.optInt("points", 0), pJson.optInt("totalTrips", 0),
+                        LevelInfo(lJson.optInt("level", 1), lJson.optString("title", "신입 기사"), lJson.optInt("nextLevelTrips", 10)),
+                        bList, pJson.optString("guildName", ""), pJson.optInt("myRank", 0), pJson.optInt("monthFare", 0),
+                        pJson.optString("carNumber", ""), pJson.optString("employeeId", ""), pJson.optString("workType", ""),
+                        pJson.optString("driverType", ""), pJson.optString("companyName", "")
+                    )
+                } catch (e: Exception) { }
 
                 try {
                     val platResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/platform/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
@@ -156,12 +143,23 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     platformStats = platList
                 } catch (e: Exception) { }
 
+                // 지출 월합계 로드
+                try {
+                    val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
+                    val expResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val expJson = JSONObject(expResponse)
+                    businessExpense = expJson.optInt("business", 0)
+                    personalExpense = expJson.optInt("personal", 0)
+                } catch (e: Exception) { }
+
+                errorMessage = null
                 isLoading = false
             } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false }
         }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState())) {
+        // 헤더
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Text("콜레이더", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent); Text("β", fontSize = 11.sp, color = muted) }
@@ -169,29 +167,62 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Text(buildString { append(p.nickname); if (p.carNumber.isNotEmpty()) append(" · ${p.carNumber}") }, fontSize = 12.sp, color = muted)
                 } ?: Text("${nickname}님", fontSize = 12.sp, color = muted)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Card(colors = CardDefaults.cardColors(containerColor = if (naviEnabled) Color(0xFF064E3B) else Color(0xFF7F1D1D)), shape = RoundedCornerShape(20.dp)) {
-                    Text(if (naviEnabled) "● ON" else "● OFF", fontSize = 11.sp, color = if (naviEnabled) green else red, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Card(modifier = Modifier.clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://open.kakao.com/o/gsyuVMCi"))) }, colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE500)), shape = RoundedCornerShape(20.dp)) {
+                    Text("💬 톡방", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                 }
                 Button(onClick = { onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 5.dp)) { Text("종료", fontSize = 11.sp, color = Color.White) }
             }
         }
 
+        // 에러 메시지
+        if (errorMessage != null) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)), shape = RoundedCornerShape(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(errorMessage!!, fontSize = 12.sp, color = Color.White)
+                    TextButton(onClick = { errorMessage = null; isLoading = true }) { Text("재시도", color = accent, fontSize = 12.sp) }
+                }
+            }
+        }
+
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // 월 누적 + 순수익
+            // 월 누적 + 지출 + 순수익
             val cal = Calendar.getInstance(); val month = cal.get(Calendar.MONTH) + 1
             val monthFare = profile?.monthFare ?: 0
+            val workDays = cal.get(Calendar.DAY_OF_MONTH)
+            val totalBusinessExp = businessExpense + (dailySanap * workDays)
+            val netIncome = monthFare - totalBusinessExp
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${month}월 누적", fontSize = 13.sp, color = muted)
-                        if (dailySanap > 0 || lpgPrice > 0 || dailyExpense > 0) {
-                            val workDays = cal.get(Calendar.DAY_OF_MONTH)
-                            val netIncome = calcNetIncome(monthFare, workDays)
-                            Text("순수익 ${String.format("%,d", netIncome)}원", fontSize = 11.sp, color = if (netIncome > 0) accent else red)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("매출", fontSize = 12.sp, color = muted)
+                        Text("${String.format("%,d", monthFare)}원", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green)
+                    }
+                    if (totalBusinessExp > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("사업지출", fontSize = 12.sp, color = muted)
+                            Text("-${String.format("%,d", totalBusinessExp)}원", fontSize = 14.sp, color = red)
                         }
                     }
-                    Text(if (monthFare > 0) "${String.format("%,d", monthFare)}원" else "0원", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = if (monthFare > 0) green else muted)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("순수익", fontSize = 12.sp, color = muted)
+                        Text("${String.format("%,d", netIncome)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (netIncome > 0) accent else red)
+                    }
+                    if (personalExpense > 0) {
+                        HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("개인지출", fontSize = 11.sp, color = muted)
+                            Text("-${String.format("%,d", personalExpense)}원", fontSize = 12.sp, color = Color(0xFFF97316))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("실수령", fontSize = 11.sp, color = muted)
+                            Text("${String.format("%,d", netIncome - personalExpense)}원", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (netIncome - personalExpense > 0) green else red)
+                        }
+                    }
                 }
             }
 
@@ -219,9 +250,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Spacer(Modifier.height(14.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("$todayTrips", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("오늘 콜", fontSize = 11.sp, color = muted) }
-                        Box(modifier = Modifier.width(1.dp).height(40.dp).background(Color(0xFF1F2937)))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayTrips > 0 && todayFare > 0) "${String.format("%,d", todayFare / todayTrips)}" else "-", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("콜 평균", fontSize = 11.sp, color = muted) }
-                        Box(modifier = Modifier.width(1.dp).height(40.dp).background(Color(0xFF1F2937)))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { val avg = if (todayTrips > 0) todayFare / todayTrips else 0; Text("${String.format("%,d", avg)}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("콜 평균", fontSize = 11.sp, color = muted) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayFare >= goalFare) "달성!" else "${String.format("%,d", goalFare - todayFare)}", fontSize = if (todayFare >= goalFare) 18.sp else 20.sp, fontWeight = FontWeight.Bold, color = if (todayFare >= goalFare) green else Color.White); Text(if (todayFare >= goalFare) "목표완료" else "남은금액", fontSize = 11.sp, color = muted) }
                     }
                 }
@@ -252,31 +281,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     }
                 }
             }
-// 에러 메시지
-if (errorMessage != null) {
-Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)), shape = RoundedCornerShape(10.dp)) {
-Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-Text("⚠️ $errorMessage", fontSize = 12.sp, color = Color.White)
-TextButton(onClick = { errorMessage = null; isLoading = true; scope.launch { try { val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }; val todayJson = JSONObject(todayResponse); todayTrips = todayJson.optInt("tripCount", 0); todayFare = todayJson.optInt("todayFare", 0); errorMessage = null; isLoading = false } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false } } }) { Text("재시도", fontSize = 11.sp, color = accent) }
-}
-}
-}
-            // 최근 운행
-            if (recentTrips.isNotEmpty()) {
-                Text("최근 운행", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = muted)
-                recentTrips.forEach { trip ->
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (trip.origin.isNotEmpty()) { Text(trip.origin.take(6), fontSize = 12.sp, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(" → ", fontSize = 12.sp, color = muted) }
-                                    Text(trip.destination.take(10), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                                Text("${trip.platform} · ${trip.time}", fontSize = 11.sp, color = muted)
-                            }
-                            if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
-                            else { Text("금액입력", fontSize = 12.sp, color = accent) }
-                        }
+
+            // 오픈톡방 배너
+            Card(modifier = Modifier.fillMaxWidth().clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://open.kakao.com/o/gsyuVMCi"))) }, colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE500)), shape = RoundedCornerShape(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Text("💬", fontSize = 28.sp, modifier = Modifier.padding(end = 12.dp))
+                    Column {
+                        Text("기사님 소통방", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3C1E1E))
+                        Text("콜 정보 공유하고 노하우 나눠요!", fontSize = 12.sp, color = Color(0xFF5C3C3C))
                     }
                 }
             }
