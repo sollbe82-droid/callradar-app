@@ -433,7 +433,6 @@ class NaviIntentReceiver : AccessibilityService() {
                 }
                 conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 Log.d(TAG, "🗑️ 취소 트립 삭제: #$tripId"); conn.disconnect()
-                if (lastLocalTripId > 0) { LocalTripDatabase.getInstance(this).deleteTrip(lastLocalTripId) }
             } catch (e: Exception) { Log.e(TAG, "트립 삭제 실패: ${e.message}") }
             finally { synchronized(this) { lastTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
         }.start()
