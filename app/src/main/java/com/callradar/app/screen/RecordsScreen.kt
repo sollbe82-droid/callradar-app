@@ -31,7 +31,7 @@ import java.util.*
 
 private const val SERVER_URL = "https://callradar-server.onrender.com"
 
-data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto")
+data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "")
 data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int)
 data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String)
 
@@ -93,7 +93,9 @@ fun RecordsScreen(userId: String) {
                     val obj = tripsJson.getJSONObject(i); val rawTime = obj.optString("started_at", "")
                     val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
                     val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
-                    tripList.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto")))
+                    val rawEndTime = obj.optString("ended_at", "")
+                    val formattedEndTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawEndTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                    tripList.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto"), formattedEndTime))
                 }
                 trips = tripList; isLoading = false
             } catch (e: Exception) { isLoading = false }
@@ -276,7 +278,8 @@ fun RecordsScreen(userId: String) {
                                             Text(trip.destination.take(12), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         val payLabel = when (trip.paymentType) { "card" -> "\uD83D\uDCB3"; "cash" -> "\uD83D\uDCB5"; else -> "" }
-                                        Text("${trip.platform} $payLabel \u00B7 ${trip.date} \u00B7 ${trip.time}", fontSize = 11.sp, color = muted)
+                                        val timeDisplay = if (trip.endTime.isNotEmpty()) "${trip.time}~${trip.endTime}" else trip.time
+                                        Text("${trip.platform} $payLabel \u00B7 ${trip.date} \u00B7 $timeDisplay", fontSize = 11.sp, color = muted)
                                     }
                                     if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
                                     else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; showQuickFare = true }) }

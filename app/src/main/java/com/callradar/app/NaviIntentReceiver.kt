@@ -324,6 +324,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
     private fun createNewTripWithGps(lat: Double, lng: Double) {
         if (isSendingTrip) return
+        if (tripStartedAt > 0 && System.currentTimeMillis() - tripStartedAt < 5000) return  // 5초 내 중복 방지
         if (lastTripId > 0) {
             Log.d(TAG, "⚠️ 이전 트립 #$lastTripId 미종료, 강제 마감")
             sendDebugLog("FORCE_END", "#$lastTripId | 새콜시작으로 강제종료")
