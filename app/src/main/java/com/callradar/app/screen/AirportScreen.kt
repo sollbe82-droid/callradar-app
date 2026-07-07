@@ -133,8 +133,7 @@ fun AirportScreen() {
         tts?.setSpeechRate(0.85f); tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
     val scope = rememberCoroutineScope()
-    val KEY = "84cea18e034c7a340682e212e11bbd83a2442a14c78135cf17ad9b43846dc668"
-    val BASE = "https://apis.data.go.kr/B551177"
+    val SERVER_URL = "https://callradar-server.onrender.com"
 
     if (showAddPhraseDialog) {
         AlertDialog(onDismissRequest = { if (!isTranslating) { showAddPhraseDialog = false; newPhraseKorean = "" } },
@@ -153,79 +152,51 @@ fun AirportScreen() {
         scope.launch {
             if (flights.isEmpty() && airportStatus == null) isLoading = true
             try {
-                val terno = if (selectedTerminal == 0) "T1" else "T2"
-                // 택시 (병렬)
-                val taxiJob = scope.launch(Dispatchers.IO) { try {
-                    val c1 = (URL("$BASE/StatusOfTaxi/getTaxiStatus?serviceKey=$KEY&terno=P01&type=json").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
-                    val r1 = JSONObject(c1.inputStream.bufferedReader().readText()); val b1 = r1.optJSONObject("response")?.optJSONObject("body"); val i1 = parseItems(b1)
-                    val t1 = if (i1.length() > 0) i1.getJSONObject(0) else null
-                    val t1S = t1?.optString("seoultaxicnt","0")?.toIntOrNull() ?: 0; val t1G = t1?.optString("gyenggitaxicnt","0")?.toIntOrNull() ?: 0
-                    val t1I = t1?.optString("incheontaxicnt","0")?.toIntOrNull() ?: 0; val t1B = t1?.optString("besttaxicnt","0")?.toIntOrNull() ?: 0; val t1V = t1?.optString("vantaxicnt","0")?.toIntOrNull() ?: 0
-                    c1.disconnect()
-                    val c2 = (URL("$BASE/StatusOfTaxi/getTaxiStatus?serviceKey=$KEY&terno=P02&type=json").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
-                    val r2 = JSONObject(c2.inputStream.bufferedReader().readText()); val b2 = r2.optJSONObject("response")?.optJSONObject("body"); val i2 = parseItems(b2)
-                    val t2 = if (i2.length() > 0) i2.getJSONObject(0) else null
-                    val t2S = t2?.optString("seoultaxicnt","0")?.toIntOrNull() ?: 0; val t2G = t2?.optString("gyenggitaxicnt","0")?.toIntOrNull() ?: 0
-                    val t2I = t2?.optString("incheontaxicnt","0")?.toIntOrNull() ?: 0; val t2B = t2?.optString("besttaxicnt","0")?.toIntOrNull() ?: 0; val t2V = t2?.optString("vantaxicnt","0")?.toIntOrNull() ?: 0
-                    c2.disconnect()
-                    airportStatus = AirportStatus(t1S,t1G,t1I,t1B+t1V, t2S,t2G,t2I,t2B+t2V, 0,0,0)
-                } catch (e: Exception) { android.util.Log.e("AirportAPI","택시 오류: ${e.message}") } }
+                withContext(Dispatchers.IO) {
+                    // 서버 캐시에서 한 번에 가져오기
+                    val conn = (URL("$SERVER_URL/api/airport/cached").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                    val raw = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+                    val json = JSONObject(raw)
 
-                // 도착항공편 (병렬)
-                val flightJob = scope.launch(Dispatchers.IO) { try {
-                    val conn = (URL("$BASE/StatusOfArrivals/getArrivalsCongestion?serviceKey=$KEY&terno=$terno&type=json&numOfRows=100").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
-                    val raw = conn.inputStream.bufferedReader().readText()
-                    android.util.Log.d("AirportAPI","항공편 응답(${terno}): ${raw.take(500)}")
-                    val res = JSONObject(raw); val body = res.optJSONObject("response")?.optJSONObject("body"); val items = parseItems(body)
-                    val fList = mutableListOf<FlightInfo>(); val pMap = mutableMapOf<Int, Pair<Int,Int>>()
-                    for (i in 0 until items.length()) {
-                        val it = items.getJSONObject(i)
-                        val kr = it.optString("korean","0").toDoubleOrNull()?.toInt() ?: 0
-                        val fr = it.optString("foreigner","0").toDoubleOrNull()?.toInt() ?: 0
-                        val est = it.optString("estimatedtime","")
-                        val sch = it.optString("scheduletime","")
-                        val tn = it.optString("terno","T1")
-                        fList.add(FlightInfo(
-                            flightNo = it.optString("flightid",""), origin = it.optString("airport",""),
-                            scheduledTime = formatTime(sch), estimatedTime = formatTime(est),
-                            terminal = tn, gate = it.optString("entrygate",""), carousel = it.optString("carousel",""),
-                            remark = it.optString("remark",""), korean = kr, foreigner = fr
-                        ))
-                        val hour = if (est.length >= 10) est.substring(8,10).toIntOrNull() ?: 0 else 0
-                        val count = kr + fr
-                        val prev = pMap[hour] ?: Pair(0,0)
-                        if (tn.contains("T1") || tn.contains("1")) pMap[hour] = Pair(prev.first+count, prev.second)
-                        else pMap[hour] = Pair(prev.first, prev.second+count)
-                    }
-                    flights = fList.sortedBy { it.estimatedTime }
-                    // 입국자수도 같은 데이터에서 추출 (현재 터미널)
-                    // T1+T2 합산을 위해 다른 터미널도 호출
-                    val otherTerno = if (selectedTerminal == 0) "T2" else "T1"
-                    try {
-                        val conn2 = (URL("$BASE/StatusOfArrivals/getArrivalsCongestion?serviceKey=$KEY&terno=$otherTerno&type=json&numOfRows=100").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
-                        val raw2 = conn2.inputStream.bufferedReader().readText()
-                        val res2 = JSONObject(raw2); val body2 = res2.optJSONObject("response")?.optJSONObject("body"); val items2 = parseItems(body2)
-                        for (i in 0 until items2.length()) {
-                            val it2 = items2.getJSONObject(i)
-                            val kr2 = it2.optString("korean","0").toDoubleOrNull()?.toInt() ?: 0
-                            val fr2 = it2.optString("foreigner","0").toDoubleOrNull()?.toInt() ?: 0
-                            val est2 = it2.optString("estimatedtime","")
-                            val tn2 = it2.optString("terno","")
-                            val hour2 = if (est2.length >= 10) est2.substring(8,10).toIntOrNull() ?: 0 else 0
-                            val count2 = kr2 + fr2
-                            val prev2 = pMap[hour2] ?: Pair(0,0)
-                            if (tn2.contains("T1") || tn2.contains("1")) pMap[hour2] = Pair(prev2.first+count2, prev2.second)
-                            else pMap[hour2] = Pair(prev2.first, prev2.second+count2)
+                    // 항공편
+                    val flightsArr = json.optJSONArray("flights")
+                    if (flightsArr != null) {
+                        val fList = mutableListOf<FlightInfo>(); val pMap = mutableMapOf<Int, Pair<Int,Int>>()
+                        val terno = if (selectedTerminal == 0) "T1" else "T2"
+                        for (i in 0 until flightsArr.length()) {
+                            val it = flightsArr.getJSONObject(i)
+                            val kr = it.optInt("korean", 0); val fr = it.optInt("foreigner", 0)
+                            val terminal = it.optString("terminal", "T1")
+                            fList.add(FlightInfo(
+                                flightNo = it.optString("flightNo",""), origin = it.optString("origin",""),
+                                scheduledTime = it.optString("scheduledTime",""), estimatedTime = it.optString("estimatedTime",""),
+                                terminal = terminal, gate = it.optString("entryGate",""), carousel = "",
+                                remark = "", korean = kr, foreigner = fr
+                            ))
+                            val hour = it.optString("estimatedTime","").split(":").getOrNull(0)?.toIntOrNull() ?: 0
+                            val count = kr + fr
+                            val prev = pMap[hour] ?: Pair(0,0)
+                            if (terminal.contains("T1") || terminal.contains("1")) pMap[hour] = Pair(prev.first+count, prev.second)
+                            else pMap[hour] = Pair(prev.first, prev.second+count)
                         }
-                        conn2.disconnect()
-                    } catch (e: Exception) { }
-                    passengers = pMap.map { PassengerCount(it.key, it.value.first, it.value.second) }.sortedBy { it.hour }
-                    conn.disconnect()
-               } catch (e: Exception) { android.util.Log.e("AirportAPI","항공편/입국자 오류: ${e.message}") } }
-                taxiJob.join(); flightJob.join()
+                        flights = if (terno == "T1") fList.filter { it.terminal.contains("1") }.sortedBy { it.estimatedTime }
+                                  else fList.filter { it.terminal.contains("2") }.sortedBy { it.estimatedTime }
+                        passengers = pMap.map { PassengerCount(it.key, it.value.first, it.value.second) }.sortedBy { it.hour }
+                    }
 
+                    // 택시 현황
+                    val statusJson = json.optJSONObject("status")
+                    if (statusJson != null) {
+                        val t1 = statusJson.optJSONObject("t1"); val t2 = statusJson.optJSONObject("t2")
+                        airportStatus = AirportStatus(
+                            t1?.optInt("waiting",0) ?: 0, 0, 0, 0,
+                            t2?.optInt("waiting",0) ?: 0, 0, 0, 0,
+                            0, 0, 0
+                        )
+                    }
+                }
                 lastUpdated = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.KOREA).format(java.util.Date())
-            } catch (e: Exception) { }
+            } catch (e: Exception) { android.util.Log.e("AirportAPI","캐시 로드 오류: ${e.message}") }
             isLoading = false
         }
     }
