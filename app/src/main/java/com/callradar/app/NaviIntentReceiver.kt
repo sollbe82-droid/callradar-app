@@ -31,7 +31,7 @@ class NaviIntentReceiver : AccessibilityService() {
         private val FARE_PATTERNS = listOf(
             Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
             Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
-            Regex("미터기\\s*요금\\s*\\n\\s*([0-9,]+)"),
+            Regex("미터기\\s*요금\\s+([0-9,]+)"),
             Regex("총\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("₩\\s*([0-9,]+)"),
             Regex("([0-9,]{4,})\\s*원")
@@ -222,7 +222,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     KAKAO_TAXI -> allText.contains("콜 대기") || allText.contains("퇴근하기")
                     else -> false
                 }
-                if (isCancelledToIdle) {
+                if (isCancelledToIdle && System.currentTimeMillis() - tripStartedAt > 60000) {
                     Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
                     sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
                     deleteCurrentTrip()
