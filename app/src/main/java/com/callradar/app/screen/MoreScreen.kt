@@ -1,3 +1,9 @@
+// ===== MoreScreen v4 (2026-07-08) =====
+// v4: 권한상태 자동갱신 - 화면복귀시 접근성/알림/배터리/위치 재확인 (켜고 돌아오면 바로 녹색)
+// v3d: 탭 위에 "콜레이더 더보기" 제목바 추가 (탭이 최상단에 붙어보이던 문제)
+// v3c: 접근성 로그아웃버그 수정 + 제한된설정 경로를 앱목록(ACTION_MANAGE_APPLICATIONS)으로
+// v3: 자동화 권한 카드 추가 (배터리최적화/위치/제한된설정 안내), 헤더 "설정"→"자동화 & 정산"
+// v2: 기사유형 설정 + 서버연동 + 저작권수정
 package com.callradar.app.screen
 
 import android.content.Context
@@ -19,6 +25,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+private const val SETTINGS_SERVER = "https://callradar-server.onrender.com"
 
 @Composable
 fun MoreScreen(userId: String, onLogout: () -> Unit) {
@@ -28,7 +42,12 @@ fun MoreScreen(userId: String, onLogout: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) }
 
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
-        Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, start = 14.dp, end = 14.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // 화면 제목 바
+        Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("콜레이더", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent)
+            Text("더보기", fontSize = 14.sp, color = muted)
+        }
+        Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 4.dp, start = 14.dp, end = 14.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("분석", "랭킹", "링크", "설정").forEachIndexed { index, title ->
                 FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
             }
@@ -37,14 +56,50 @@ fun MoreScreen(userId: String, onLogout: () -> Unit) {
             0 -> StatsScreen(userId = userId)
             1 -> RankingScreen(userId = userId)
             2 -> LinksView(context = context, card = card, accent = accent, muted = muted)
-            3 -> SettingsView(context = context, card = card, accent = accent, green = green, red = red, muted = muted, onLogout = onLogout)
+            3 -> SettingsView(userId = userId, context = context, card = card, accent = accent, green = green, red = red, muted = muted, onLogout = onLogout)
         }
     }
 }
 
 @Composable
-private fun SettingsView(context: Context, card: Color, accent: Color, green: Color, red: Color, muted: Color, onLogout: () -> Unit) {
+private fun SettingsView(userId: String, context: Context, card: Color, accent: Color, green: Color, red: Color, muted: Color, onLogout: () -> Unit) {
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    val scope = rememberCoroutineScope()
+    var driverType by remember { mutableStateOf(prefs.getString("driver_type", "personal") ?: "personal") }
+    var affiliation by remember { mutableStateOf(prefs.getString("affiliation", "none") ?: "none") }
+    var profitShare by remember { mutableStateOf(prefs.getInt("profit_share", 100)) }
+    var lpgRefundRate by remember { mutableStateOf(prefs.getInt("lpg_refund_rate", 0)) }
+    var workDays by remember { mutableStateOf(prefs.getInt("work_days", 26)) }
+    var showTypeDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+
+    fun saveSettingsToServer() {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val json = JSONObject().apply {
+                        put("user_id", userId); put("driver_type", driverType); put("affiliation", affiliation)
+                        put("commission_rate", (prefs.getInt("fee_kakao",0) + prefs.getInt("fee_uber",0) + prefs.getInt("fee_tmoney",0)))
+                        put("daily_payment", prefs.getInt("daily_sanap", 0)); put("work_days", workDays)
+                        put("profit_share", profitShare); put("lpg_refund_rate", lpgRefundRate)
+                    }
+                    val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                    conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                }
+            } catch (e: Exception) { }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val resp = withContext(Dispatchers.IO) { val conn = (URL("$SETTINGS_SERVER/api/driver-settings/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+            val j = JSONObject(resp)
+            driverType = j.optString("driver_type", "personal"); affiliation = j.optString("affiliation", "none")
+            profitShare = j.optInt("profit_share", 100); lpgRefundRate = j.optInt("lpg_refund_rate", 0); workDays = j.optInt("work_days", 26)
+            prefs.edit().putString("driver_type", driverType).putString("affiliation", affiliation).putInt("profit_share", profitShare).putInt("lpg_refund_rate", lpgRefundRate).putInt("work_days", workDays).apply()
+        } catch (e: Exception) { }
+    }
+
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
     var showSanapDialog by remember { mutableStateOf(false) }
     var sanapInput by remember { mutableStateOf("") }
@@ -59,8 +114,28 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
     var showLpgDialog by remember { mutableStateOf(false) }
     var showExpenseDialog by remember { mutableStateOf(false) }
 
-    val naviEnabled = try { Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)?.contains("com.callradar.app") == true } catch (e: Exception) { false }
-    val notifEnabled = try { Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")?.contains("com.callradar.app") == true } catch (e: Exception) { false }
+    // 권한 상태 (화면 복귀 시 재확인 위해 state로)
+    fun checkNavi() = try { Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)?.contains("com.callradar.app") == true } catch (e: Exception) { false }
+    fun checkNotif() = try { Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")?.contains("com.callradar.app") == true } catch (e: Exception) { false }
+    fun checkBattery() = try { val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager; pm.isIgnoringBatteryOptimizations(context.packageName) } catch (e: Exception) { false }
+    fun checkLocation() = try { context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED } catch (e: Exception) { false }
+
+    var naviEnabled by remember { mutableStateOf(checkNavi()) }
+    var notifEnabled by remember { mutableStateOf(checkNotif()) }
+    var batteryOk by remember { mutableStateOf(checkBattery()) }
+    var locationOk by remember { mutableStateOf(checkLocation()) }
+
+    // 화면 복귀(ON_RESUME) 시 권한 상태 재확인 - 설정 켜고 돌아오면 바로 녹색
+    val moreLifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(moreLifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                naviEnabled = checkNavi(); notifEnabled = checkNotif(); batteryOk = checkBattery(); locationOk = checkLocation()
+            }
+        }
+        moreLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { moreLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     if (showSanapDialog) {
         AlertDialog(onDismissRequest = { showSanapDialog = false },
@@ -130,6 +205,49 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
             dismissButton = { OutlinedButton(onClick = { showExpenseDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
     }
 
+    // 기사유형 선택 다이얼로그
+    if (showTypeDialog) {
+        AlertDialog(onDismissRequest = { showTypeDialog = false },
+            title = { Text("기사 유형 설정", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("운행 형태", fontSize = 13.sp, color = muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("개인기사" to "personal", "법인기사" to "corporate").forEach { (label, value) ->
+                        FilterChip(selected = driverType == value, onClick = { driverType = value }, label = { Text(label, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
+                    }
+                }
+                Text("가맹 형태", fontSize = 13.sp, color = muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("비가맹" to "none", "카카오가맹" to "kakao", "우버가맹" to "uber").forEach { (label, value) ->
+                        FilterChip(selected = affiliation == value, onClick = { affiliation = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = green, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
+                    }
+                }
+                if (driverType == "corporate") {
+                    Text("만근일 수", fontSize = 13.sp, color = muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(25, 26).forEach { d -> FilterChip(selected = workDays == d, onClick = { workDays = d }, label = { Text("${d}일", fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) }
+                    }
+                }
+                Text("💡 수수료·사납금은 아래 항목에서 직접 입력하세요", fontSize = 11.sp, color = muted)
+            } },
+            confirmButton = { Button(onClick = { prefs.edit().putString("driver_type", driverType).putString("affiliation", affiliation).putInt("work_days", workDays).apply(); saveSettingsToServer(); showTypeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showTypeDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+    }
+
+    // 초과수익 분배율 다이얼로그 (법인)
+    if (showShareDialog) {
+        var shareInput by remember { mutableStateOf(profitShare.toString()) }
+        AlertDialog(onDismissRequest = { showShareDialog = false },
+            title = { Text("초과수익 분배율", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("사납금 초과분 중 기사 몫 (%)", fontSize = 12.sp, color = muted)
+                OutlinedTextField(value = shareInput, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(3); if (f.isEmpty() || f.toInt() <= 100) shareInput = f }, label = { Text("기사 몫 (%)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf(100, 90, 80, 70, 60).forEach { p -> OutlinedButton(onClick = { shareInput = p.toString() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("${p}%", fontSize = 11.sp) } } }
+            } },
+            confirmButton = { Button(onClick = { profitShare = shareInput.toIntOrNull() ?: 100; prefs.edit().putInt("profit_share", profitShare).apply(); saveSettingsToServer(); showShareDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showShareDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+    }
+
     if (showLogoutConfirm) {
         AlertDialog(onDismissRequest = { showLogoutConfirm = false },
             title = { Text("로그아웃", color = Color.White, fontWeight = FontWeight.Bold) },
@@ -139,6 +257,16 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 헤더
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("⚙️", fontSize = 22.sp)
+            Column {
+                Text("자동화 & 정산", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("자동기록 권한과 기사 정산을 관리하세요", fontSize = 11.sp, color = muted)
+            }
+        }
+        HorizontalDivider(color = Color(0xFF1F2937), modifier = Modifier.padding(bottom = 4.dp))
+
         Text("서비스 상태", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = muted, modifier = Modifier.padding(bottom = 4.dp))
 
         // 문의 및 소통
@@ -167,7 +295,7 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
             }
         }
         Spacer(Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth().clickable { showLogoutConfirm = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+        Card(modifier = Modifier.fillMaxWidth().clickable { try { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (e: Exception) { } }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column { Text("접근성 서비스", fontSize = 14.sp, color = Color.White); Text("자동 기록에 필요 (유료)", fontSize = 11.sp, color = muted) }
                 Text(if (naviEnabled) "● 켜짐" else "● 꺼짐", fontSize = 12.sp, color = if (naviEnabled) green else red)
@@ -181,13 +309,58 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
             }
         }
 
+        // 배터리 최적화 제외
+        Card(modifier = Modifier.fillMaxWidth().clickable { try { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } catch (e: Exception) { try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) } catch (e2: Exception) { } } }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column { Text("배터리 최적화 제외", fontSize = 14.sp, color = Color.White); Text("백그라운드 자동기록 유지", fontSize = 11.sp, color = muted) }
+                Text(if (batteryOk) "● 켜짐" else "● 꺼짐", fontSize = 12.sp, color = if (batteryOk) green else red)
+            }
+        }
+
+        // 위치 권한
+        Card(modifier = Modifier.fillMaxWidth().clickable { try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) } catch (e: Exception) { } }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column { Text("위치 권한 (항상 허용)", fontSize = 14.sp, color = Color.White); Text("출발·도착지 자동 감지", fontSize = 11.sp, color = muted) }
+                Text(if (locationOk) "● 켜짐" else "● 꺼짐", fontSize = 12.sp, color = if (locationOk) green else red)
+            }
+        }
+
+        // 제한된 설정 허용 (업데이트마다 리셋 - 안내)
+        Card(modifier = Modifier.fillMaxWidth().clickable { try { context.startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) } catch (e: Exception) { try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) } catch (e2: Exception) { } } }, colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2416)), shape = RoundedCornerShape(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("⚠️", fontSize = 14.sp)
+                    Text("제한된 설정 허용", fontSize = 14.sp, color = accent, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("앱 업데이트할 때마다 접근성이 꺼집니다.\n앱 목록에서 '콜레이더' → ⋮(우측상단) → '제한된 설정 허용'을 누른 뒤 접근성을 다시 켜세요.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
         Text("정산 설정", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = muted, modifier = Modifier.padding(bottom = 4.dp))
 
-        Card(modifier = Modifier.fillMaxWidth().clickable { sanapInput = dailySanap.toString(); showSanapDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+        // 기사유형 카드 (대표)
+        Card(modifier = Modifier.fillMaxWidth().clickable { showTypeDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("일 사납금", fontSize = 14.sp, color = Color.White); Text("법인택시 일일 사납금", fontSize = 11.sp, color = muted) }
-                Text(if (dailySanap > 0) "${String.format("%,d", dailySanap)}원" else "미설정", fontSize = 13.sp, color = if (dailySanap > 0) accent else muted)
+                Column { Text("🚖 기사 유형", fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Bold); Text("정산 방식의 기준이 됩니다", fontSize = 11.sp, color = muted) }
+                Text("${if (driverType == "corporate") "법인" else "개인"} · ${when(affiliation){"kakao"->"카카오";"uber"->"우버";else->"비가맹"}}", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // 법인 전용: 사납금 + 분배율
+        if (driverType == "corporate") {
+            Card(modifier = Modifier.fillMaxWidth().clickable { sanapInput = dailySanap.toString(); showSanapDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column { Text("일 사납금", fontSize = 14.sp, color = Color.White); Text("만근 ${workDays}일 기준", fontSize = 11.sp, color = muted) }
+                    Text(if (dailySanap > 0) "${String.format("%,d", dailySanap)}원" else "미설정", fontSize = 13.sp, color = if (dailySanap > 0) accent else muted)
+                }
+            }
+            Card(modifier = Modifier.fillMaxWidth().clickable { showShareDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column { Text("초과수익 분배율", fontSize = 14.sp, color = Color.White); Text("사납금 초과분 중 기사 몫", fontSize = 11.sp, color = muted) }
+                    Text("${profitShare}%", fontSize = 13.sp, color = accent)
+                }
             }
         }
 
@@ -223,7 +396,7 @@ private fun SettingsView(context: Context, card: Color, accent: Color, green: Co
 
         Spacer(Modifier.height(16.dp))
         Text("콜레이더 v1.0.0 (베타)", fontSize = 11.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text("© 2026 다연상운", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("© 2026 콜레이더 (CallRadar)", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

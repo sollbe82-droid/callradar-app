@@ -1,3 +1,7 @@
+// ===== HomeScreen v4 (2026-07-08) =====
+// v4: 만근일 버그수정(오늘날짜→설정값 work_days), 홈에 만근일 표시, 사납금=일사납×만근일
+// v3: 자동 새로고침 - 화면복귀(ON_RESUME)시 즉시갱신 + 15초 백업. "운행끝나고 앱열면 바로 반영"
+// v2: 월누적 카드 기사유형 분기 (법인=사납금 별도줄, 개인=사업지출만)
 package com.callradar.app.screen
 
 import android.content.Context
@@ -52,6 +56,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var goalFare by remember { mutableStateOf(prefs.getInt("goal_fare", 300000)) }
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
+    val driverType = prefs.getString("driver_type", "personal") ?: "personal"
+    val workDaysSetting = prefs.getInt("work_days", 26)
     val lpgPrice = prefs.getInt("lpg_daily", 0)
     val dailyExpense = prefs.getInt("daily_expense", 0)
     val feePercent = prefs.getInt("fee_percent", 0)
@@ -98,8 +104,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             containerColor = Color(0xFF111827))
     }
 
-    LaunchedEffect(userId, refreshKey) {
-        if (userId.isEmpty()) { isLoading = false; return@LaunchedEffect }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    fun loadHomeData() {
+        if (userId.isEmpty()) { isLoading = false; return }
         scope.launch {
             try {
                 val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
@@ -143,7 +151,6 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     platformStats = platList
                 } catch (e: Exception) { }
 
-                // 지출 월합계 로드
                 try {
                     val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
                     val expResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
@@ -156,6 +163,24 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 isLoading = false
             } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false }
         }
+    }
+
+    // 최초 로드 + refreshKey 변경 시
+    LaunchedEffect(userId, refreshKey) { loadHomeData() }
+
+    // 화면 복귀(ON_RESUME) 시 자동 갱신 - 탭 전환/네비 갔다 돌아올 때 "운행 끝나고 앱 열면 바로 반영"
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) { loadHomeData() }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // 백업: 앱 켜둔 채 있을 때 15초마다 조용히 갱신
+    LaunchedEffect(userId) {
+        if (userId.isEmpty()) return@LaunchedEffect
+        while (true) { kotlinx.coroutines.delay(15000L); loadHomeData() }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState())) {
@@ -189,23 +214,33 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             // 월 누적 + 지출 + 순수익
             val cal = Calendar.getInstance(); val month = cal.get(Calendar.MONTH) + 1
             val monthFare = profile?.monthFare ?: 0
-            val workDays = cal.get(Calendar.DAY_OF_MONTH)
-            val totalBusinessExp = businessExpense + (dailySanap * workDays)
-            val netIncome = monthFare - totalBusinessExp
+            val workDays = workDaysSetting  // 설정한 만근일 (25/26 등), 오늘날짜 아님
+            val isCorporate = driverType == "corporate"
+            val sanapTotal = dailySanap * workDays
+            // 법인: 사납금은 별도 표시 / 개인: 사업지출에 포함 안함(사납금 0)
+            val netIncome = if (isCorporate) monthFare - sanapTotal - businessExpense else monthFare - businessExpense
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${month}월 누적", fontSize = 13.sp, color = muted)
+                        Text(if (isCorporate) "법인 · 만근 ${workDays}일" else "개인", fontSize = 10.sp, color = muted)
                     }
                     Spacer(Modifier.height(6.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("매출", fontSize = 12.sp, color = muted)
                         Text("${String.format("%,d", monthFare)}원", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green)
                     }
-                    if (totalBusinessExp > 0) {
+                    // 법인: 사납금 별도 줄
+                    if (isCorporate && sanapTotal > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("사납금 (${String.format("%,d", dailySanap)}원 × ${workDays}일)", fontSize = 12.sp, color = muted)
+                            Text("-${String.format("%,d", sanapTotal)}원", fontSize = 14.sp, color = red)
+                        }
+                    }
+                    if (businessExpense > 0) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("사업지출", fontSize = 12.sp, color = muted)
-                            Text("-${String.format("%,d", totalBusinessExp)}원", fontSize = 14.sp, color = red)
+                            Text("-${String.format("%,d", businessExpense)}원", fontSize = 14.sp, color = red)
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

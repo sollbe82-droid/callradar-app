@@ -1,3 +1,14 @@
+// ===== AirportScreen v4c (2026-07-07) =====
+// v4c: 혼잡도 탭 개편 (5분/10분→30분내 도착예정 편수+인원 / 다음도착편 카드)
+//      · 서버 v4c 대응 (upcomingCount, upcomingPax, nextFlight)
+// v4b: 택시 T1/T2 구분 (T1=3개통합, T2=6개)
+// v4: 서버 v4 구조 대응 + 공발이식 UI 전면개편
+//     · 데이터: {t1,t2} 각각 taxi(6종류)+flights+immigration 파싱
+//     · 택시대기장: 서울/시계외/인천/모범/경기/대형 6종 2열 그리드 + 승차위치
+//     · 도착항공편: 카드 탭하면 상세 팝업(항공사/출도착/지연/터미널·게이트·입국장/인원)
+//     · 예상혼잡도: 5분후/10분후 입국 도착예정 인원
+//     · 입국심사 진행인원 카드
+// v3: status 파싱 t1SeoulTaxi 평면필드
 package com.callradar.app.screen
 
 import android.content.Context
@@ -15,10 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,13 +43,27 @@ import java.util.Locale
 data class FlightInfo(
     val flightNo: String, val origin: String, val scheduledTime: String,
     val estimatedTime: String, val terminal: String, val gate: String,
-    val carousel: String, val remark: String, val korean: Int, val foreigner: Int
-)
-data class PassengerCount(val hour: Int, val t1: Int, val t2: Int)
-data class AirportStatus(
-    val t1SeoulTaxi: Int, val t1GyeonggiTaxi: Int, val t1IncheonTaxi: Int, val t1VanTaxi: Int,
-    val t2SeoulTaxi: Int, val t2GyeonggiTaxi: Int, val t2IncheonTaxi: Int, val t2VanTaxi: Int,
-    val t1ImmigrationTotal: Int, val t1ImmigrationIn5min: Int, val t1ImmigrationIn10min: Int
+    val entryGate: String, val korean: Int, val foreigner: Int, val isDelayed: Boolean
+) { val total: Int get() = korean + foreigner }
+
+// 택시 6종류 (서버 v4 구조)
+data class TaxiStatus(
+    val seoul: Int, val incheon: Int, val gyeonggi: Int,
+    val intercity: Int, val best: Int, val van: Int,
+    val standSeoul: String, val standIncheon: String, val standGyeonggi: String,
+    val standIntercity: String, val standBestVan: String
+) { val total: Int get() = seoul + incheon + gyeonggi + intercity + best + van }
+
+data class NextFlight(val flightNo: String, val origin: String, val time: String, val pax: Int)
+
+// 터미널 하나의 전체 데이터
+data class TerminalData(
+    val taxi: TaxiStatus,
+    val flights: List<FlightInfo>,
+    val immigrationTotal: Int,
+    val upcomingCount: Int,
+    val upcomingPax: Int,
+    val nextFlight: NextFlight?
 )
 data class PhraseCard(
     val id: String, val korean: String, val english: String,
@@ -109,9 +137,9 @@ fun AirportScreen() {
     val context = LocalContext.current
     var selectedTerminal by remember { mutableStateOf(0) }
     var selectedTab by remember { mutableStateOf(0) }
-    var flights by remember { mutableStateOf<List<FlightInfo>>(emptyList()) }
-    var passengers by remember { mutableStateOf<List<PassengerCount>>(emptyList()) }
-    var airportStatus by remember { mutableStateOf<AirportStatus?>(null) }
+    var t1Data by remember { mutableStateOf<TerminalData?>(null) }
+    var t2Data by remember { mutableStateOf<TerminalData?>(null) }
+    var selectedFlight by remember { mutableStateOf<FlightInfo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var lastUpdated by remember { mutableStateOf("") }
     var customPhrases by remember { mutableStateOf(loadCustomPhrases(context)) }
@@ -148,52 +176,98 @@ fun AirportScreen() {
             dismissButton = { OutlinedButton(onClick = { if (!isTranslating) { showAddPhraseDialog = false; newPhraseKorean = "" } }) { Text("취소") } }, containerColor = Color(0xFF111827))
     }
 
+    // ===== 항공편 상세 팝업 (공발이 스타일) =====
+    selectedFlight?.let { f ->
+        Dialog(onDismissRequest = { selectedFlight = null }) {
+            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E))) {
+                Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(f.flightNo, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.height(16.dp)); HorizontalDivider(color = Color(0xFF2D3446)); Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(horizontalAlignment = Alignment.Start) { Text("출발", fontSize = 12.sp, color = muted); Spacer(Modifier.height(4.dp)); Text(f.origin, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                        Text("→", fontSize = 24.sp, color = accent)
+                        Column(horizontalAlignment = Alignment.End) { Text("도착", fontSize = 12.sp, color = muted); Spacer(Modifier.height(4.dp)); Text("인천", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF232A3B))) {
+                        Column(Modifier.padding(vertical = 16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("도착 시간", fontSize = 13.sp, color = muted); Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (f.isDelayed && f.scheduledTime != f.estimatedTime) Text(f.scheduledTime, fontSize = 18.sp, color = muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                                Text(f.estimatedTime, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = if (f.isDelayed) red else green)
+                            }
+                            if (f.isDelayed) { Spacer(Modifier.height(4.dp)); Text("지연됨", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = red) }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("터미널" to f.terminal, "게이트" to f.gate.ifEmpty { "-" }, "입국장" to f.entryGate.ifEmpty { "-" }).forEach { (l, v) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                Text(l, fontSize = 12.sp, color = muted); Spacer(Modifier.height(6.dp))
+                                Text(v, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (l == "게이트") accent else Color.White)
+                            }
+                        }
+                    }
+                    if (f.total > 0) {
+                        Spacer(Modifier.height(16.dp)); HorizontalDivider(color = Color(0xFF2D3446)); Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("내국인", fontSize = 12.sp, color = muted); Text("${f.korean}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("외국인", fontSize = 12.sp, color = muted); Text("${f.foreigner}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("합계", fontSize = 12.sp, color = muted); Text("${f.total}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = accent) }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = { selectedFlight = null }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))) { Text("확인", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+    }
+
     fun loadAirportData() {
         scope.launch {
-            if (flights.isEmpty() && airportStatus == null) isLoading = true
+            if (t1Data == null && t2Data == null) isLoading = true
             try {
                 withContext(Dispatchers.IO) {
-                    // 서버 캐시에서 한 번에 가져오기
                     val conn = (URL("$SERVER_URL/api/airport/cached").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                     val raw = conn.inputStream.bufferedReader().readText(); conn.disconnect()
                     val json = JSONObject(raw)
 
-                    // 항공편
-                    val flightsArr = json.optJSONArray("flights")
-                    if (flightsArr != null) {
-                        val fList = mutableListOf<FlightInfo>(); val pMap = mutableMapOf<Int, Pair<Int,Int>>()
-                        val terno = if (selectedTerminal == 0) "T1" else "T2"
-                        for (i in 0 until flightsArr.length()) {
-                            val it = flightsArr.getJSONObject(i)
-                            val kr = it.optInt("korean", 0); val fr = it.optInt("foreigner", 0)
-                            val terminal = it.optString("terminal", "T1")
+                    fun parseTerminal(key: String): TerminalData? {
+                        val obj = json.optJSONObject(key) ?: return null
+                        val tx = obj.optJSONObject("taxi") ?: JSONObject()
+                        val stand = tx.optJSONObject("stand") ?: JSONObject()
+                        val taxi = TaxiStatus(
+                            seoul = tx.optInt("seoul",0), incheon = tx.optInt("incheon",0),
+                            gyeonggi = tx.optInt("gyeonggi",0), intercity = tx.optInt("intercity",0),
+                            best = tx.optInt("best",0), van = tx.optInt("van",0),
+                            standSeoul = stand.optString("seoul",""), standIncheon = stand.optString("incheon",""),
+                            standGyeonggi = stand.optString("gyeonggi",""), standIntercity = stand.optString("intercity",""),
+                            standBestVan = stand.optString("bestVan","")
+                        )
+                        val fArr = obj.optJSONArray("flights") ?: JSONArray()
+                        val fList = mutableListOf<FlightInfo>()
+                        for (i in 0 until fArr.length()) {
+                            val it = fArr.getJSONObject(i)
                             fList.add(FlightInfo(
                                 flightNo = it.optString("flightNo",""), origin = it.optString("origin",""),
                                 scheduledTime = it.optString("scheduledTime",""), estimatedTime = it.optString("estimatedTime",""),
-                                terminal = terminal, gate = it.optString("entryGate",""), carousel = "",
-                                remark = "", korean = kr, foreigner = fr
+                                terminal = it.optString("terminal",""), gate = it.optString("gate",""),
+                                entryGate = it.optString("entryGate",""), korean = it.optInt("korean",0),
+                                foreigner = it.optInt("foreigner",0), isDelayed = it.optBoolean("isDelayed",false)
                             ))
-                            val hour = it.optString("estimatedTime","").split(":").getOrNull(0)?.toIntOrNull() ?: 0
-                            val count = kr + fr
-                            val prev = pMap[hour] ?: Pair(0,0)
-                            if (terminal.contains("T1") || terminal.contains("1")) pMap[hour] = Pair(prev.first+count, prev.second)
-                            else pMap[hour] = Pair(prev.first, prev.second+count)
                         }
-                        flights = if (terno == "T1") fList.filter { it.terminal.contains("1") }.sortedBy { it.estimatedTime }
-                                  else fList.filter { it.terminal.contains("2") }.sortedBy { it.estimatedTime }
-                        passengers = pMap.map { PassengerCount(it.key, it.value.first, it.value.second) }.sortedBy { it.hour }
+                        val nf = obj.optJSONObject("nextFlight")
+                        val nextFlight = if (nf != null) NextFlight(
+                            flightNo = nf.optString("flightNo",""), origin = nf.optString("origin",""),
+                            time = nf.optString("time",""), pax = nf.optInt("pax",0)
+                        ) else null
+                        return TerminalData(taxi, fList,
+                            obj.optInt("immigrationTotal",0), obj.optInt("upcomingCount",0),
+                            obj.optInt("upcomingPax",0), nextFlight)
                     }
 
-                    // 택시 현황
-                    val statusJson = json.optJSONObject("status")
-                    if (statusJson != null) {
-                        val t1 = statusJson.optJSONObject("t1"); val t2 = statusJson.optJSONObject("t2")
-                        airportStatus = AirportStatus(
-                            t1?.optInt("waiting",0) ?: 0, 0, 0, 0,
-                            t2?.optInt("waiting",0) ?: 0, 0, 0, 0,
-                            0, 0, 0
-                        )
-                    }
+                    t1Data = parseTerminal("t1")
+                    t2Data = parseTerminal("t2")
                 }
                 lastUpdated = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.KOREA).format(java.util.Date())
             } catch (e: Exception) { android.util.Log.e("AirportAPI","캐시 로드 오류: ${e.message}") }
@@ -201,7 +275,7 @@ fun AirportScreen() {
         }
     }
 
-    LaunchedEffect(selectedTerminal) { while(true) { loadAirportData(); delay(30000L) } }
+    LaunchedEffect(Unit) { while(true) { loadAirportData(); delay(30000L) } }
 
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더
@@ -226,7 +300,7 @@ fun AirportScreen() {
             // 서브탭 (회화카드 선택시 숨김)
             if (selectedTab != 3) { Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("입출국장","도착항공편","입국자수").forEachIndexed { index, title ->
+                    listOf("입출국장","도착항공편","예상혼잡도").forEachIndexed { index, title ->
                         FilterChip(selected = selectedTab == index, onClick = { selectedTab = index }, label = { Text(title, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF1F2937), selectedLabelColor = accent, containerColor = Color.Transparent, labelColor = muted))
                     }
@@ -234,84 +308,147 @@ fun AirportScreen() {
             }
         }
 
+        val curData = if (selectedTerminal == 0) t1Data else t2Data
+        val tn = if (selectedTerminal == 0) "T1" else "T2"
+
         when (selectedTab) {
-            0 -> { // 입출국장
+            0 -> { // 입출국장 (택시 대기장 + 입국심사)
                 if (isLoading) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { CircularProgressIndicator(color = accent); Spacer(Modifier.height(12.dp)); Text("불러오는 중...", fontSize = 13.sp, color = muted) } } }
-                else { LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                else { LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // 택시 대기장 카드 (6종류 2열 그리드)
                     item {
-                        val tn = if (selectedTerminal==0) "T1" else "T2"
-                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                        val tx = curData?.taxi
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("🚕 $tn 택시 대기장", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp))
-                                if (selectedTerminal == 0) {
-                                    val mid = (airportStatus?.t1SeoulTaxi?:0)+(airportStatus?.t1GyeonggiTaxi?:0)+(airportStatus?.t1IncheonTaxi?:0); val van = airportStatus?.t1VanTaxi?:0
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if(mid>0)"$mid" else "-",fontSize=24.sp,fontWeight=FontWeight.Bold,color=if(mid>150)red else if(mid>80)accent else green); Text("중형(통합)",fontSize=12.sp,color=muted) }
-                                        Box(Modifier.width(1.dp).height(56.dp).background(Color(0xFF1F2937)))
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if(van>0)"$van" else "-",fontSize=24.sp,fontWeight=FontWeight.Bold,color=Color(0xFF60A5FA)); Text("모범+대형",fontSize=12.sp,color=muted) }
-                                    }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("제${if(selectedTerminal==0)"1" else "2"}여객터미널 택시대기장", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("🚕", fontSize = 20.sp)
+                                }
+                                Spacer(Modifier.height(14.dp)); HorizontalDivider(color = Color(0xFF1F2937)); Spacer(Modifier.height(14.dp))
+                                val items = if (selectedTerminal == 0) {
+                                    // T1: 서울/인천/경기가 같은 승차장(통합) → 일반(중형)으로 합산
+                                    listOf(
+                                        Triple("일반(중형)", (tx?.seoul ?: 0) + (tx?.incheon ?: 0) + (tx?.gyeonggi ?: 0), green),
+                                        Triple("모범", tx?.best ?: 0, accent),
+                                        Triple("대형", tx?.van ?: 0, Color(0xFF60A5FA))
+                                    )
                                 } else {
-                                    val s=airportStatus?.t2SeoulTaxi?:0;val i=airportStatus?.t2IncheonTaxi?:0;val g=airportStatus?.t2GyeonggiTaxi?:0;val v=airportStatus?.t2VanTaxi?:0
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                        listOf("서울" to s,"인천" to i,"경기" to g).forEachIndexed { idx,(l,c) ->
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if(c>0)"$c" else "-",fontSize=20.sp,fontWeight=FontWeight.Bold,color=if(c>100)red else if(c>50)accent else green); Text(l,fontSize=12.sp,color=muted) }
-                                            if(idx<2) Box(Modifier.width(1.dp).height(40.dp).background(Color(0xFF1F2937)))
+                                    // T2: 지역별 승차장 분리 → 6종류
+                                    listOf(
+                                        Triple("서울", tx?.seoul ?: 0, green), Triple("시계외", tx?.intercity ?: 0, green),
+                                        Triple("인천", tx?.incheon ?: 0, green), Triple("모범", tx?.best ?: 0, accent),
+                                        Triple("경기", tx?.gyeonggi ?: 0, green), Triple("대형", tx?.van ?: 0, Color(0xFF60A5FA))
+                                    )
+                                }
+                                items.chunked(2).forEach { row ->
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        row.forEach { (label, cnt, col) ->
+                                            Row(Modifier.weight(1f).background(Color(0xFF1B2233), RoundedCornerShape(12.dp)).padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                                Text(label, fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                                                Text("$cnt", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = if (cnt == 0) muted else col)
+                                            }
                                         }
-                                    }
-                                    Spacer(Modifier.height(8.dp)); HorizontalDivider(color=Color(0xFF1F2937))
-                                    Row(Modifier.fillMaxWidth().padding(top=8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if(v>0)"$v" else "-",fontSize=20.sp,fontWeight=FontWeight.Bold,color=Color(0xFF60A5FA)); Text("모범+대형",fontSize=12.sp,color=muted) }
+                                        // T1은 홀수(3개)라 마지막 줄 한 칸 비는 것 방지
+                                        if (row.size == 1) Spacer(Modifier.weight(1f))
                                     }
                                 }
+                                if (selectedTerminal == 0 && !tx?.standSeoul.isNullOrEmpty()) {
+                                    Spacer(Modifier.height(10.dp)); Text("승차위치: ${tx?.standSeoul}", fontSize = 11.sp, color = muted)
+                                } else if (selectedTerminal == 1 && !tx?.standSeoul.isNullOrEmpty()) {
+                                    Spacer(Modifier.height(10.dp)); Text("승차위치: 서울 ${tx?.standSeoul} · 시외 ${tx?.standIntercity} · 인천 ${tx?.standIncheon}", fontSize = 11.sp, color = muted)
+                                }
+                            }
+                        }
+                    }
+                    // 입국심사 진행 인원 카드
+                    item {
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                            Column(Modifier.padding(20.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("🛂", fontSize = 18.sp)
+                                    Text("$tn 입국심사 진행 인원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text("${String.format("%,d", curData?.immigrationTotal ?: 0)} 명", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = green)
+                                Spacer(Modifier.height(6.dp))
+                                Text("현재 입국장으로 들어오는 승객 규모입니다", fontSize = 11.sp, color = muted)
                             }
                         }
                     }
                 } }
             }
             1 -> { // 도착항공편
+                val flights = curData?.flights ?: emptyList()
                 if (isLoading) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
                 else if (flights.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("✈️",fontSize=48.sp);Spacer(Modifier.height(12.dp));Text("항공편 정보가 없어요",fontSize=14.sp,color=muted) } } }
                 else { LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical=12.dp)) {
                     items(flights) { f ->
-                        val total = f.korean + f.foreigner
-                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-                            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Card(Modifier.fillMaxWidth().clickable { selectedFlight = f }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("${f.estimatedTime}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
-                                        Text("${f.origin} [${f.flightNo}]", fontSize = 13.sp, color = Color.White)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(f.estimatedTime, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (f.isDelayed) red else accent)
+                                        if (f.isDelayed) Text("지연", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = red, modifier = Modifier.background(Color(0x33EF4444), RoundedCornerShape(4.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
                                     }
                                     Spacer(Modifier.height(4.dp))
-                                    Text("내국인: ${f.korean}명, 외국인: ${f.foreigner}명 / 출구: ${f.gate}", fontSize = 11.sp, color = muted)
+                                    Text("${f.origin}  [${f.flightNo}]", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Spacer(Modifier.height(3.dp))
+                                    Text("내국인 ${f.korean} · 외국인 ${f.foreigner} · 입국장 ${f.entryGate}", fontSize = 11.sp, color = muted)
                                 }
-                                if (total > 0) Text("${total}명", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if(total>200) red else if(total>100) accent else green)
+                                if (f.total > 0) Column(horizontalAlignment = Alignment.End) {
+                                    Text("${f.total}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = if(f.total>200) red else if(f.total>100) accent else green)
+                                    Text("명", fontSize = 11.sp, color = muted)
+                                }
                             }
                         }
                     }
                 } }
             }
-            2 -> { // 입국자수
+            2 -> { // 입국장 예상 혼잡도 (30분 내 도착)
                 if (isLoading) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
-                else if (passengers.isEmpty()) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("👥",fontSize=48.sp);Spacer(Modifier.height(12.dp));Text("입국자 정보가 없어요",fontSize=14.sp,color=muted) } } }
                 else {
-                    val curHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp), contentPadding = PaddingValues(vertical=12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-                            Row(Modifier.fillMaxWidth().padding(16.dp)) { Text("시간",fontSize=12.sp,color=muted,modifier=Modifier.weight(1f));Text("T1 (명)",fontSize=12.sp,color=muted,modifier=Modifier.weight(1f));Text("T2 (명)",fontSize=12.sp,color=muted,modifier=Modifier.weight(1f)) }
-                        } }
-                        items(passengers) { p ->
-                            val cur = p.hour == curHour
-                            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if(cur) Color(0xFF1F2937) else card), shape = RoundedCornerShape(10.dp)) {
-                                Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        if(cur) Box(Modifier.size(6.dp).background(accent, RoundedCornerShape(3.dp)))
-                                        Text("${p.hour}시",fontSize=if(cur)15.sp else 14.sp,fontWeight=if(cur)FontWeight.Bold else FontWeight.Normal,color=if(cur)accent else Color.White)
+                    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // 30분 내 도착 예정 카드
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                            Column(Modifier.padding(20.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("🕐", fontSize = 18.sp); Text("$tn 30분 내 도착 예정", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Spacer(Modifier.height(16.dp)); HorizontalDivider(color = Color(0xFF1F2937)); Spacer(Modifier.height(16.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("도착 편수", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)); Spacer(Modifier.height(10.dp))
+                                        Text("${curData?.upcomingCount ?: 0}", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("편", fontSize = 11.sp, color = muted)
                                     }
-                                    Text(if(p.t1>0)String.format("%,d",p.t1)else"-",fontSize=if(cur)15.sp else 14.sp,fontWeight=if(cur)FontWeight.Bold else FontWeight.Normal,color=if(cur)accent else Color.White,modifier=Modifier.weight(1f))
-                                    Text(if(p.t2>0)String.format("%,d",p.t2)else"-",fontSize=if(cur)15.sp else 14.sp,fontWeight=if(cur)FontWeight.Bold else FontWeight.Normal,color=if(cur)accent else Color.White,modifier=Modifier.weight(1f))
+                                    Box(Modifier.width(1.dp).height(70.dp).background(Color(0xFF1F2937)))
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("예상 입국 인원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green); Spacer(Modifier.height(10.dp))
+                                        val pax = curData?.upcomingPax ?: 0
+                                        Text("${String.format("%,d", pax)}", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = if(pax>300) red else if(pax>150) accent else Color.White); Text("명", fontSize = 11.sp, color = muted)
+                                    }
                                 }
                             }
                         }
+                        // 다음 도착 편 카드
+                        curData?.nextFlight?.let { nf ->
+                            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                                Column(Modifier.padding(20.dp)) {
+                                    Text("✈️ 다음 도착 편", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = muted)
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Column {
+                                            Text(nf.time, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = accent)
+                                            Spacer(Modifier.height(2.dp))
+                                            Text("${nf.origin} [${nf.flightNo}]", fontSize = 14.sp, color = Color.White)
+                                        }
+                                        if (nf.pax > 0) Column(horizontalAlignment = Alignment.End) {
+                                            Text("${nf.pax}", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = green); Text("명 입국", fontSize = 11.sp, color = muted)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Text("현재 시각 기준 30분 이내 도착 예정 항공편입니다", fontSize = 11.sp, color = muted, modifier = Modifier.padding(horizontal = 4.dp))
                     }
                 }
             }

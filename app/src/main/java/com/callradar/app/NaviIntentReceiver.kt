@@ -1,3 +1,12 @@
+// ===== NaviIntentReceiver v3.1u (2026-07-08) =====
+// v3.1u: 우버 신버전 직접결제 대응 - 버튼 "운행완료"→"콜 완료" 변경, "수금" 확인화면 추가 감지
+// v3.1t: 우버 "최종 금액"(예상치) 제거 - 입력후 화면(₩10600+운행완료)에서 실제요금만 잡기
+// v3.1s: 우버 평가화면/홈화면 누적수입(홈 ₩34200 오늘)을 요금으로 오인하던 버그 수정 - 평가화면 파싱 스킵
+// v3.1r: 통행요금 줄 파싱 제외 (미터기/결제요금만) - 통행요금 혼선 방지
+// v3.1q: 카카오 금액파싱 개선 - 결제요금/미터기요금 뒤 "원" 없어도 매칭(접근성 노드분리 대응), 금액캐싱 전플랫폼 확대
+// v3.1o: extractFare에서 거리(m/km)·시간(분) 제거 → 우버 103362m를 요금으로 오인하던 버그 해결 (금액캐싱도 정상화)
+// v3.1n: 탑승감지 3플랫폼 확대 - 클릭(카카오/티머니) + 화면텍스트(우버 탑승완료/승객탑승)
+// v3.1l: 이전 확정본
 package com.callradar.app
 
 import android.accessibilityservice.AccessibilityService
@@ -29,9 +38,8 @@ class NaviIntentReceiver : AccessibilityService() {
         )
         private const val SERVER_URL = "https://callradar-server.onrender.com"
         private val FARE_PATTERNS = listOf(
-            Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
-            Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)\\s*원"),
-            Regex("미터기\\s*요금\\s+([0-9,]+)"),
+            Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
+            Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("총\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("₩\\s*([0-9,]+)"),
             Regex("([0-9,]{4,})\\s*원")
@@ -50,6 +58,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
     private var lastDetectedFare = 0  // 우버 금액 캐싱
     @Volatile private var tripStartedAt = 0L
+    @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
     @Volatile private var tripDestUpdateInFlight = false
     @Volatile private var lastLocalTripId = -1L
     @Volatile private var isProcessingTaxiScreen = false
@@ -163,9 +172,11 @@ class NaviIntentReceiver : AccessibilityService() {
             val clickedText = event.contentDescription?.toString()
                 ?: event.text?.firstOrNull()?.toString() ?: ""
             Log.d(TAG, "클릭 감지: $clickedText")
-            // [v3.1 수정] 우버 "운행 완료" 클릭 → 즉시 금액 읽기 (딜레이 없이)
-            if (clickedText.contains("운행 완료") || clickedText.contains("운행완료")) {
-                Log.d(TAG, "운행 완료 클릭! 즉시 금액 읽기")
+            // [v3.1t] 우버 완료 버튼 클릭 → 즉시 금액 읽기
+            // 구버전: "일반 콜 운행완료" / 신버전: "일반 콜 완료"(수금화면) 둘 다 감지
+            if (clickedText.contains("운행 완료") || clickedText.contains("운행완료") ||
+                (clickedText.contains("콜") && clickedText.contains("완료"))) {
+                Log.d(TAG, "우버 완료 클릭! 즉시 금액 읽기")
                 if (lastTripId > 0) {
                     try {
                         val root = rootInActiveWindow
@@ -177,13 +188,15 @@ class NaviIntentReceiver : AccessibilityService() {
                             sendDebugLog("CLICK_END", "$lastPlatform | $clickedText | ${fare}원")
                             finalizeCurrentTrip(fare)
                         }
-                    } catch (e: Exception) { Log.e(TAG, "운행완료 금액 읽기 실패: ${e.message}") }
+                    } catch (e: Exception) { Log.e(TAG, "완료 금액 읽기 실패: ${e.message}") }
                 }
                 return
             }
             if (clickedText.contains("길안내") || clickedText.contains("탑승") || clickedText.contains("손님")) {
                 Log.d(TAG, "길안내/탑승/손님 버튼 클릭! 즉시 파싱")
                 sendDebugLog("CLICK", "$lastPlatform | $clickedText")
+                // 손님 탑승 클릭 시 → 이 운행은 실제 운행 (장거리/정체여도 취소 방지)
+                if (clickedText.contains("탑승")) { passengerBoarded = true; Log.d(TAG, "✅ 손님 탑승 → 취소방지 활성") }
                 clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
                 lastTriggerTime = now
                 Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 300)
@@ -223,10 +236,15 @@ class NaviIntentReceiver : AccessibilityService() {
                     else -> false
                 }
                 if (isCancelledToIdle && System.currentTimeMillis() - tripStartedAt > 60000) {
-                    Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
-                    sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
-                    deleteCurrentTrip()
-                    return
+                    if (passengerBoarded) {
+                        // 손님 탑승한 운행은 대기화면 스쳐도 취소 안함 (인천공항/지방/정체 대응)
+                        Log.d(TAG, "대기화면 감지했으나 손님 탑승상태 → 취소 무시")
+                    } else {
+                        Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
+                        sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
+                        deleteCurrentTrip()
+                        return
+                    }
                 }
             }
 
@@ -235,6 +253,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 UBER -> allText.contains("영수증") ||
                     allText.contains("결제 완료") || allText.contains("운행이 완료") ||
                     ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines) > 0) ||
+                    ((allText.contains("콜 완료") || allText.contains("수금")) && extractFare(lines) > 0) ||
                     (allText.contains("라이더") && allText.contains("평가해 주세요"))
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
                     allText.contains("결제 요금")
@@ -277,6 +296,15 @@ class NaviIntentReceiver : AccessibilityService() {
                 return
             }
 
+            // 화면 텍스트로도 탑승 감지 (우버 등 클릭 대신 화면표시 방식 커버) - 모든 플랫폼 취소방지
+            if (!passengerBoarded && lastTripId > 0 && (
+                    allText.contains("탑승 완료") || allText.contains("승객 탑승") ||
+                    allText.contains("손님 탑승") || allText.contains("손님탑승") ||
+                    (allText.contains("목적지") && allText.contains("도착")))) {
+                passengerBoarded = true
+                Log.d(TAG, "✅ 화면에서 탑승 감지 → 취소방지 활성")
+            }
+
             val curLat = LocationTrackingService.currentLat
             val curLng = LocationTrackingService.currentLng
             val locationAge = System.currentTimeMillis() - LocationTrackingService.lastLocationTime
@@ -309,8 +337,8 @@ class NaviIntentReceiver : AccessibilityService() {
                 if (dist > 300) {
                     refreshTripDestination(lastTripId, curLat, curLng)
                 }
-                // 우버 금액 캐싱: 화면에 ₩ 금액 보이면 기억
-                if (pkg == UBER && lastTripId > 0) {
+                // 금액 캐싱: 화면에 요금 보이면 기억 (우버·카카오 등 완료화면 전환 대비)
+                if (lastTripId > 0) {
                     val fare = extractFare(lines)
                     if (fare > 0) lastDetectedFare = fare
                 }
@@ -333,6 +361,7 @@ class NaviIntentReceiver : AccessibilityService() {
         }
         isSendingTrip = true
         tripStartedAt = System.currentTimeMillis()
+        passengerBoarded = false  // 새 운행 시작 → 탑승 플래그 리셋
         originLat = lat
         originLng = lng
         Thread {
@@ -435,7 +464,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 Log.d(TAG, "🗑️ 취소 트립 삭제: #$tripId"); conn.disconnect()
             } catch (e: Exception) { Log.e(TAG, "트립 삭제 실패: ${e.message}") }
-            finally { synchronized(this) { lastTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
+            finally { synchronized(this) { lastTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; passengerBoarded = false; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
         }.start()
     }
 
@@ -511,11 +540,29 @@ class NaviIntentReceiver : AccessibilityService() {
     }
 
     private fun extractFare(lines: List<String>): Int {
-        val filteredLines = lines.filter { !it.contains("지급") && !it.contains("미션") && !it.contains("포인트") }
-        val allText = filteredLines.joinToString(" ")
+        val allTextRaw = lines.joinToString(" ")
+        // 우버 평가화면/홈화면은 "오늘 누적 수입"이 표시됨 → 트립 요금 아님, 파싱 스킵
+        // (예: "홈 ₩34,200 오늘 ... 라이더 평가" 에서 34200은 그날 누적)
+        val isRatingOrHome = (allTextRaw.contains("라이더") && allTextRaw.contains("평가")) ||
+            (allTextRaw.contains("별점") && allTextRaw.contains("탭하세요")) ||
+            (allTextRaw.contains("홈") && allTextRaw.contains("오늘") && allTextRaw.contains("수입"))
+        if (isRatingOrHome) return 0
+
+        // "통행 요금" 줄 제거 - 파싱 혼선 방지 (미터기/결제 요금만 사용)
+        val filteredLines = lines.filter {
+            !it.contains("지급") && !it.contains("미션") && !it.contains("포인트") && !it.contains("통행")
+        }
+        // 거리(103,362m / 66.4km)·시간(57분)·좌표 등을 요금으로 오인하지 않도록 제거
+        val cleaned = filteredLines.joinToString(" ")
+            .replace(Regex("통행\\s*요금\\s*[0-9,]*"), " ")
+            .replace(Regex("최종\\s*금액\\s*[₩\\s]*[0-9,]*"), " ")
+            .replace(Regex("[0-9,.]+\\s*km"), " ")
+            .replace(Regex("[0-9,]+\\s*m(?![0-9])"), " ")
+            .replace(Regex("[0-9]+\\s*분"), " ")
+            .replace(Regex("[0-9]+\\s*시간"), " ")
         var maxFare = 0
         for (pattern in FARE_PATTERNS) {
-            val matches = pattern.findAll(allText)
+            val matches = pattern.findAll(cleaned)
             for (m in matches) {
                 val amount = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
                 if (amount in 1000..500000 && amount > maxFare) maxFare = amount
