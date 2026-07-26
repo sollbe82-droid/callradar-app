@@ -1,0 +1,41 @@
+시작 전 서버 운행수(user 205): 212 | N=2 fast=false
+args: [-p, com.callradar.app, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "com.callradar.app"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="com.callradar.app"
+data="android.intent.category.LAUNCHER"
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.6 MB/s (21565 bytes in 0.006s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 1.9 MB/s (21565 bytes in 0.011s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 5.4 MB/s (48650 bytes in 0.009s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 4.6 MB/s (48674 bytes in 0.010s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 2.9 MB/s (21556 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 1.6 MB/s (21556 bytes in 0.013s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.1 MB/s (21556 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.1 MB/s (21887 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 1.8 MB/s (21888 bytes in 0.012s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.0 MB/s (22228 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 2.9 MB/s (21875 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 1.8 MB/s (21561 bytes in 0.011s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 4.3 MB/s (57085 bytes in 0.013s)
+#1 date=rnd 티머니고/카드 1:4 Nowon->Pangyo 32,459원 목록:-
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 8.4 MB/s (57085 bytes in 0.006s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.1 MB/s (21566 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 6.6 MB/s (48650 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 5.9 MB/s (47552 bytes in 0.008s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 7.1 MB/s (47576 bytes in 0.006s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.4 MB/s (21557 bytes in 0.006s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.6 MB/s (21557 bytes in 0.006s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 2.4 MB/s (21557 bytes in 0.008s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 1.6 MB/s (21888 bytes in 0.013s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 2.9 MB/s (21890 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 3.1 MB/s (22233 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 5.8 MB/s (21880 bytes in 0.004s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 2.8 MB/s (21566 bytes in 0.007s)
+/sdcard/ui.xml: 1 file pulled, 0 skipped. 8.3 MB/s (57085 bytes in 0.007s)
+#2 date=rnd 길빵/예약/카드 20:52 Sindorim->ICN-T1 47,196원 목록:-
+
+=== 결과 === UI저장성공(목록노출) 0/2, 실패 2 | 서버 212->213 (증가 1, 기대 2)
+BATCH_DONE 

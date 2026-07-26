@@ -8,43 +8,88 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 @Composable
 fun SetupGuideScreen(onSetupComplete: () -> Unit) {
     val context = LocalContext.current
-    val bg = Color(0xFF0A0E1A)
-    val card = Color(0xFF111827)
+    val bg = AppTheme.bg
+    val card = AppTheme.card
     val accent = Color(0xFF00C896)
     val muted = Color(0xFF6B7280)
 
+    // ★F1: 진입 시점에 이미 위치 권한이 있었는지 = "재방문자" 판별용 (기억해두고 안 바뀜)
+    //   재방문자만 즉시 통과, 신규 사용자는 위치 승인 후에도 백그라운드·배터리 "권장"을 보게 함
+    val hadLocationAtStart = remember { checkLocationPermission(context) }
+
     var locationGranted by remember { mutableStateOf(checkLocationPermission(context)) }
     var backgroundLocationGranted by remember { mutableStateOf(checkBackgroundLocation(context)) }
-    var batteryOptimized by remember { mutableStateOf(checkBatteryOptimization(context)) }
+    var batteryUnrestricted by remember { mutableStateOf(checkBatteryOptimization(context)) } // true = 최적화에서 "제외됨"(좋은 상태)
     var currentStep by remember { mutableStateOf(0) }
 
-    // 모든 권한 확인
-    LaunchedEffect(locationGranted, backgroundLocationGranted, batteryOptimized) {
-        if (locationGranted && backgroundLocationGranted && batteryOptimized) {
-            val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putBoolean("setup_complete", true).apply()
-            onSetupComplete()
+    // 뒤로가기: 두 번 눌러야 온보딩 건너뜀 (한 번은 안내 토스트, 실수 터치로 바로 튕기지 않게)
+    var backPressedOnce by remember { mutableStateOf(false) }
+    BackHandler {
+        if (backPressedOnce) {
+            // 두 번째 → 온보딩 건너뛰고 홈으로 (설정 완료 처리)
+            completeSetup(context, onSetupComplete)
+        } else {
+            backPressedOnce = true
+            android.widget.Toast.makeText(context, "한 번 더 누르면 설정을 건너뛰고 시작해요", android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
+    // 2초 안에 두 번째를 안 누르면 초기화
+    LaunchedEffect(backPressedOnce) {
+        if (backPressedOnce) {
+            kotlinx.coroutines.delay(2000)
+            backPressedOnce = false
+        }
+    }
+
+    // ★F1 핵심: 자동 통과는 "재방문자(진입 때 이미 위치 있음)"에게만.
+    //   예전 버그: 셋 다 켜야 통과 → 갇힘(이탈 주범).
+    //   1차 수정: 위치만 켜지면 즉시 통과 → 갇힘은 풀렸지만, 위치 켜는 순간 화면이 닫혀
+    //             백그라운드 위치(=화면 꺼져도 기록, 자동기록의 핵심)를 유도할 기회가 사라짐.
+    //   최종: 재방문자는 즉시 통과(안 괴롭힘), 신규는 위치 승인 후에도 화면 유지 → 아래 "시작하기"로 진행.
+    LaunchedEffect(locationGranted) {
+        if (locationGranted && hadLocationAtStart) {
+            completeSetup(context, onSetupComplete)
+        }
+    }
+
+    // 설정 화면 갔다 돌아올 때마다 권한 재확인 (ON_RESUME) — 배터리설정 갔다와도 갱신됨
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                locationGranted = checkLocationPermission(context)
+                backgroundLocationGranted = checkBackgroundLocation(context)
+                batteryUnrestricted = checkBatteryOptimization(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // 위치 권한 런처
@@ -56,43 +101,50 @@ fun SetupGuideScreen(onSetupComplete: () -> Unit) {
     }
 
     // 백그라운드 위치 런처
+    //  ★F2: Android 11+(API 30↑)에선 런처 직접 요청으로는 "항상 허용"을 못 받음(구글 정책).
+    //        거부로 돌아오면 앱 설정 화면으로 보내 사용자가 직접 "항상 허용"을 고르게 유도.
     val backgroundLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         backgroundLocationGranted = granted
-        if (granted) currentStep = 2
-    }
-
-    // 권한 상태 재확인 (설정에서 돌아올 때)
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(500)
-        locationGranted = checkLocationPermission(context)
-        backgroundLocationGranted = checkBackgroundLocation(context)
-        batteryOptimized = checkBatteryOptimization(context)
+        if (granted) {
+            currentStep = 2
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.widget.Toast.makeText(
+                context,
+                "설정 > 권한 > 위치에서 '항상 허용'을 선택해 주세요",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            context.startActivity(intent)
+        }
     }
 
     // 현재 단계 자동 결정
-    LaunchedEffect(locationGranted, backgroundLocationGranted, batteryOptimized) {
+    LaunchedEffect(locationGranted, backgroundLocationGranted, batteryUnrestricted) {
         currentStep = when {
             !locationGranted -> 0
             !backgroundLocationGranted -> 1
-            !batteryOptimized -> 2
+            !batteryUnrestricted -> 2
             else -> 3
         }
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(bg).padding(24.dp),
+        modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
+        Spacer(Modifier.height(24.dp))
         Text("🚕", fontSize = 48.sp)
         Spacer(Modifier.height(16.dp))
         Text(
             "콜레이더 설정",
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = AppTheme.text
         )
         Text(
             "정확한 운행 기록을 위해 설정이 필요해요",
@@ -123,11 +175,11 @@ fun SetupGuideScreen(onSetupComplete: () -> Unit) {
 
         Spacer(Modifier.height(12.dp))
 
-        // 단계 2: 백그라운드 위치
+        // 단계 2: 백그라운드 위치 (선택·권장)
         SetupItem(
             step = 2,
-            title = "백그라운드 위치 허용",
-            description = "운행 중 화면 꺼져도 위치를 추적해요",
+            title = "백그라운드 위치 허용 (권장)",
+            description = "운행 중 화면 꺼져도 위치를 기록해요",
             isCompleted = backgroundLocationGranted,
             isCurrent = currentStep == 1,
             accent = accent,
@@ -142,12 +194,12 @@ fun SetupGuideScreen(onSetupComplete: () -> Unit) {
 
         Spacer(Modifier.height(12.dp))
 
-        // 단계 3: 배터리 최적화 제외
+        // 단계 3: 배터리 최적화 제외 (선택·권장)
         SetupItem(
             step = 3,
-            title = "배터리 최적화 제외",
+            title = "배터리 최적화 제외 (권장)",
             description = "GPS가 절전 모드에서 꺼지지 않아요",
-            isCompleted = batteryOptimized,
+            isCompleted = batteryUnrestricted,
             isCurrent = currentStep == 2,
             accent = accent,
             card = card,
@@ -160,16 +212,39 @@ fun SetupGuideScreen(onSetupComplete: () -> Unit) {
             }
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(28.dp))
 
-        // 건너뛰기 (나중에 설정)
-        TextButton(onClick = {
-            val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putBoolean("setup_complete", true).apply()
-            onSetupComplete()
-        }) {
-            Text("나중에 설정할게요", fontSize = 13.sp, color = muted)
+        // ★F1: 하단 버튼을 상태로 분기
+        //   - 위치 미허용: 큰 "나중에 설정하고 시작하기"(스킵) — 갇힘 방지
+        //   - 위치 허용 후(신규): 초록 "시작하기"(주 버튼) — 백그라운드·배터리 권장을 본 뒤 사용자가 눌러 진입
+        if (locationGranted) {
+            Button(
+                onClick = { completeSetup(context, onSetupComplete) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = accent),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Text("시작하기", fontSize = 15.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "백그라운드·배터리는 권장이에요. 나중에 설정에서 켜도 됩니다.",
+                fontSize = 12.sp,
+                color = muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            OutlinedButton(
+                onClick = { completeSetup(context, onSetupComplete) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("나중에 설정하고 시작하기", fontSize = 14.sp, color = accent, fontWeight = FontWeight.Bold)
+            }
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -188,7 +263,7 @@ private fun SetupItem(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCurrent) Color(0xFF1F2937) else card
+            containerColor = if (isCurrent) AppTheme.surface2 else card
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -205,12 +280,12 @@ private fun SetupItem(
 
             // 설명
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                 Text(description, fontSize = 12.sp, color = muted)
             }
 
-            // 버튼
-            if (!isCompleted && isCurrent) {
+            // 버튼: 완료 안 됐으면 항상 표시 (isCurrent 조건 제거 — 순서 꼬여도 눌러 진행 가능)
+            if (!isCompleted) {
                 Button(
                     onClick = onAction,
                     colors = ButtonDefaults.buttonColors(containerColor = accent),
@@ -222,6 +297,13 @@ private fun SetupItem(
             }
         }
     }
+}
+
+// 설정 완료 처리 공통 함수 (중복 제거)
+private fun completeSetup(context: Context, onSetupComplete: () -> Unit) {
+    val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    prefs.edit().putBoolean("setup_complete", true).apply()
+    onSetupComplete()
 }
 
 private fun checkLocationPermission(context: Context): Boolean {

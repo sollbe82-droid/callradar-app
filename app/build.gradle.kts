@@ -1,7 +1,14 @@
+﻿import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.callradar.app"
     compileSdk = 36
@@ -12,17 +19,17 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("../callradar-release.jks")
-            storePassword = "callradar2026"
+            storePassword = keystoreProps.getProperty("RELEASE_STORE_PASSWORD") ?: System.getenv("RELEASE_STORE_PASSWORD") ?: ""
             keyAlias = "callradar"
-            keyPassword = "callradar2026"
+            keyPassword = keystoreProps.getProperty("RELEASE_KEY_PASSWORD") ?: System.getenv("RELEASE_KEY_PASSWORD") ?: ""
         }
     }
     defaultConfig {
         applicationId = "com.callradar.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 20
+        versionName = "2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -53,7 +60,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1")
+    implementation("com.google.zxing:core:3.5.3")   // [v19] 명함 QR(vCard) 생성
+    implementation("androidx.fragment:fragment:1.8.9")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -1,0 +1,5 @@
+REC_START 
+REC_STOPPED 
+pkill: INT->3624: Operation not permitted
+/sdcard/callradar_demo.mp4: 1 file pulled, 0 skipped. 40.7 MB/s (42573447 bytes in 0.999s)
+PULLED 

@@ -1,0 +1,68 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:clean
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:mergeReleaseStartupProfile UP-TO-DATE
+> Task :app:desugarReleaseFileDependencies
+> Task :app:javaPreCompileRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:extractDeepLinksRelease
+> Task :app:generateReleaseResources
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:processReleaseNavigationResources
+> Task :app:mergeReleaseAssets
+> Task :app:checkReleaseAarMetadata
+> Task :app:mergeReleaseArtProfile
+> Task :app:parseReleaseIntegrityConfig UP-TO-DATE
+> Task :app:validateSigningRelease
+> Task :app:compileReleaseNavigationResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseNativeLibs
+> Task :app:parseReleaseLocalResources
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so. Run with --info option to learn more.
+
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:generateReleaseRFile
+> Task :app:collectReleaseDependencies
+> Task :app:configureReleaseDependencies
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processApplicationManifestReleaseForBundle
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseResources
+> Task :app:mergeExtDexRelease
+> Task :app:bundleReleaseResources
+
+> Task :app:compileReleaseKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/CloudinaryUploader.kt:86:54 Java type mismatch: inferred type is 'Nothing?', but 'String' was expected.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ReceiptScanActivity.kt:57:50 'static fun getBitmap(p0: ContentResolver!, p1: Uri!): Bitmap!' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:111:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:147:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:169:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:82:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+> Task :app:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:mergeDexRelease
+> Task :app:buildReleasePreBundle
+> Task :app:compileReleaseArtProfile
+> Task :app:packageReleaseBundle
+> Task :app:signReleaseBundle
+> Task :app:bundleRelease
+> Task :app:produceReleaseBundleIdeListingFile
+> Task :app:createReleaseBundleListingFileRedirect
+
+BUILD SUCCESSFUL in 33s
+47 actionable tasks: 45 executed, 2 up-to-date
+Configuration cache entry reused.

@@ -1,0 +1,705 @@
+﻿{
+    "value":  [
+                  {
+                      "id":  1996,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#910 | 12400원",
+                      "created_at":  "2026-07-12T13:36:28.947Z"
+                  },
+                  {
+                      "id":  1995,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "입력하신 요금이 맞습니까?\n12,400원\n미터기 요금\n12,400원\n통행 요금\n0원\n다시 입력\n결제요청",
+                      "created_at":  "2026-07-12T13:36:28.937Z"
+                  },
+                  {
+                      "id":  1993,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T13:20:47.523Z"
+                  },
+                  {
+                      "id":  1992,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T13:20:43.393Z"
+                  },
+                  {
+                      "id":  1991,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.4882001 lng=127.0496108",
+                      "created_at":  "2026-07-12T13:14:30.827Z"
+                  },
+                  {
+                      "id":  1990,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.4882001 lng=127.0496108",
+                      "created_at":  "2026-07-12T13:14:29.762Z"
+                  },
+                  {
+                      "id":  1989,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "입력하신 요금이 맞습니까?\n4,800원\n미터기 요금\n4,800원\n통행 요금\n0원\n다시 입력\n결제요청",
+                      "created_at":  "2026-07-12T12:44:55.424Z"
+                  },
+                  {
+                      "id":  1988,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#909 | 4800원",
+                      "created_at":  "2026-07-12T12:44:55.413Z"
+                  },
+                  {
+                      "id":  1987,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T12:42:57.634Z"
+                  },
+                  {
+                      "id":  1986,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T12:42:52.404Z"
+                  },
+                  {
+                      "id":  1985,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5103464 lng=127.0233802",
+                      "created_at":  "2026-07-12T12:41:20.251Z"
+                  },
+                  {
+                      "id":  1984,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5103464 lng=127.0233802",
+                      "created_at":  "2026-07-12T12:41:19.432Z"
+                  },
+                  {
+                      "id":  1983,
+                      "user_id":  "1",
+                      "event":  "CLICK_END",
+                      "detail":  "카카오T | 운행 완료 | 0원",
+                      "created_at":  "2026-07-12T12:21:10.809Z"
+                  },
+                  {
+                      "id":  1982,
+                      "user_id":  "1",
+                      "event":  "FARE_MATCH",
+                      "detail":  "#908 | 5500원 | 진행중 플랫폼콜",
+                      "created_at":  "2026-07-12T12:21:06.760Z"
+                  },
+                  {
+                      "id":  1981,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T12:15:05.073Z"
+                  },
+                  {
+                      "id":  1980,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T12:15:00.475Z"
+                  },
+                  {
+                      "id":  1979,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T12:12:48.392Z"
+                  },
+                  {
+                      "id":  1978,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5189645 lng=127.0232677",
+                      "created_at":  "2026-07-12T12:12:46.628Z"
+                  },
+                  {
+                      "id":  1977,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "손님이 직접결제 하셨나요?\n미터기 요금\n50,000\n통행 요금\n0\n영수증 발급\n요금 입력\n요금 결제 요청",
+                      "created_at":  "2026-07-12T12:12:32.788Z"
+                  },
+                  {
+                      "id":  1976,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#907 | 50000원",
+                      "created_at":  "2026-07-12T12:12:32.570Z"
+                  },
+                  {
+                      "id":  1975,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T11:15:11.379Z"
+                  },
+                  {
+                      "id":  1974,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T11:15:06.006Z"
+                  },
+                  {
+                      "id":  1973,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T11:08:48.215Z"
+                  },
+                  {
+                      "id":  1972,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.068753 lng=127.0643004",
+                      "created_at":  "2026-07-12T11:08:40.939Z"
+                  },
+                  {
+                      "id":  1971,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.068753 lng=127.0643004",
+                      "created_at":  "2026-07-12T11:08:39.847Z"
+                  },
+                  {
+                      "id":  1969,
+                      "user_id":  "1",
+                      "event":  "FARE_NEW_TRIP",
+                      "detail":  "130000원 | 진행중 플랫폼콜 없음",
+                      "created_at":  "2026-07-12T10:13:44.060Z"
+                  },
+                  {
+                      "id":  1967,
+                      "user_id":  "1",
+                      "event":  "CLICK_END",
+                      "detail":  "카카오T | 운행 완료 | 0원",
+                      "created_at":  "2026-07-12T08:24:02.392Z"
+                  },
+                  {
+                      "id":  1963,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T07:02:20.455Z"
+                  },
+                  {
+                      "id":  1962,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T07:00:01.297Z"
+                  },
+                  {
+                      "id":  1961,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T06:59:16.182Z"
+                  },
+                  {
+                      "id":  1956,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T06:51:32.570Z"
+                  },
+                  {
+                      "id":  1955,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T06:50:30.769Z"
+                  },
+                  {
+                      "id":  1944,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "티머니고 | 길안내",
+                      "created_at":  "2026-07-12T04:58:40.743Z"
+                  },
+                  {
+                      "id":  1943,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "티머니고 | 길안내",
+                      "created_at":  "2026-07-12T04:33:18.486Z"
+                  },
+                  {
+                      "id":  1940,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "티머니고 | 길안내",
+                      "created_at":  "2026-07-12T04:30:25.300Z"
+                  },
+                  {
+                      "id":  1939,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "티머니고 | 0203 승객 탑승",
+                      "created_at":  "2026-07-12T03:54:59.076Z"
+                  },
+                  {
+                      "id":  1936,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "티머니고 | 0203 승객 탑승",
+                      "created_at":  "2026-07-12T03:02:24.622Z"
+                  },
+                  {
+                      "id":  1935,
+                      "user_id":  "1",
+                      "event":  "FARE_MATCH",
+                      "detail":  "#900 | 35100원 | 진행중 플랫폼콜",
+                      "created_at":  "2026-07-12T03:00:04.635Z"
+                  },
+                  {
+                      "id":  1932,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5174136 lng=126.9100492",
+                      "created_at":  "2026-07-12T02:59:06.940Z"
+                  },
+                  {
+                      "id":  1931,
+                      "user_id":  "1",
+                      "event":  "CANCEL_END",
+                      "detail":  "#899 | 카카오T | 대기화면복귀(미탑승)",
+                      "created_at":  "2026-07-12T02:58:35.577Z"
+                  },
+                  {
+                      "id":  1930,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5173406 lng=126.9099454",
+                      "created_at":  "2026-07-12T02:58:28.649Z"
+                  },
+                  {
+                      "id":  1929,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5173406 lng=126.9099454",
+                      "created_at":  "2026-07-12T02:58:27.771Z"
+                  },
+                  {
+                      "id":  1928,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5173406 lng=126.9099454",
+                      "created_at":  "2026-07-12T02:58:26.441Z"
+                  },
+                  {
+                      "id":  1927,
+                      "user_id":  "1",
+                      "event":  "CLICK_END",
+                      "detail":  "카카오T | 운행 완료 | 0원",
+                      "created_at":  "2026-07-12T02:54:51.223Z"
+                  },
+                  {
+                      "id":  1926,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T02:29:13.272Z"
+                  },
+                  {
+                      "id":  1925,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T02:14:24.766Z"
+                  },
+                  {
+                      "id":  1924,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T02:12:50.568Z"
+                  },
+                  {
+                      "id":  1923,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T02:11:43.734Z"
+                  },
+                  {
+                      "id":  1922,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-12T02:06:29.746Z"
+                  },
+                  {
+                      "id":  1921,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T02:06:23.545Z"
+                  },
+                  {
+                      "id":  1918,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.2844949 lng=126.9694282",
+                      "created_at":  "2026-07-12T01:50:07.678Z"
+                  },
+                  {
+                      "id":  1917,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.2844949 lng=126.9694282",
+                      "created_at":  "2026-07-12T01:50:06.998Z"
+                  },
+                  {
+                      "id":  1912,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#895 | 37700원",
+                      "created_at":  "2026-07-12T01:35:14.323Z"
+                  },
+                  {
+                      "id":  1911,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "입력하신 요금이 맞습니까?\n37,700원\n미터기 요금\n37,700원\n통행 요금\n0원\n다시 입력\n결제요청",
+                      "created_at":  "2026-07-12T01:35:14.065Z"
+                  },
+                  {
+                      "id":  1910,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-12T00:54:58.828Z"
+                  },
+                  {
+                      "id":  1909,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.517034 lng=127.0194644",
+                      "created_at":  "2026-07-12T00:47:31.069Z"
+                  },
+                  {
+                      "id":  1908,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.517034 lng=127.0194644",
+                      "created_at":  "2026-07-12T00:47:30.060Z"
+                  },
+                  {
+                      "id":  1905,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#892 | 20600원",
+                      "created_at":  "2026-07-12T00:02:28.262Z"
+                  },
+                  {
+                      "id":  1904,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "입력하신 요금이 맞습니까?\n20,600원\n미터기 요금\n20,600원\n통행 요금\n0원\n다시 입력\n결제요청",
+                      "created_at":  "2026-07-12T00:02:28.009Z"
+                  },
+                  {
+                      "id":  1902,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-11T23:40:56.057Z"
+                  },
+                  {
+                      "id":  1901,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5344873 lng=126.995917",
+                      "created_at":  "2026-07-11T23:36:34.618Z"
+                  },
+                  {
+                      "id":  1900,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5344873 lng=126.995917",
+                      "created_at":  "2026-07-11T23:36:33.646Z"
+                  },
+                  {
+                      "id":  1896,
+                      "user_id":  "1",
+                      "event":  "FARE_NEW_TRIP",
+                      "detail":  "55500원 | 진행중 플랫폼콜 없음",
+                      "created_at":  "2026-07-11T23:13:00.910Z"
+                  },
+                  {
+                      "id":  1895,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "입력하신 요금이 맞습니까?\n57,600원\n미터기 요금\n57,600원\n통행 요금\n0원\n다시 입력\n결제요청",
+                      "created_at":  "2026-07-11T21:59:30.065Z"
+                  },
+                  {
+                      "id":  1894,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#889 | 57600원",
+                      "created_at":  "2026-07-11T21:59:29.829Z"
+                  },
+                  {
+                      "id":  1893,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-11T21:15:58.155Z"
+                  },
+                  {
+                      "id":  1892,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5345709 lng=126.9959784",
+                      "created_at":  "2026-07-11T21:12:10.730Z"
+                  },
+                  {
+                      "id":  1891,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5345709 lng=126.9959784",
+                      "created_at":  "2026-07-11T21:12:09.649Z"
+                  },
+                  {
+                      "id":  1890,
+                      "user_id":  "1",
+                      "event":  "CANCEL_END",
+                      "detail":  "#888 | 카카오T | 대기화면복귀(미탑승)",
+                      "created_at":  "2026-07-11T20:45:00.074Z"
+                  },
+                  {
+                      "id":  1889,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5345042 lng=126.9959978",
+                      "created_at":  "2026-07-11T20:44:44.547Z"
+                  },
+                  {
+                      "id":  1886,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x2 연결됨",
+                      "created_at":  "2026-07-11T13:56:29.257Z"
+                  },
+                  {
+                      "id":  1885,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x2 연결됨",
+                      "created_at":  "2026-07-11T13:54:49.703Z"
+                  },
+                  {
+                      "id":  1877,
+                      "user_id":  "1",
+                      "event":  "FARE_NEW_TRIP",
+                      "detail":  "60000원 | 진행중 플랫폼콜 없음",
+                      "created_at":  "2026-07-11T03:25:44.315Z"
+                  },
+                  {
+                      "id":  1843,
+                      "user_id":  "1",
+                      "event":  "TRIP_END",
+                      "detail":  "#877 | 44500원",
+                      "created_at":  "2026-07-10T21:33:56.124Z"
+                  },
+                  {
+                      "id":  1842,
+                      "user_id":  "1",
+                      "event":  "END_SCREEN",
+                      "detail":  "손님이 직접결제 하셨나요?\n미터기 요금\n44,500\n통행 요금\n0\n영수증 발급\n요금 입력\n요금 결제 요청",
+                      "created_at":  "2026-07-10T21:33:56.112Z"
+                  },
+                  {
+                      "id":  1841,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-10T20:52:01.027Z"
+                  },
+                  {
+                      "id":  1840,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-10T20:51:59.966Z"
+                  },
+                  {
+                      "id":  1839,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5346847 lng=126.9958338",
+                      "created_at":  "2026-07-10T20:50:14.810Z"
+                  },
+                  {
+                      "id":  1838,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.5346847 lng=126.9958338",
+                      "created_at":  "2026-07-10T20:50:14.039Z"
+                  },
+                  {
+                      "id":  1834,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x 연결됨",
+                      "created_at":  "2026-07-10T09:36:32.754Z"
+                  },
+                  {
+                      "id":  1833,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x 연결됨",
+                      "created_at":  "2026-07-10T09:26:44.962Z"
+                  },
+                  {
+                      "id":  1832,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x 연결됨",
+                      "created_at":  "2026-07-10T09:20:20.833Z"
+                  },
+                  {
+                      "id":  1831,
+                      "user_id":  "1",
+                      "event":  "SERVICE",
+                      "detail":  "v3.1x 연결됨",
+                      "created_at":  "2026-07-10T09:05:46.880Z"
+                  },
+                  {
+                      "id":  1827,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5089696 lng=127.0635484",
+                      "created_at":  "2026-07-10T08:18:03.017Z"
+                  },
+                  {
+                      "id":  1826,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.5089696 lng=127.0635484",
+                      "created_at":  "2026-07-10T08:18:02.450Z"
+                  },
+                  {
+                      "id":  1825,
+                      "user_id":  "1",
+                      "event":  "FORCE_END",
+                      "detail":  "#874 | 카카오T→티머니고",
+                      "created_at":  "2026-07-10T08:18:01.938Z"
+                  },
+                  {
+                      "id":  1824,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.50872689881189 lng=127.06007424741982",
+                      "created_at":  "2026-07-10T08:13:47.432Z"
+                  },
+                  {
+                      "id":  1822,
+                      "user_id":  "1",
+                      "event":  "CLICK_END",
+                      "detail":  "카카오T | 운행 완료 | 0원",
+                      "created_at":  "2026-07-10T07:48:33.002Z"
+                  },
+                  {
+                      "id":  1821,
+                      "user_id":  "1",
+                      "event":  "FARE_NEW_TRIP",
+                      "detail":  "24800원 | 종료 301분 경과 #860 (창 초과)",
+                      "created_at":  "2026-07-10T07:48:27.094Z"
+                  },
+                  {
+                      "id":  1819,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-10T07:10:50.145Z"
+                  },
+                  {
+                      "id":  1818,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 손님 탑승",
+                      "created_at":  "2026-07-10T07:10:46.068Z"
+                  },
+                  {
+                      "id":  1817,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-10T07:10:24.436Z"
+                  },
+                  {
+                      "id":  1816,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-10T07:09:18.085Z"
+                  },
+                  {
+                      "id":  1815,
+                      "user_id":  "1",
+                      "event":  "CLICK",
+                      "detail":  "카카오T | 길안내",
+                      "created_at":  "2026-07-10T07:07:37.800Z"
+                  },
+                  {
+                      "id":  1814,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.6376507 lng=127.1215277",
+                      "created_at":  "2026-07-10T07:07:34.817Z"
+                  },
+                  {
+                      "id":  1811,
+                      "user_id":  "1",
+                      "event":  "FARE_NEW_TRIP",
+                      "detail":  "81200원 | 종료 230분 경과 #860 (창 초과)",
+                      "created_at":  "2026-07-10T06:37:33.668Z"
+                  },
+                  {
+                      "id":  1809,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.4488967493067 lng=126.45482741296291",
+                      "created_at":  "2026-07-10T05:21:01.265Z"
+                  },
+                  {
+                      "id":  1783,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "티머니고 | lat=37.56468704298412 lng=126.9898771494627",
+                      "created_at":  "2026-07-10T02:47:11.834Z"
+                  },
+                  {
+                      "id":  1782,
+                      "user_id":  "1",
+                      "event":  "FORCE_END",
+                      "detail":  "#860 | 카카오T→티머니고",
+                      "created_at":  "2026-07-10T02:47:11.216Z"
+                  },
+                  {
+                      "id":  1776,
+                      "user_id":  "1",
+                      "event":  "TRIP_START",
+                      "detail":  "카카오T | lat=37.558989157164184 lng=126.9916396960616",
+                      "created_at":  "2026-07-10T02:21:41.463Z"
+                  }
+              ],
+    "Count":  100
+}

@@ -1,0 +1,7 @@
+ADB=C:\AndroidSdk\platform-tools\adb.exe 
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+List of devices attached
+R5KL10AL1ZF	unauthorized
+
+DONE 

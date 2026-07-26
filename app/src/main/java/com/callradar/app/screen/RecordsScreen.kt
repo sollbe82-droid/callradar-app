@@ -1,4 +1,5 @@
 // ===== RecordsScreen v5 (2026-07-08) =====
+// v7: 현금 별도집계(현금=기사 실수입, 카드/플랫폼과 분리 표시) + 운행추가 source=manual + 리셋버그(카드→card) 수정
 // v5: 월별탭 정산 카드 추가 - 월매출/LPG지출(리터)/부가세환급 예상(환급률 설정시)
 // v4: LPG 지출 리터(L) 입력 → 단가 자동곱 금액계산, 단가 prefs 저장
 // v3: 자동 새로고침 - 화면복귀시 즉시갱신 + 운행기록탭 15초 백업
@@ -6,6 +7,7 @@
 package com.callradar.app.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +15,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,16 +40,48 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val SERVER_URL = "https://callradar-server.onrender.com"
+private const val SERVER_URL = Config.SERVER_URL
 
-data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "")
-data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int)
+// 운행/콜 공유 — 브랜딩 문구 + (등록된 오픈방이 있으면) 복사+방 열기 1터치, 없으면 공유시트
+private fun shareTrip(context: android.content.Context, origin: String, dest: String, hour: String, minute: String, fare: String) {
+    val prefs = context.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
+    val room = (prefs.getString("share_room_url", "") ?: "").trim()
+    val promo = (prefs.getString("share_promo", "") ?: "").trim()
+    val time = if (hour.isNotEmpty()) hour.filter { it.isDigit() }.padStart(2, '0') + ":" + (minute.ifEmpty { "00" }).filter { it.isDigit() }.padStart(2, '0') + " " else ""
+    val f = fare.filter { it.isDigit() }.toIntOrNull()
+    val fareStr = if (f != null && f > 0) " · " + String.format("%,d", f) + "원" else ""
+    // ★모든 공유문구에 브랜드 노출 (바이럴): 던지는 곳마다 콜레이더가 보임
+    val brand = "\n\n📻 콜레이더 — 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
+    val text = "🚕 " + time + (origin.ifEmpty { "출발" }) + " → " + (dest.ifEmpty { "도착" }) + fareStr + brand
+    if (room.isNotEmpty()) {
+        // 1터치: 문구 자동복사 + 등록한 오픈방 바로 열기 (방에서 꾹→붙여넣기)
+        try {
+            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("콜레이더 공유", text))
+        } catch (e: Exception) {}
+        android.widget.Toast.makeText(context, "공유 문구 복사됨 — 방에서 꾹 눌러 붙여넣기 하세요", android.widget.Toast.LENGTH_LONG).show()
+        try {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(room)).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) })
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "오픈방 주소가 올바르지 않아요 (설정에서 확인)", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    } else {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "공유하기").apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) })
+    }
+}
+
+data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "", val rawDate: String = "")
+data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int, val cardFare: Int = 0, val cashFare: Int = 0, val expense: Int = 0)
 data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordsScreen(userId: String) {
-    val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
+fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
+    val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     var selectedTab by remember { mutableStateOf(0) }
     var trips by remember { mutableStateOf<List<TripRecord>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -51,23 +89,36 @@ fun RecordsScreen(userId: String) {
     var customDate by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
+    var showEditDatePicker by remember { mutableStateOf(false) }  // [v18] 편집 날짜 지정
     var editingTrip by remember { mutableStateOf<TripRecord?>(null) }
     var editDest by remember { mutableStateOf("") }
     var editOrigin by remember { mutableStateOf("") }
     var editFare by remember { mutableStateOf("") }
     var editHour by remember { mutableStateOf("") }
+    var editDate by remember { mutableStateOf("") }  // [v6] 수정 시 원래 트립 날짜 유지
     var editMinute by remember { mutableStateOf("") }
     var editPaymentType by remember { mutableStateOf("auto") }
+    var editPlatform by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showQuickFare by remember { mutableStateOf(false) }
     var quickFareTrip by remember { mutableStateOf<TripRecord?>(null) }
     var quickFareInput by remember { mutableStateOf("") }
+    var quickFarePlatform by remember { mutableStateOf("") }  // [v18] 금액 입력 시 플랫폼 지정
     var deletingTrip by remember { mutableStateOf<TripRecord?>(null) }
     var showManualDialog by remember { mutableStateOf(false) }
     var isReportMode by remember { mutableStateOf(false) }
+    // [v6] 추가/지출 다이얼로그에서 쓸 날짜 (기본=오늘, 지난 날 기록 입력 가능)
+    val todayStr = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
+    }
+    var manualDate by remember { mutableStateOf(todayStr) }
+    var expenseDate by remember { mutableStateOf(todayStr) }
+    var showManualDatePicker by remember { mutableStateOf(false) }
+    var showExpenseDatePicker by remember { mutableStateOf(false) }
     var manualOrigin by remember { mutableStateOf("") }
     var manualDest by remember { mutableStateOf("") }
     var manualFare by remember { mutableStateOf("") }
+    var manualTip by remember { mutableStateOf("") }
     var manualHour by remember { mutableStateOf("") }
     var manualPlatform by remember { mutableStateOf("길빵/예약") }
     var manualMinute by remember { mutableStateOf("") }
@@ -76,16 +127,19 @@ fun RecordsScreen(userId: String) {
     var showExpenseDialog by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val expensePrefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
+    val dayStartHour = expensePrefs.getInt("day_start_hour", 0)   // [v19] 영업일 시작(야간·일차 기사)
     var expenseCategory by remember { mutableStateOf("LPG") }
     var expenseAmount by remember { mutableStateOf("") }
     var expenseLiters by remember { mutableStateOf("") }
     var lpgPrice by remember { mutableStateOf(expensePrefs.getInt("lpg_price", 1050).toString()) }
+    var lpgDiscount by remember { mutableStateOf(expensePrefs.getInt("lpg_discount", 0).toString()) }   // [v19] 가스비 리터당 할인(원/L)
     var expenseType by remember { mutableStateOf("business") }
     var expenseMemo by remember { mutableStateOf("") }
     var showDeleteExpense by remember { mutableStateOf(false) }
     var deletingExpense by remember { mutableStateOf<ExpenseRecord?>(null) }
     val scope = rememberCoroutineScope()
 
+    val focusManager = LocalFocusManager.current
     fun getFilterDate(): String? {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
         return when (dateFilter) { "오늘" -> sdf.format(Date()); "어제" -> { val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.add(Calendar.DAY_OF_MONTH, -1); sdf.format(cal.time) }; "날짜선택" -> customDate.ifEmpty { null }; else -> null }
@@ -95,16 +149,17 @@ fun RecordsScreen(userId: String) {
         scope.launch {
             try {
                 isLoading = true; val filterDate = getFilterDate()
-                val url = if (filterDate != null) "$SERVER_URL/api/trips/$userId?date=$filterDate&limit=100" else "$SERVER_URL/api/trips/$userId?limit=100"
+                val url = if (filterDate != null) "$SERVER_URL/api/trips/$userId?date=$filterDate&limit=100&dayStart=$dayStartHour" else "$SERVER_URL/api/trips/$userId?limit=100"
                 val tripsResponse = withContext(Dispatchers.IO) { val conn = (URL(url).openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                 val tripsJson = JSONArray(tripsResponse); val tripList = mutableListOf<TripRecord>()
                 for (i in 0 until tripsJson.length()) {
                     val obj = tripsJson.getJSONObject(i); val rawTime = obj.optString("started_at", "")
                     val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
                     val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
+                    val rawDateStr = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
                     val rawEndTime = obj.optString("ended_at", "")
                     val formattedEndTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawEndTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
-                    tripList.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto"), formattedEndTime))
+                    tripList.add(TripRecord(obj.optInt("id", 0), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto"), formattedEndTime, rawDateStr))
                 }
                 trips = tripList; isLoading = false
             } catch (e: Exception) { isLoading = false }
@@ -114,19 +169,20 @@ fun RecordsScreen(userId: String) {
     LaunchedEffect(Unit) { loadData() }
     LaunchedEffect(dateFilter, customDate) { loadData() }
 
-    // 화면 복귀 시 자동 갱신 - 운행 끝나고 기록탭 열면 바로 반영
+    // [v6] 입력 중에는 자동 갱신 금지
+    // 기존: ON_RESUME + 15초 주기로 무조건 loadData() → 기록 추가/수정 중 화면이 초기화돼 입력이 날아감
+    // 변경: 다이얼로그가 하나라도 열려 있으면 갱신을 건너뛰고, 15초 폴링은 제거
+    //       (실시간 갱신이 필요한 건 공항 탭이지 기록 탭이 아님)
+    val isAnyDialogOpen = showManualDialog || showExpenseDialog || showEditDialog ||
+        showQuickFare || showDeleteConfirm || showDatePicker
+
     val recLifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    DisposableEffect(recLifecycleOwner) {
+    DisposableEffect(recLifecycleOwner, isAnyDialogOpen) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) { loadData() }
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && !isAnyDialogOpen) { loadData() }
         }
         recLifecycleOwner.lifecycle.addObserver(observer)
         onDispose { recLifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    // 백업: 운행기록 탭에서 15초마다 조용히 갱신
-    LaunchedEffect(Unit) {
-        while (true) { kotlinx.coroutines.delay(15000L); if (selectedTab == 0) loadData() }
     }
 
     // DatePicker
@@ -135,84 +191,170 @@ fun RecordsScreen(userId: String) {
         DatePickerDialog(onDismissRequest = { showDatePicker = false },
             confirmButton = { Button(onClick = { datePickerState.selectedDateMillis?.let { millis -> val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); customDate = sdf.format(Date(millis)); dateFilter = "날짜선택" }; showDatePicker = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("선택", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showDatePicker = false }) { Text("취소") } },
-            colors = DatePickerDefaults.colors(containerColor = Color(0xFF111827))
+            colors = DatePickerDefaults.colors(containerColor = AppTheme.card)
         ) { DatePicker(state = datePickerState) }
+    }
+
+    // [v6] 운행 추가용 날짜 선택
+    if (showManualDatePicker) {
+        val st = rememberDatePickerState()
+        DatePickerDialog(onDismissRequest = { showManualDatePicker = false },
+            confirmButton = { Button(onClick = {
+                st.selectedDateMillis?.let { millis ->
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
+                    sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                    manualDate = sdf.format(Date(millis))
+                }; showManualDatePicker = false
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("선택", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showManualDatePicker = false }) { Text("취소") } },
+            colors = DatePickerDefaults.colors(containerColor = AppTheme.card)
+        ) { DatePicker(state = st) }
+    }
+
+    // [v18] 운행 수정용 날짜 선택
+    if (showEditDatePicker) {
+        val st = rememberDatePickerState()
+        DatePickerDialog(onDismissRequest = { showEditDatePicker = false },
+            confirmButton = { Button(onClick = {
+                st.selectedDateMillis?.let { millis ->
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
+                    sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                    editDate = sdf.format(Date(millis))
+                }; showEditDatePicker = false
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("선택", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showEditDatePicker = false }) { Text("취소") } },
+            colors = DatePickerDefaults.colors(containerColor = AppTheme.card)
+        ) { DatePicker(state = st) }
+    }
+
+    // [v6] 지출 추가용 날짜 선택
+    if (showExpenseDatePicker) {
+        val st = rememberDatePickerState()
+        DatePickerDialog(onDismissRequest = { showExpenseDatePicker = false },
+            confirmButton = { Button(onClick = {
+                st.selectedDateMillis?.let { millis ->
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
+                    sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                    expenseDate = sdf.format(Date(millis))
+                }; showExpenseDatePicker = false
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("선택", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { showExpenseDatePicker = false }) { Text("취소") } },
+            colors = DatePickerDefaults.colors(containerColor = AppTheme.card)
+        ) { DatePicker(state = st) }
     }
 
     // 수정 다이얼로그
     if (showEditDialog && editingTrip != null) {
         AlertDialog(onDismissRequest = { showEditDialog = false },
-            title = { Text("운행 기록 수정", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            title = { Text("운행 기록 수정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("시간 수정", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    OutlinedTextField(value = editHour, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 23) editHour = f }, label = { Text("시", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                    Text(":", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = editMinute, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 59) editMinute = f }, label = { Text("분", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                // [v18] 날짜 지정
+                Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                OutlinedButton(onClick = { showEditDatePicker = true }, modifier = Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(1.dp, if (editDate != todayStr) accent else Color(0xFF374151))) {
+                    Text(if (editDate == todayStr) "$editDate (오늘)" else editDate.ifEmpty { "날짜 선택" }, color = if (editDate != todayStr) accent else AppTheme.text, fontSize = 14.sp)
                 }
-                OutlinedTextField(value = editOrigin, onValueChange = { editOrigin = it }, label = { Text("출발지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                OutlinedTextField(value = editDest, onValueChange = { editDest = it }, label = { Text("목적지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                OutlinedTextField(value = editFare, onValueChange = { editFare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    OutlinedTextField(value = editHour, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 23) editHour = f }, label = { Text("시", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    Text(":", color = AppTheme.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = editMinute, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 59) editMinute = f }, label = { Text("분", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                }
+                OutlinedTextField(value = editOrigin, onValueChange = { editOrigin = it }, label = { Text("출발지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = editDest, onValueChange = { editDest = it }, label = { Text("목적지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = editFare, onValueChange = { editFare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 Text("결제 방식", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카드" to "card", "현금" to "cash", "자동결제" to "auto").forEach { (label, value) -> FilterChip(selected = editPaymentType == value, onClick = { editPaymentType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카드" to "card", "현금" to "cash", "자동결제" to "auto").forEach { (label, value) -> FilterChip(selected = editPaymentType == value, onClick = { editPaymentType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+                Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = editPlatform == p, onClick = { editPlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             } },
-            confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", editFare.toInt()); put("payment_type", editPaymentType); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val today = sdf.format(Date()); val h = editHour.padStart(2, '0'); val m = editMinute.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; showEditDialog = false; loadData() } catch (e: Exception) { showEditDialog = false } } }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showEditDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", (editFare.filter { it.isDigit() }.toIntOrNull() ?: 0)); put("payment_type", editPaymentType); if (editPlatform.isNotEmpty()) put("platform", editPlatform); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { try { val today = editDate; val h = editHour.filter { it.isDigit() }.padStart(2, '0'); val m = editMinute.filter { it.isDigit() }.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } catch (e: Exception) {} } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode }; showEditDialog = false; kotlinx.coroutines.delay(500); loadData() } catch (e: Exception) { showEditDialog = false } } }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            dismissButton = { Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { OutlinedButton(onClick = { shareTrip(ctx, editOrigin, editDest, editHour, editMinute, editFare) }, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("🔗 공유", color = accent, fontSize = 13.sp) }; OutlinedButton(onClick = { showEditDialog = false }) { Text("취소") } } }, containerColor = AppTheme.card)
     }
 
     // 빠른 금액 입력
     if (showQuickFare && quickFareTrip != null) {
         AlertDialog(onDismissRequest = { showQuickFare = false },
-            title = { Text("금액 입력", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("금액 입력", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Column {
-                Text("${quickFareTrip!!.destination}", fontSize = 14.sp, color = Color.White, modifier = Modifier.padding(bottom = 8.dp))
-                OutlinedTextField(value = quickFareInput, onValueChange = { quickFareInput = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                Text("${quickFareTrip!!.destination}", fontSize = 14.sp, color = AppTheme.text, modifier = Modifier.padding(bottom = 8.dp))
+                OutlinedTextField(value = quickFareInput, onValueChange = { quickFareInput = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) { listOf(5000, 10000, 15000, 30000, 50000).forEach { amount -> OutlinedButton(onClick = { quickFareInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("${amount/1000}천", fontSize = 11.sp) } } }
+                // [v18] 플랫폼 지정 (금액 입력 시 함께)
+                Spacer(Modifier.height(8.dp))
+                Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = quickFarePlatform == p, onClick = { quickFarePlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = Color(0xFF9CA3AF))) } }
             } },
-            confirmButton = { Button(onClick = { val f = quickFareInput.toIntOrNull(); if (f != null && f > 0) { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); put("fare", f) }; val conn = (URL("$SERVER_URL/api/trips/${quickFareTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData() } catch (e: Exception) { } } }; showQuickFare = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showQuickFare = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { Button(onClick = { val f = quickFareInput.toIntOrNull(); if (f != null && f > 0) { val platSel = quickFarePlatform; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); put("fare", f); if (platSel.isNotEmpty()) put("platform", platSel) }; val conn = (URL("$SERVER_URL/api/trips/${quickFareTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode }; loadData() } catch (e: Exception) { } } }; quickFarePlatform = ""; showQuickFare = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            dismissButton = { OutlinedButton(onClick = { quickFarePlatform = ""; showQuickFare = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
     // 삭제 확인
     if (showDeleteConfirm && deletingTrip != null) {
         AlertDialog(onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("삭제", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("삭제", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("이 운행 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
-            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData() } catch (e: Exception) { } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = Color.White) } },
-            dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData() } catch (e: Exception) { } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
+            dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
     // 직접추가
     if (showManualDialog) {
         AlertDialog(onDismissRequest = { showManualDialog = false },
-            title = { Text(if (isReportMode) "콜 제보" else "운행 추가", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            title = { Text(if (isReportMode) "콜 제보" else "운행 추가", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column(modifier = Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // [v6] 날짜 선택 - 지난 날 운행도 입력 가능 (기본=오늘)
+                if (!isReportMode) {
+                    Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                    OutlinedButton(onClick = { showManualDatePicker = true }, modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (manualDate != todayStr) accent else Color(0xFF374151))) {
+                        Text(if (manualDate == todayStr) "$manualDate (오늘)" else manualDate,
+                            color = if (manualDate != todayStr) accent else AppTheme.text, fontSize = 14.sp)
+                    }
+                }
                 Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = manualPlatform == p, onClick = { manualPlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = manualPlatform == p, onClick = { manualPlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 if (!isReportMode) {
                     Text("결제 방식", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카드" to "card", "현금" to "cash", "자동결제" to "auto").forEach { (label, value) -> FilterChip(selected = manualPaymentType == value, onClick = { manualPaymentType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카드" to "card", "현금" to "cash", "자동결제" to "auto").forEach { (label, value) -> FilterChip(selected = manualPaymentType == value, onClick = { manualPaymentType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("시간", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    OutlinedTextField(value = manualHour, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 23) manualHour = f }, label = { Text("시", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                    Text(":", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = manualMinute, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 59) manualMinute = f }, label = { Text("분", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                    OutlinedTextField(value = manualHour, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 23) manualHour = f }, label = { Text("시", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    Text(":", color = AppTheme.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = manualMinute, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(2); if (f.isEmpty() || f.toInt() <= 59) manualMinute = f }, label = { Text("분", color = muted) }, modifier = Modifier.width(72.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     OutlinedButton(onClick = { val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); manualHour = cal.get(Calendar.HOUR_OF_DAY).toString().padStart(2, '0'); manualMinute = cal.get(Calendar.MINUTE).toString().padStart(2, '0') }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text("지금", fontSize = 12.sp) }
                 }
-                OutlinedTextField(value = manualOrigin, onValueChange = { manualOrigin = it }, label = { Text("출발지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                OutlinedTextField(value = manualDest, onValueChange = { manualDest = it }, label = { Text("목적지", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                OutlinedTextField(value = manualFare, onValueChange = { manualFare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                OutlinedTextField(value = manualOrigin, onValueChange = { manualOrigin = it }, label = { Text("출발지", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = manualDest, onValueChange = { manualDest = it }, label = { Text("목적지", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = manualFare, onValueChange = { manualFare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                // [v10] 팁(⑭) — 선택 입력
+                OutlinedTextField(value = manualTip, onValueChange = { manualTip = it.filter { c -> c.isDigit() } }, label = { Text("팁 (선택, 원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFBBF24), unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                // [v10] 현금 입력 간편화 — 원터치 금액 누적
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf(1000, 5000, 10000, 50000).forEach { amt ->
+                        OutlinedButton(onClick = { val cur = manualFare.toIntOrNull() ?: 0; manualFare = (cur + amt).toString() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 6.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) {
+                            Text(if (amt >= 10000) "+${amt / 10000}만" else "+${amt / 1000}천", fontSize = 12.sp)
+                        }
+                    }
+                    OutlinedButton(onClick = { manualFare = "" }, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = muted)) { Text("C", fontSize = 12.sp) }
+                }
+              }
+                // [v20] 저장/취소: 필드 스크롤 영역 밖 + imePadding 안 → 키보드가 떠도, 스크롤 안 해도 항상 보임
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { showManualDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
+                    Button(onClick = {
+                        if (manualDest.isNotBlank() || (manualFare.toIntOrNull() ?: 0) > 0) { scope.launch { try { withContext(Dispatchers.IO) {
+                            val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest.ifBlank { "미정" }); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0); put("tip", if (manualTip.isNotEmpty()) manualTip.toInt() else 0); put("payment_type", if (isReportMode) "report" else manualPaymentType); put("source", if (isReportMode) "report" else "manual")
+                                run { val nowCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); val h = (if (manualHour.isNotEmpty()) manualHour else nowCal.get(Calendar.HOUR_OF_DAY).toString()).padStart(2, '0'); val m = (if (manualMinute.isNotEmpty()) manualMinute else nowCal.get(Calendar.MINUTE).toString()).padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${manualDate}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
+                            }; val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
+                        }; showManualDialog = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { dateFilter = "전체"; customDate = "" }; loadData() } catch (e: Exception) { showManualDialog = false } } }
+                    }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
+                }
             } },
-            confirmButton = { Button(onClick = {
-                if (manualDest.isNotBlank()) { scope.launch { try { withContext(Dispatchers.IO) {
-                    val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0); put("payment_type", if (isReportMode) "report" else manualPaymentType)
-                        if (manualHour.isNotEmpty() && manualMinute.isNotEmpty()) { val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val today = sdf.format(Date()); val h = manualHour.padStart(2, '0'); val m = manualMinute.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
-                    }; val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
-                }; showManualDialog = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "카드"; loadData() } catch (e: Exception) { showManualDialog = false } } }
-            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showManualDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { }, containerColor = AppTheme.card)
     }
 
     fun loadExpenses() {
@@ -235,72 +377,110 @@ fun RecordsScreen(userId: String) {
     // 지출 추가 다이얼로그
     if (showExpenseDialog) {
         AlertDialog(onDismissRequest = { showExpenseDialog = false },
-            title = { Text("지출 추가", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            title = { Text("지출 추가", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column(modifier = Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // [v6] 지출 날짜 선택 (기본=오늘)
+                Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                OutlinedButton(onClick = { showExpenseDatePicker = true }, modifier = Modifier.fillMaxWidth(),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (expenseDate != todayStr) accent else Color(0xFF374151))) {
+                    Text(if (expenseDate == todayStr) "$expenseDate (오늘)" else expenseDate,
+                        color = if (expenseDate != todayStr) accent else AppTheme.text, fontSize = 14.sp)
+                }
                 Text("카테고리", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LPG", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LPG", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 Text("구분", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else Color(0xFFF97316), selectedLabelColor = Color.White, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal", "잡지출" to "misc").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else if (value == "personal") Color(0xFFF97316) else Color(0xFF8B5CF6), selectedLabelColor = Color.White, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 if (expenseCategory == "LPG") {
                     // LPG: 리터 + 단가 → 금액 자동
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
-                        OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text("단가 (원/L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                        OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                        OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text("단가 (원/L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     }
-                    val calcAmt = ((expenseLiters.toDoubleOrNull() ?: 0.0) * (lpgPrice.toIntOrNull() ?: 0)).toInt()
-                    Text("금액: ${String.format("%,d", calcAmt)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green, modifier = Modifier.padding(vertical = 2.dp))
+                    // [v19] 가스비 할인(리터당) — 주유소 할인 반영. 실부담 = 리터 × (단가 − 할인)
+                    OutlinedTextField(value = lpgDiscount, onValueChange = { lpgDiscount = it.filter { c -> c.isDigit() } }, label = { Text("리터당 할인 (원/L, 선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = green, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    val netPrice = ((lpgPrice.toIntOrNull() ?: 0) - (lpgDiscount.toIntOrNull() ?: 0)).coerceAtLeast(0)
+                    val calcAmt = ((expenseLiters.toDoubleOrNull() ?: 0.0) * netPrice).toInt()
+                    val discTotal = ((expenseLiters.toDoubleOrNull() ?: 0.0) * (lpgDiscount.toIntOrNull() ?: 0)).toInt()
+                    Text("금액: ${String.format("%,d", calcAmt)}원" + if (discTotal > 0) "  (할인 -${String.format("%,d", discTotal)}원)" else "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green, modifier = Modifier.padding(vertical = 2.dp))
                 } else {
-                    OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                    OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 }
-                OutlinedTextField(value = expenseMemo, onValueChange = { expenseMemo = it }, label = { Text("메모 (선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                OutlinedTextField(value = expenseMemo, onValueChange = { expenseMemo = it }, label = { Text("메모 (선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+              }
+                // [v20] 저장/취소: 필드 스크롤 밖 + imePadding 안 → 스크롤 안 해도 항상 보임
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { showExpenseDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
+                    Button(onClick = {
+                        val isLpg = expenseCategory == "LPG"
+                        val liters = expenseLiters.toDoubleOrNull() ?: 0.0
+                        val price = lpgPrice.toIntOrNull() ?: 0
+                        val disc = lpgDiscount.toIntOrNull() ?: 0
+                        val netPrice = (price - disc).coerceAtLeast(0)   // [v19] 할인 반영 실단가
+                        val amt = if (isLpg) (liters * netPrice).toInt() else (expenseAmount.toIntOrNull() ?: 0)
+                        if (amt > 0) {
+                            if (isLpg) expensePrefs.edit().putInt("lpg_price", price).putInt("lpg_discount", disc).apply()
+                            scope.launch { try { withContext(Dispatchers.IO) {
+                                val json = JSONObject().apply { put("user_id", userId); put("category", expenseCategory); put("amount", amt); put("expense_type", expenseType); put("memo", expenseMemo + (if (isLpg && disc > 0) " (할인 ${disc}원/L)" else "")); put("expense_date", expenseDate); if (isLpg) { put("liters", liters); put("price_per_liter", netPrice) } }
+                                val conn = (URL("$SERVER_URL/api/expenses").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
+                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
+                            }; showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses() } catch (e: Exception) { showExpenseDialog = false } } }
+                    }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
+                }
             } },
-            confirmButton = { Button(onClick = {
-                val isLpg = expenseCategory == "LPG"
-                val liters = expenseLiters.toDoubleOrNull() ?: 0.0
-                val price = lpgPrice.toIntOrNull() ?: 0
-                val amt = if (isLpg) (liters * price).toInt() else (expenseAmount.toIntOrNull() ?: 0)
-                if (amt > 0) { 
-                    if (isLpg) expensePrefs.edit().putInt("lpg_price", price).apply()
-                    scope.launch { try { withContext(Dispatchers.IO) {
-                        val json = JSONObject().apply { put("user_id", userId); put("category", expenseCategory); put("amount", amt); put("expense_type", expenseType); put("memo", expenseMemo); if (isLpg) { put("liters", liters); put("price_per_liter", price) } }
-                        val conn = (URL("$SERVER_URL/api/expenses").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
-                        conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
-                    }; showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses() } catch (e: Exception) { showExpenseDialog = false } } }
-            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showExpenseDialog = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { }, containerColor = AppTheme.card)
     }
 
     // 지출 삭제 확인
     if (showDeleteExpense && deletingExpense != null) {
         AlertDialog(onDismissRequest = { showDeleteExpense = false },
-            title = { Text("삭제", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("삭제", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("이 지출 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
-            confirmButton = { Button(onClick = { val exp = deletingExpense!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/expenses/${exp.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadExpenses() } catch (e: Exception) { } }; showDeleteExpense = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = Color.White) } },
-            dismissButton = { OutlinedButton(onClick = { showDeleteExpense = false }) { Text("취소") } }, containerColor = Color(0xFF111827))
+            confirmButton = { Button(onClick = { val exp = deletingExpense!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/expenses/${exp.id}").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadExpenses() } catch (e: Exception) { } }; showDeleteExpense = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
+            dismissButton = { OutlinedButton(onClick = { showDeleteExpense = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) } }
-            if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "카드"; showManualDialog = true }) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
-            if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
+                TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
+                if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+                if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+            }
         }
         when (selectedTab) {
             0 -> {
                 // 날짜 필터 (컴팩트)
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("전체", "오늘", "어제").forEach { filter -> FilterChip(selected = dateFilter == filter, onClick = { dateFilter = filter }, label = { Text(filter, fontSize = 11.sp) }, modifier = Modifier.height(30.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted)) }
-                    FilterChip(selected = dateFilter == "날짜선택", onClick = { showDatePicker = true }, label = { Text(if (dateFilter == "날짜선택" && customDate.isNotEmpty()) customDate.substring(5) else "\uD83D\uDCC5", fontSize = 11.sp) }, modifier = Modifier.height(30.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = Color(0xFF1F2937), labelColor = muted))
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    listOf("전체", "오늘", "어제").forEach { filter -> FilterChip(selected = dateFilter == filter, onClick = { dateFilter = filter }, label = { Text(filter, fontSize = 11.sp) }, modifier = Modifier.height(30.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
+                    FilterChip(selected = dateFilter == "날짜선택", onClick = { showDatePicker = true }, label = { Text(if (dateFilter == "날짜선택" && customDate.isNotEmpty()) customDate.substring(5) else "\uD83D\uDCC5", fontSize = 11.sp) }, modifier = Modifier.height(30.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+                    Spacer(Modifier.weight(1f))
+                    Surface(onClick = onOpenDailySettlement, shape = RoundedCornerShape(15.dp), color = Color(0xFF1E3A2E), modifier = Modifier.height(30.dp)) {
+                        Row(modifier = Modifier.padding(horizontal = 12.dp).fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) { Text("\uD83D\uDCCB 마감", fontSize = 11.sp, color = Color(0xFF6EE7B7), fontWeight = FontWeight.Bold) }
+                    }
                 }
                 // 요약 (홈 스타일)
                 if (dateFilter != "전체" && trips.isNotEmpty()) {
                     val totalFare = trips.sumOf { it.fare }
-                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(10.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${trips.size}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("운행", fontSize = 10.sp, color = muted) }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = green); Text("매출", fontSize = 10.sp, color = muted) }
-                            if (totalFare > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare / trips.size)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = accent); Text("평균", fontSize = 10.sp, color = muted) } }
+                    // [v7] 현금 별도 집계 — 현금은 회사 미납부(기사 실수입), 카드/플랫폼과 분리해 보여줌
+                    val cashFare = trips.filter { it.paymentType == "cash" }.sumOf { it.fare }
+                    val cardFare = totalFare - cashFare
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${trips.size}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("운행", fontSize = 10.sp, color = muted) }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = green); Text("총매출", fontSize = 10.sp, color = muted) }
+                                if (totalFare > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare / trips.size)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = accent); Text("평균", fontSize = 10.sp, color = muted) } }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB3 ${String.format("%,d", cardFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)); Text("카드/플랫폼", fontSize = 9.sp, color = muted) }
+                                if (cashFare > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB5 ${String.format("%,d", cashFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24)); Text("현금(내 몫)", fontSize = 9.sp, color = muted) } }
+                            }
                         }
                     }
                 }
@@ -309,20 +489,21 @@ fun RecordsScreen(userId: String) {
                 else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(trips) { _, trip ->
-                            Card(modifier = Modifier.fillMaxWidth().clickable { editingTrip = trip; editDest = trip.destination; editOrigin = trip.origin; editFare = if (trip.fare > 0) trip.fare.toString() else ""; editPaymentType = trip.paymentType; editHour = trip.time.split(":").getOrElse(0) { "" }; editMinute = trip.time.split(":").getOrElse(1) { "" }; showEditDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth().clickable { editingTrip = trip; editDest = trip.destination; editOrigin = trip.origin; editFare = if (trip.fare > 0) trip.fare.toString() else ""; editPaymentType = trip.paymentType; editPlatform = trip.platform; editHour = trip.time.split(":").getOrElse(0) { "" }; editMinute = trip.time.split(":").getOrElse(1) { "" }; editDate = trip.rawDate.ifEmpty { todayStr }; showEditDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (trip.origin.isNotEmpty()) { Text(trip.origin.take(6), fontSize = 12.sp, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(" \u2192 ", fontSize = 12.sp, color = muted) }
-                                            Text(trip.destination.take(12), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(trip.destination.take(12), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         val payLabel = when (trip.paymentType) { "card" -> "\uD83D\uDCB3"; "cash" -> "\uD83D\uDCB5"; else -> "" }
                                         val timeDisplay = if (trip.endTime.isNotEmpty()) "${trip.time}~${trip.endTime}" else trip.time
                                         Text("${trip.platform} $payLabel \u00B7 ${trip.date} \u00B7 $timeDisplay", fontSize = 11.sp, color = muted)
                                     }
                                     if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
-                                    else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; showQuickFare = true }) }
+                                    else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; quickFarePlatform = ""; showQuickFare = true }) }
                                     Spacer(Modifier.width(8.dp))
+                                    TextButton(onClick = { shareTrip(ctx, trip.origin, trip.destination, trip.time.split(":").getOrElse(0) { "" }, trip.time.split(":").getOrElse(1) { "" }, if (trip.fare > 0) trip.fare.toString() else "") }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("🔗", fontSize = 14.sp) }
                                     TextButton(onClick = { deletingTrip = trip; showDeleteConfirm = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("\uD83D\uDDD1", fontSize = 13.sp) }
                                 }
                             }
@@ -336,12 +517,12 @@ fun RecordsScreen(userId: String) {
                 val businessTotal = expenses.filter { it.expenseType == "business" }.sumOf { it.amount }
                 val personalTotal = expenses.filter { it.expenseType == "personal" }.sumOf { it.amount }
                 if (businessTotal > 0 || personalTotal > 0) {
-                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(10.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                             if (businessTotal > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("사업지출", fontSize = 13.sp, color = muted); Text("-${String.format("%,d", businessTotal)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = red) } }
                             if (personalTotal > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("개인지출", fontSize = 13.sp, color = muted); Text("-${String.format("%,d", personalTotal)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316)) } }
                             HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 지출", fontSize = 13.sp, color = Color.White); Text("-${String.format("%,d", businessTotal + personalTotal)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red) }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 지출", fontSize = 13.sp, color = AppTheme.text); Text("-${String.format("%,d", businessTotal + personalTotal)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red) }
                         }
                     }
                 }
@@ -355,8 +536,8 @@ fun RecordsScreen(userId: String) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(when(exp.category) { "LPG" -> "⛽"; "식비" -> "🍚"; "세차" -> "🚿"; "주차" -> "🅿️"; else -> "📝" }, fontSize = 16.sp)
-                                            Text(exp.category, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                            Card(colors = CardDefaults.cardColors(containerColor = if (exp.expenseType == "business") Color(0xFF7F1D1D) else Color(0xFF78350F)), shape = RoundedCornerShape(4.dp)) { Text(if (exp.expenseType == "business") "사업" else "개인", fontSize = 9.sp, color = Color.White, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) }
+                                            Text(exp.category, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                            Card(colors = CardDefaults.cardColors(containerColor = if (exp.expenseType == "business") Color(0xFF7F1D1D) else Color(0xFF78350F)), shape = RoundedCornerShape(4.dp)) { Text(if (exp.expenseType == "business") "사업" else "개인", fontSize = 9.sp, color = AppTheme.text, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) }
                                         }
                                         Text("${exp.date}${if (exp.memo.isNotEmpty()) " · ${exp.memo}" else ""}", fontSize = 11.sp, color = muted)
                                     }
@@ -375,7 +556,7 @@ fun RecordsScreen(userId: String) {
                     item {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Text("📡", fontSize = 44.sp); Spacer(Modifier.height(8.dp))
-                            Text("콜 제보로 함께 만드는 콜 지도", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("콜 제보로 함께 만드는 콜 지도", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                             Spacer(Modifier.height(4.dp))
                             Text("어디서 콜이 잡혔는지 제보하면\n모두의 데이터가 됩니다", fontSize = 12.sp, color = muted, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
                         }
@@ -386,7 +567,7 @@ fun RecordsScreen(userId: String) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text("🗺️", fontSize = 22.sp)
-                                    Column { Text("실시간 콜 지도", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White); Text("기사들의 제보가 모여 '지금 콜이 터지는 곳'이 지도에 표시됩니다", fontSize = 12.sp, color = muted, lineHeight = 17.sp) }
+                                    Column { Text("실시간 콜 지도", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("기사들의 제보가 모여 '지금 콜이 터지는 곳'이 지도에 표시됩니다", fontSize = 12.sp, color = muted, lineHeight = 17.sp) }
                                 }
                                 Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text("🤖", fontSize = 22.sp)
@@ -401,16 +582,16 @@ fun RecordsScreen(userId: String) {
                     }
                     // 제보 방법
                     item {
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(14.dp)) {
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("💡 이렇게 제보하세요", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("💡 이렇게 제보하세요", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                                 Spacer(Modifier.height(6.dp))
                                 Text("콜을 받은 위치(출발지)와 목적지를 남겨주세요. 금액은 선택입니다.\n한 번의 제보가 다른 기사에게 큰 도움이 됩니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
                             }
                         }
                     }
                     item {
-                        Button(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("📡 콜 제보하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                        Button(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("📡 콜 제보하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                     }
                 }
             }
@@ -420,9 +601,10 @@ fun RecordsScreen(userId: String) {
 
 @Composable
 private fun CalendarView(userId: String) {
-    val bg = Color(0xFF0A0E1A); val card = Color(0xFF111827); val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280); val red = Color(0xFFEF4444)
+    val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280); val red = Color(0xFFEF4444)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     var yearMonth by remember { mutableStateOf(SimpleDateFormat("yyyy-MM", Locale.KOREA).format(Date())) }
     var dailyMap by remember { mutableStateOf<Map<String, DailyRecord>>(emptyMap()) }
     var monthLpgAmount by remember { mutableStateOf(0) }
@@ -431,6 +613,7 @@ private fun CalendarView(userId: String) {
     val monthPrefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
     val lpgRefundRate = monthPrefs.getInt("lpg_refund_rate", 0)
     val monthDriverType = monthPrefs.getString("driver_type", "personal") ?: "personal"
+    val monthDayStart = monthPrefs.getInt("day_start_hour", 0)   // [v19] 영업일 시작(야간·일차 기사)
 
     fun loadMonthExpense(ym: String) {
         scope.launch {
@@ -447,12 +630,14 @@ private fun CalendarView(userId: String) {
     var selectedDate by remember { mutableStateOf<String?>(null) }
     var selectedTrips by remember { mutableStateOf<List<TripRecord>>(emptyList()) }
     var isLoadingTrips by remember { mutableStateOf(false) }
+    var dayExpense by remember { mutableStateOf(0) }   // [v19] 선택 날짜 지출 합계 (그날 순수익 계산용)
 
-    fun loadMonth(ym: String) { scope.launch { isLoading = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val map = mutableMapOf<String, DailyRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val date = obj.optString("date", "").take(10); map[date] = DailyRecord(date, obj.optInt("trip_count", 0), obj.optInt("total_fare", 0)) }; dailyMap = map } catch (e: Exception) { dailyMap = emptyMap() }; isLoading = false } }
-    fun loadDayTrips(date: String) { scope.launch { isLoadingTrips = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$date&limit=50").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val list = mutableListOf<TripRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val rawTime = obj.optString("started_at", ""); val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }; list.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, date, obj.optString("payment_type", "auto"))) }; selectedTrips = list } catch (e: Exception) { selectedTrips = emptyList() }; isLoadingTrips = false } }
+    fun loadMonth(ym: String) { scope.launch { isLoading = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym&dayStart=$monthDayStart").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val map = mutableMapOf<String, DailyRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val date = obj.optString("date", "").take(10); map[date] = DailyRecord(date, obj.optInt("trip_count", 0), obj.optInt("total_fare", 0), obj.optInt("card_fare", 0), obj.optInt("cash_fare", 0), obj.optInt("expense", 0)) }; dailyMap = map } catch (e: Exception) { dailyMap = emptyMap() }; isLoading = false } }
+    fun loadDayTrips(date: String) { scope.launch { isLoadingTrips = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$date&limit=50&dayStart=$monthDayStart").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val list = mutableListOf<TripRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val rawTime = obj.optString("started_at", ""); val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }; list.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, date, obj.optString("payment_type", "auto"), "", date)) }; selectedTrips = list; try { val er = withContext(Dispatchers.IO) { val c = (URL("$SERVER_URL/api/expenses/$userId?date=$date&dayStart=$monthDayStart").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; c.inputStream.bufferedReader().readText() }; val ea = JSONArray(er); var s = 0; for (i in 0 until ea.length()) s += ea.getJSONObject(i).optInt("amount", 0); dayExpense = s } catch (e: Exception) { dayExpense = 0 } } catch (e: Exception) { selectedTrips = emptyList(); dayExpense = 0 }; isLoadingTrips = false } }
 
     LaunchedEffect(yearMonth) { loadMonth(yearMonth); loadMonthExpense(yearMonth); selectedDate = null }
     val totalFare = dailyMap.values.sumOf { it.totalFare }; val totalTrips = dailyMap.values.sumOf { it.tripCount }
+    val totalCard = dailyMap.values.sumOf { it.cardFare }; val totalCash = dailyMap.values.sumOf { it.cashFare }; val totalDayExpense = dailyMap.values.sumOf { it.expense }
     val parts = yearMonth.split("-"); val cal = Calendar.getInstance(); cal.set(parts[0].toInt(), parts[1].toInt() - 1, 1)
     val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1; val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
@@ -462,7 +647,7 @@ private fun CalendarView(userId: String) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(36.dp).clickable { val c = Calendar.getInstance(); c.set(parts[0].toInt(), parts[1].toInt() - 1, 1); c.add(Calendar.MONTH, -1); yearMonth = SimpleDateFormat("yyyy-MM", Locale.KOREA).format(c.time) }, contentAlignment = Alignment.Center) { Text("\u25C0", fontSize = 16.sp, color = accent) }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(yearMonth.replace("-", "년 ") + "월", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(yearMonth.replace("-", "년 ") + "월", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                 Text("${String.format("%,d", totalFare)}원 \u00B7 ${totalTrips}콜", fontSize = 12.sp, color = muted)
             }
             Box(modifier = Modifier.size(36.dp).clickable { val c = Calendar.getInstance(); c.set(parts[0].toInt(), parts[1].toInt() - 1, 1); c.add(Calendar.MONTH, 1); yearMonth = SimpleDateFormat("yyyy-MM", Locale.KOREA).format(c.time) }, contentAlignment = Alignment.Center) { Text("\u25B6", fontSize = 16.sp, color = accent) }
@@ -472,11 +657,26 @@ private fun CalendarView(userId: String) {
             // 월 정산 요약 카드
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("${yearMonth.replace("-", "년 ")}월 정산", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("${yearMonth.replace("-", "년 ")}월 정산", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                     Spacer(Modifier.height(2.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("매출 (${totalTrips}콜)", fontSize = 12.sp, color = muted)
+                        Text("총매출 (${totalTrips}콜)", fontSize = 12.sp, color = muted)
                         Text("${String.format("%,d", totalFare)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green)
+                    }
+                    // [v19] 카드/현금/지출 분해 (일별처럼)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("💳 카드/플랫폼", fontSize = 12.sp, color = muted)
+                        Text("${String.format("%,d", totalCard)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("💵 현금", fontSize = 12.sp, color = muted)
+                        Text("${String.format("%,d", totalCash)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24))
+                    }
+                    if (totalDayExpense > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("🧾 지출", fontSize = 12.sp, color = muted)
+                            Text("-${String.format("%,d", totalDayExpense)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = red)
+                        }
                     }
                     if (monthLpgAmount > 0) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -486,7 +686,7 @@ private fun CalendarView(userId: String) {
                         // 부가세 환급 참고 (환급률 설정 시)
                         if (lpgRefundRate > 0) {
                             val refund = monthLpgAmount * lpgRefundRate / 100
-                            HorizontalDivider(color = Color(0xFF1F2937), modifier = Modifier.padding(vertical = 2.dp))
+                            HorizontalDivider(color = AppTheme.surface2, modifier = Modifier.padding(vertical = 2.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column {
                                     Text("💡 LPG 부가세 환급 예상", fontSize = 12.sp, color = green, fontWeight = FontWeight.Bold)
@@ -510,10 +710,12 @@ private fun CalendarView(userId: String) {
                         if (day < 1 || day > daysInMonth) { Box(modifier = Modifier.weight(1f).aspectRatio(0.8f)) }
                         else {
                             val dateStr = "$yearMonth-${day.toString().padStart(2, '0')}"; val dayData = dailyMap[dateStr]; val isSelected = selectedDate == dateStr; val isToday = dateStr == today
-                            Box(modifier = Modifier.weight(1f).aspectRatio(0.8f).padding(1.dp).background(if (isSelected) accent else if (dayData != null && dayData.totalFare > 0) Color(0xFF1F2937) else Color.Transparent, RoundedCornerShape(6.dp)).clickable { selectedDate = dateStr; loadDayTrips(dateStr) }, contentAlignment = Alignment.Center) {
+                            val hasData = dayData != null && (dayData.totalFare > 0 || dayData.expense > 0)
+                            Box(modifier = Modifier.weight(1f).aspectRatio(0.8f).padding(1.dp).background(if (isSelected) accent else if (hasData) AppTheme.surface2 else Color.Transparent, RoundedCornerShape(6.dp)).border(0.7.dp, AppTheme.surface2, RoundedCornerShape(6.dp)).clickable { selectedDate = dateStr; loadDayTrips(dateStr) }, contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$day", fontSize = 12.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else Color.White)
+                                    Text("$day", fontSize = 12.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else AppTheme.text)
                                     if (dayData != null && dayData.totalFare > 0) { Text("${dayData.totalFare / 10000}만", fontSize = 9.sp, color = if (isSelected) Color.Black else green, fontWeight = FontWeight.Bold) }
+                                    if (dayData != null && dayData.expense > 0) { Text("-${dayData.expense / 10000}만", fontSize = 8.sp, color = if (isSelected) Color(0xFF7F1D1D) else red, fontWeight = FontWeight.Medium) }
                                 }
                             }
                         }
@@ -521,8 +723,29 @@ private fun CalendarView(userId: String) {
                 }
             }
             if (selectedDate != null) {
-                Spacer(Modifier.height(12.dp)); HorizontalDivider(color = Color(0xFF1F2937)); Spacer(Modifier.height(8.dp))
-                Text("${selectedDate} 운행기록", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 6.dp))
+                Spacer(Modifier.height(12.dp)); HorizontalDivider(color = AppTheme.surface2); Spacer(Modifier.height(8.dp))
+                Text("${selectedDate} 운행기록", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.padding(bottom = 6.dp))
+                // [v19] 그날 수입·지출·순수익 요약 (마감 관리용)
+                run {
+                    val dayIncome = selectedTrips.sumOf { it.fare }
+                    val dayCash = selectedTrips.filter { it.paymentType == "cash" }.sumOf { it.fare }
+                    val dayCard = dayIncome - dayCash
+                    val dayNet = dayIncome - dayExpense
+                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("수입", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayIncome)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green) }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("지출", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayExpense)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = red) }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("순수익", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayNet)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (dayNet >= 0) accent else red) }
+                            }
+                            Spacer(Modifier.height(8.dp)); HorizontalDivider(color = card); Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💳 카드/플랫폼", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayCard)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)) }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💵 현금", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayCash)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24)) }
+                            }
+                        }
+                    }
+                }
                 if (isLoadingTrips) { Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp)) } }
                 else if (selectedTrips.isEmpty()) { Text("운행 기록 없음", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 8.dp)) }
                 else {
@@ -533,7 +756,7 @@ private fun CalendarView(userId: String) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (trip.origin.isNotEmpty()) { Text(trip.origin.take(6), fontSize = 11.sp, color = muted, maxLines = 1); Text(" \u2192 ", fontSize = 11.sp, color = muted) }
-                                            Text(trip.destination.take(12), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(trip.destination.take(12), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         val payLabel = when (trip.paymentType) { "card" -> "\uD83D\uDCB3"; "cash" -> "\uD83D\uDCB5"; else -> "" }
                                         Text("${trip.platform} $payLabel \u00B7 ${trip.time}", fontSize = 10.sp, color = accent)

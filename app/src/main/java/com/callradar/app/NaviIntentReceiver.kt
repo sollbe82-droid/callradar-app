@@ -1,4 +1,18 @@
-// ===== NaviIntentReceiver v3.1u (2026-07-08) =====
+// ===== NaviIntentReceiver v3.1x2 (2026-07-10) =====
+// v3.1x2: ①우버 미터입력 화면 통행료 제외 (라벨 다음 첫 금액=미터요금), FARE_CACHE 원문 동봉
+//         ②타임아웃 90분→6시간 (장거리+네비전환 시 유령트립 방지, 마감 시 캐시요금 사용)
+// v3.1x: ①우버 요금 허용목록(isUberFareScreen) - 사진 확인된 두 화면에서만 요금 인식
+//           (홈/지도/평가 상단의 오늘 누적수입 ₩104,848 등을 요금으로 잡던 버그)
+//        ②카카오 "손님이 직접결제 하셨나요" 화면은 요금>0 일 때만 완료
+//           (미터기 미연동 기사는 0원 상태로 떠서 0원 마감되던 버그)
+//        ③운행 중 플랫폼 전환 금지 (FORCE_END 제거)
+//           (카카오T+티머니고 동시 실행 시 트립이 쪼개지고 금액 유실되던 버그)
+//        ④activeTripId 공유상태 - 택시투데이 알림이 "플랫폼콜 진행중인지"로 판단
+//           (알림이 TRIP_END보다 먼저 와서 정상 카카오콜 금액을 길빵이 가져가던 버그)
+// v3.1w: 우버 "미터 요금만 입력" 화면에서 요금 캐싱 → 자동결제(수금화면 없음) 요금 검출
+// v3.1v: ①즉시취소 감지(미탑승 시 60초→5초) - 유령트립 생성 차단
+//        ②finalizeCurrentTrip에 ended_at 전송 - 정상종료 표시(택시투데이 매칭 근거)
+//        ③버전문자열 v3.1→v3.1v (로그 혼란 해결)
 // v3.1u: 우버 신버전 직접결제 대응 - 버튼 "운행완료"→"콜 완료" 변경, "수금" 확인화면 추가 감지
 // v3.1t: 우버 "최종 금액"(예상치) 제거 - 입력후 화면(₩10600+운행완료)에서 실제요금만 잡기
 // v3.1s: 우버 평가화면/홈화면 누적수입(홈 ₩34200 오늘)을 요금으로 오인하던 버그 수정 - 평가화면 파싱 스킵
@@ -44,8 +58,15 @@ class NaviIntentReceiver : AccessibilityService() {
             Regex("₩\\s*([0-9,]+)"),
             Regex("([0-9,]{4,})\\s*원")
         )
-        private const val MAX_TRIP_DURATION = 5400000L
+        private const val MAX_TRIP_DURATION = 21600000L  // 6시간 (장거리+정체+네비전환 대응)
         private const val DEST_UPDATE_INTERVAL = 30000L
+
+        // [v3.1x] 택시투데이 알림 서비스가 참조하는 "현재 진행 중인 플랫폼 콜" 상태
+        //  - activeTripId > 0  : 플랫폼 콜 진행 중 → 결제 알림은 그 트립 것
+        //  - activeTripId <= 0 : 플랫폼 콜 없음 → 결제 알림은 길빵/예약
+        // 대기시간 길이와 무관. ended_at/시간창에 의존하지 않음.
+        @Volatile var activeTripId: Int = -1
+        @Volatile var activeTripStartedAt: Long = 0L
     }
 
     private var lastPlatform = "알수없음"
@@ -141,8 +162,8 @@ class NaviIntentReceiver : AccessibilityService() {
             flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
-        sendDebugLog("SERVICE", "v3.1 연결됨")
-        Log.d(TAG, "NaviIntentReceiver v3.1 연결됨 (택시앱 전용)")
+        sendDebugLog("SERVICE", "v3.1x2 연결됨")
+        Log.d(TAG, "NaviIntentReceiver v3.1x2 연결됨 (택시앱 전용)")
         Thread {
             Thread.sleep(5000)
             LocalTripDatabase.getInstance(this).syncPendingTrips(this)
@@ -160,9 +181,16 @@ class NaviIntentReceiver : AccessibilityService() {
         if (pkg !in TAXI_APPS) return
         val now = System.currentTimeMillis()
 
+        // [v3.1x2] 타임아웃 90분 → 6시간 안전상한
+        // 원인: 강남→인천공항/지방 장거리는 정체 시 2시간 넘고, 기사가 우버→네이버네비→우버로
+        //       화면 전환하면 그 사이 우버 화면이 안 떠서 이벤트 공백이 길어진다.
+        //       90분 타임아웃이 진행 중인 #884를 죽이자, 우버 복귀 화면이 lastTripId<=0 이 되어
+        //       새 콜(유령 #886 운서동→운서동)로 오인됐다.
+        // 해결: 상한을 6시간으로. 그 안이면 운행 중으로 보고 트립 유지 → 복귀해도 유령 안 생김.
+        //       마감 시엔 캐시된 요금(lastDetectedFare)을 살린다(0원 마감 방지).
         if (lastTripId > 0 && tripStartedAt > 0 && now - tripStartedAt > MAX_TRIP_DURATION) {
-            Log.d(TAG, "트립 90분 초과, 강제 마감 처리")
-            finalizeCurrentTrip(0)
+            Log.d(TAG, "트립 6시간 초과, 강제 마감 처리")
+            finalizeCurrentTrip(if (lastDetectedFare > 0) lastDetectedFare else 0)
         }
 
         lastTaxiPlatform = PLATFORM_NAMES[pkg] ?: "카카오T"
@@ -235,38 +263,73 @@ class NaviIntentReceiver : AccessibilityService() {
                     KAKAO_TAXI -> allText.contains("콜 대기") || allText.contains("퇴근하기")
                     else -> false
                 }
-                if (isCancelledToIdle && System.currentTimeMillis() - tripStartedAt > 60000) {
+                // [v3.1v] 손님 미탑승 시 즉시취소 감지 (기존 60초 → 5초)
+                // 카카오T는 콜 수락 직후 대기화면이 안 뜨므로 오탐 위험 낮음
+                // 손님 탑승한 경우는 아래 passengerBoarded 분기에서 보호됨
+                val minCancelMs = if (passengerBoarded) 60000L else 5000L
+                if (isCancelledToIdle && System.currentTimeMillis() - tripStartedAt > minCancelMs) {
                     if (passengerBoarded) {
                         // 손님 탑승한 운행은 대기화면 스쳐도 취소 안함 (인천공항/지방/정체 대응)
                         Log.d(TAG, "대기화면 감지했으나 손님 탑승상태 → 취소 무시")
                     } else {
                         Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
-                        sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀")
+                        sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀(미탑승)")
                         deleteCurrentTrip()
                         return
                     }
                 }
             }
 
+            // [v3.1x2] 우버 "미터 요금만 입력" 화면 - 미터요금 캐싱, 통행료 제외
+            // 화면 레이아웃: "미터 요금만 입력" 라벨 + 미터요금, 통행료는 별도(있을 때만 표시)
+            //   - 통행료 있는 운행: 미터요금 + 통행료(작음) 둘 다 보임 → 최댓값=미터요금
+            //   - 통행료 없는 운행: 미터요금만 → 그대로 잡힘
+            //   - 입력 중엔 중간값/통행료가 클 수 있으나, 매 프레임 덮어써서 완료 시 미터요금이 최종 캐시됨
+            // 라벨 "다음" 금액들만 봐서 홈화면 누적수입(라벨 없음)은 자동 배제.
+            if (pkg == UBER && !allText.contains("수금") && !allText.contains("콜 완료")
+                && (allText.contains("미터 요금만 입력") || allText.contains("확인하고 계속하기"))) {
+                var meterFare = 0
+                val labelIdx = lines.indexOfFirst { it.contains("미터 요금만 입력") }
+                if (labelIdx >= 0) {
+                    for (j in (labelIdx + 1) until lines.size) {
+                        val m = Regex("([0-9,]{2,})").find(lines[j].replace("₩", "").trim())
+                        val v = m?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+                        if (v in 1000..500000 && v > meterFare) meterFare = v  // 최댓값 = 미터요금(통행료보다 큼)
+                    }
+                }
+                if (meterFare == 0) meterFare = extractFare(lines, pkg)  // 라벨 못 찾으면 폴백
+                if (meterFare > 0) {
+                    lastDetectedFare = meterFare
+                    Log.d(TAG, "💰 우버 미터요금 캐싱: ${meterFare}원")
+                    // 검증용: 화면 원문 동봉 (통행료 유무·배치 확인용)
+                    sendDebugLog("FARE_CACHE", "우버 미터요금 | ${meterFare}원 | " + allText.take(100))
+                }
+                return  // 아직 완료 아님
+            }
+
             // 완료/결제 신호
             val isCompletionSignal = when (pkg) {
                 UBER -> allText.contains("영수증") ||
                     allText.contains("결제 완료") || allText.contains("운행이 완료") ||
-                    ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines) > 0) ||
-                    ((allText.contains("콜 완료") || allText.contains("수금")) && extractFare(lines) > 0) ||
+                    ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines, pkg) > 0) ||
+                    ((allText.contains("콜 완료") || allText.contains("수금")) && extractFare(lines, pkg) > 0) ||
                     (allText.contains("라이더") && allText.contains("평가해 주세요"))
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
-                    allText.contains("결제 요금")
+                    (allText.contains("결제 요금") && extractFare(lines, pkg) > 0)
                 else -> allText.contains("자동결제 완료") ||
-                    allText.contains("결제 요금") ||
+                    (allText.contains("결제 요금") && extractFare(lines, pkg) > 0) ||
                     allText.contains("입력하신 요금이 맞습니까") ||
                     allText.contains("탑승한 손님은 어떠셨나요") ||
-                    allText.contains("손님이 직접결제 하셨나요")
+                    // [v3.1x] "손님이 직접결제 하셨나요?" 화면은 기사가 미터기 금액을 넣기 전에도 뜬다.
+                    // (미터기 미연동 기사: "미터기 요금 0 / 통행 요금 0 / 요금 입력" 상태로 표시)
+                    // 이때 완료로 마감하면 0원 트립이 되고, 이후 금액을 입력해도 반영되지 않는다.
+                    // → 실제 요금이 잡혔을 때만 완료로 인정한다.
+                    (allText.contains("손님이 직접결제 하셨나요") && extractFare(lines, pkg) > 0)
             }
 
             if (isCompletionSignal) {
                 if (lastTripId > 0) {
-                    val fare = extractFare(lines)
+                    val fare = extractFare(lines, pkg)
                     Log.d(TAG, "✅ 운행 종료 신호 ($lastPlatform), 마감 (요금: ${fare}원)")
                     sendDebugLog("TRIP_END", "#$lastTripId | ${fare}원")
                     sendDebugLog("END_SCREEN", allText.take(300))
@@ -323,23 +386,25 @@ class NaviIntentReceiver : AccessibilityService() {
                 tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
                 createNewTripWithGps(curLat, curLng)
-            } else if (lastPlatform != tripPlatform && System.currentTimeMillis() - tripStartedAt > 30000) {
-                // 다른 플랫폼 활성 화면 → 이전 트립 강제 종료 + 새 트립
-                Log.d(TAG, "⚠️ 플랫폼 변경: $tripPlatform → $lastPlatform, 이전 트립 강제 종료")
-                sendDebugLog("FORCE_END", "#$lastTripId | $tripPlatform→$lastPlatform")
-                finalizeCurrentTrip(0)
-                Thread.sleep(500)
-                tripPlatform = lastPlatform
-                sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
-                createNewTripWithGps(curLat, curLng)
             } else {
+                // [v3.1x] 운행 중 플랫폼 전환 금지
+                // 기사는 카카오T/티머니고(/우버)를 동시에 켜두고 먼저 잡히는 콜을 받음.
+                // → 운행 중 반대편 앱의 대기화면이 스치는 일이 흔함.
+                // 예전 코드는 이때 FORCE_END + finalizeCurrentTrip(0) 으로 트립을 0원 마감하고
+                // 새 트립을 만들어 한 운행이 둘로 갈리고 금액이 유실됐다(티머니 금액 미입력 원인).
+                // 진짜 새 콜은 완료신호(TRIP_END)로 lastTripId=-1 이 되어 위 분기에서 자연히 생성되고,
+                // 완료를 놓쳐도 MAX_TRIP_DURATION(90분) 타임아웃이 있다.
+                if (lastPlatform != tripPlatform) {
+                    Log.d(TAG, "다른 플랫폼 화면 스침: $tripPlatform ← $lastPlatform (트립 유지)")
+                }
+
                 val dist = distanceMeters(originLat, originLng, curLat, curLng)
                 if (dist > 300) {
                     refreshTripDestination(lastTripId, curLat, curLng)
                 }
                 // 금액 캐싱: 화면에 요금 보이면 기억 (우버·카카오 등 완료화면 전환 대비)
                 if (lastTripId > 0) {
-                    val fare = extractFare(lines)
+                    val fare = extractFare(lines, pkg)
                     if (fare > 0) lastDetectedFare = fare
                 }
             }
@@ -395,6 +460,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     conn.outputStream.write(json.toString().toByteArray())
                     val resJson = JSONObject(conn.inputStream.bufferedReader().readText())
                     lastTripId = resJson.optInt("id", -1)
+                    activeTripId = lastTripId; activeTripStartedAt = System.currentTimeMillis()  // [v3.1x]
                     if (lastTripId > 0) {
                         db.markSynced(localId, lastTripId)
                         Log.d(TAG, "🚕 새 트립: #$lastTripId | $oName | $lastPlatform")
@@ -402,7 +468,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     conn.disconnect()
                 } catch (e: Exception) {
                     Log.e(TAG, "서버 전송 실패: ${e.message}")
-                    lastTripId = -1
+                    lastTripId = -1; activeTripId = -1  // [v3.1x]
                 }
                 lastSentDest = oName
                 lastSentTime = System.currentTimeMillis()
@@ -449,7 +515,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private fun deleteCurrentTrip() {
         val tripId = lastTripId
         if (tripId <= 0) return
-        lastTripId = -1
+        lastTripId = -1; activeTripId = -1  // [v3.1x] 취소 → 이후 결제알림은 길빵으로
         lastDetectedFare = 0
         stopDestUpdateTimer()
         Thread {
@@ -464,7 +530,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 Log.d(TAG, "🗑️ 취소 트립 삭제: #$tripId"); conn.disconnect()
             } catch (e: Exception) { Log.e(TAG, "트립 삭제 실패: ${e.message}") }
-            finally { synchronized(this) { lastTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; passengerBoarded = false; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
+            finally { synchronized(this) { lastTripId = -1; activeTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; passengerBoarded = false; originLat = 0.0; originLng = 0.0; tripPlatform = "" } }
         }.start()
     }
 
@@ -472,7 +538,7 @@ class NaviIntentReceiver : AccessibilityService() {
         val tripId = lastTripId
         if (tripId <= 0) return
         val actualFare = if (fare > 0) fare else lastDetectedFare
-        lastTripId = -1
+        lastTripId = -1; activeTripId = -1  // [v3.1x] 정상 종료
         lastDetectedFare = 0
         stopDestUpdateTimer()
         val lat = LocationTrackingService.currentLat
@@ -484,6 +550,10 @@ class NaviIntentReceiver : AccessibilityService() {
                 val json = JSONObject().apply {
                     put("user_id", userId)
                     if (actualFare > 0) put("fare", actualFare)
+                    // [v3.1v] 정상 종료 표시 - 택시투데이 금액 매칭이 유령트립(취소)을 배제하는 근거
+                    put("ended_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }.format(java.util.Date()))
                     if (lat != 0.0 || lng != 0.0) {
                         val dist = distanceMeters(originLat, originLng, lat, lng)
                         if (dist > 300) {
@@ -510,7 +580,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 Log.e(TAG, "트립 마감 실패: ${e.message}")
             } finally {
                 synchronized(this) {
-                    lastTripId = -1; lastLocalTripId = -1
+                    lastTripId = -1; activeTripId = -1; lastLocalTripId = -1
                     lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L
                     originLat = 0.0; originLng = 0.0; tripPlatform = ""
                 }
@@ -539,13 +609,38 @@ class NaviIntentReceiver : AccessibilityService() {
         }
     }
 
-    private fun extractFare(lines: List<String>): Int {
+    /**
+     * [v3.1x] 우버 "진짜 요금 화면" 판별 (허용 목록 방식)
+     * 우버 앱은 대기/지도/평가 화면 상단에 그날 누적수입(₩104,848 등)을 항상 띄운다.
+     * 차단 목록으로 거르면 새 화면이 뜰 때마다 뚫리므로, 요금을 읽어도 되는 화면만 명시한다.
+     *
+     * 실제 요금이 표시되는 화면은 두 개뿐 (사용자 확인):
+     *   1) "미터 요금만 입력" + ₩금액 + "확인하고 계속하기"   (자동/직접결제 공통)
+     *   2) "수금" + ₩금액 + "일반 콜 완료"                    (직접결제만)
+     * 그 외(홈/지도/평가/오늘수입/마지막운행/합산)는 전부 요금이 아니다.
+     */
+    private fun isUberFareScreen(allText: String): Boolean {
+        val meterInput = allText.contains("미터 요금만 입력") || allText.contains("확인하고 계속하기")
+        val collect = allText.contains("수금") || allText.contains("콜 완료") ||
+            allText.contains("운행 완료") || allText.contains("운행완료")
+        return meterInput || collect
+    }
+
+    private fun extractFare(lines: List<String>): Int = extractFare(lines, null)
+
+    private fun extractFare(lines: List<String>, pkg: String?): Int {
         val allTextRaw = lines.joinToString(" ")
-        // 우버 평가화면/홈화면은 "오늘 누적 수입"이 표시됨 → 트립 요금 아님, 파싱 스킵
-        // (예: "홈 ₩34,200 오늘 ... 라이더 평가" 에서 34200은 그날 누적)
+
+        // [v3.1x] 우버는 지정된 요금 화면에서만 금액을 읽는다 (허용 목록)
+        // 대기화면 지도 상단의 "오늘 수입 / 마지막 운행 / 오늘의 합산" 등은 특정 시점에만 떠서
+        // 차단 목록으로는 놓치기 쉽다 → 아예 요금 화면이 아니면 0.
+        if (pkg == UBER && !isUberFareScreen(allTextRaw)) return 0
+
+        // 평가화면/홈화면 누적수입 방어 (우버 외 플랫폼 및 pkg 미지정 호출 대비)
         val isRatingOrHome = (allTextRaw.contains("라이더") && allTextRaw.contains("평가")) ||
             (allTextRaw.contains("별점") && allTextRaw.contains("탭하세요")) ||
-            (allTextRaw.contains("홈") && allTextRaw.contains("오늘") && allTextRaw.contains("수입"))
+            (allTextRaw.contains("홈") && allTextRaw.contains("오늘")) ||
+            allTextRaw.contains("수입 동향") || allTextRaw.contains("Uber Pro")
         if (isRatingOrHome) return 0
 
         // "통행 요금" 줄 제거 - 파싱 혼선 방지 (미터기/결제 요금만 사용)

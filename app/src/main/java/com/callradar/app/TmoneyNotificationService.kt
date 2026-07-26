@@ -1,5 +1,13 @@
 package com.callradar.app
 
+// ===== TmoneyNotificationService v3 (2026-07-10) =====
+// v3: 판단 기준을 NaviIntentReceiver.activeTripId 로 변경 (v2의 ended_at/시간창 폐기)
+//     - activeTripId > 0  : 플랫폼 콜 진행 중 → 그 트립에 금액 매칭
+//     - activeTripId <= 0 : 플랫폼 콜 없음 → 길빵/예약 → 새 트립 생성
+//     대기시간이 아무리 길어도, ended_at이 늦게 찍혀도 정확함
+//     (v2 버그: 알림이 TRIP_END보다 먼저 와서 정상 카카오 콜을 "취소 의심"으로 오판 →
+//      길빵 트립이 카카오 금액을 가져감)
+
 import android.app.Notification
 import android.content.Context
 import android.service.notification.NotificationListenerService
@@ -68,33 +76,21 @@ class TmoneyNotificationService : NotificationListenerService() {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getString("user_id", null) ?: return
 
+        // [v3] 판단 기준: 지금 플랫폼 콜(카카오/우버/티머니)이 진행 중인가?
+        //  - 진행 중  → 이 결제는 그 콜의 것 → 해당 트립에 금액 매칭
+        //  - 진행 안함 → 앱이 모르는 운행 → 길빵/예약 → 새 트립 생성
+        // 대기시간 길이, ended_at 기록 시점과 무관하게 정확함
+        val activeId = NaviIntentReceiver.activeTripId
+
         Thread {
             try {
-                // 최근 5건 중 fare가 null/0인 가장 최근 트립 찾기
-                val conn = (URL("$SERVER_URL/api/trips/$userId?limit=5").openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 10000; readTimeout = 10000
-                }
-                val response = conn.inputStream.bufferedReader().readText()
-                conn.disconnect()
-                val trips = JSONArray(response)
-
-                var targetTripId = -1
-                for (i in 0 until trips.length()) {
-                    val trip = trips.getJSONObject(i)
-                    val tripFare = trip.optInt("fare", 0)
-                    if (tripFare == 0 || trip.isNull("fare")) {
-                        targetTripId = trip.getInt("id")
-                        break // 가장 최근 fare=null 트립
-                    }
-                }
-
-                if (targetTripId > 0) {
-                    // 요금 업데이트
+                if (activeId > 0) {
+                    // 진행 중인 플랫폼 콜에 금액 채우기
                     val updateJson = JSONObject().apply {
                         put("user_id", userId)
                         put("fare", fare)
                     }
-                    val updateConn = (URL("$SERVER_URL/api/trips/$targetTripId").openConnection() as HttpURLConnection).apply {
+                    val updateConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection() as HttpURLConnection).apply {
                         requestMethod = "PUT"
                         setRequestProperty("Content-Type", "application/json")
                         doOutput = true; connectTimeout = 10000; readTimeout = 10000
@@ -105,13 +101,91 @@ class TmoneyNotificationService : NotificationListenerService() {
 
                     lastMatchedFare = fare
                     lastMatchedTime = now
-                    Log.d(TAG, "✅ 택시투데이 금액 매칭: 트립 #$targetTripId → ${fare}원")
+                    Log.d(TAG, "✅ 택시투데이 금액 매칭: 트립 #$activeId → ${fare}원")
+                    sendDebugLog(userId, "FARE_MATCH", "#$activeId | ${fare}원 | 진행중 플랫폼콜")
                 } else {
-                    Log.d(TAG, "⚠️ 금액 매칭 실패: fare=null인 트립 없음 (${fare}원)")
+                    // 플랫폼 콜 없음 = 길빵/예약 → 새 트립 생성
+                    createStandaloneTrip(userId, fare)
+                    lastMatchedFare = fare
+                    lastMatchedTime = now
+                    Log.d(TAG, "🆕 길빵/예약 → 새 트립 생성 (${fare}원)")
+                    sendDebugLog(userId, "FARE_NEW_TRIP", "${fare}원 | 진행중 플랫폼콜 없음")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "금액 매칭 오류: ${e.message}")
             }
+        }.start()
+    }
+
+    /** 스타트 없는 콜(길빵/예약): 출발지 미상 + 도착지=현재 위치 + 금액 */
+    private fun createStandaloneTrip(userId: String, fare: Int) {
+        try {
+            val lat = LocationTrackingService.currentLat
+            val lng = LocationTrackingService.currentLng
+            // 결제 위치를 도착지로 (역지오코딩). 실패 시 "미상"
+            val destName = if (lat != 0.0 || lng != 0.0) (reverseGeocode(lat, lng) ?: "미상") else "미상"
+            val nowIso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date())
+
+            val json = JSONObject().apply {
+                put("user_id", userId)
+                put("originName", "미상")
+                put("destName", destName)
+                put("platform", "길빵/예약")
+                put("fare", fare)
+                put("payment_type", "card")
+                put("started_at", nowIso)
+            }
+            val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true; connectTimeout = 10000; readTimeout = 10000
+            }
+            conn.outputStream.write(json.toString().toByteArray())
+            val code = conn.responseCode
+            conn.disconnect()
+            Log.d(TAG, "🆕 스타트없는콜 트립 생성: 미상→$destName ${fare}원 (HTTP $code)")
+        } catch (e: Exception) {
+            Log.e(TAG, "스타트없는콜 생성 실패: ${e.message}")
+        }
+    }
+
+    /** 좌표 → 지명 (Nominatim). 실패 시 null */
+    private fun reverseGeocode(lat: Double, lng: Double): String? {
+        return try {
+            val url = URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&accept-language=ko")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                setRequestProperty("User-Agent", "CallRadar/1.0")
+                connectTimeout = 8000; readTimeout = 8000
+            }
+            val res = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            val addr = JSONObject(res).optJSONObject("address") ?: return null
+            addr.optString("quarter", "").ifEmpty {
+                addr.optString("suburb", "").ifEmpty {
+                    addr.optString("city_district", "").ifEmpty {
+                        addr.optString("town", "").ifEmpty { addr.optString("city", "") }
+                    }
+                }
+            }.ifEmpty { null }
+        } catch (e: Exception) { null }
+    }
+
+    /** 디버그 로그 서버 전송 (매칭 동작 검증용) */
+    private fun sendDebugLog(userId: String, event: String, detail: String) {
+        Thread {
+            try {
+                val json = JSONObject().apply {
+                    put("user_id", userId); put("event", event); put("detail", detail)
+                }
+                val conn = (URL("$SERVER_URL/api/debug/log").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json")
+                    doOutput = true; connectTimeout = 8000
+                }
+                conn.outputStream.write(json.toString().toByteArray())
+                conn.responseCode; conn.disconnect()
+            } catch (e: Exception) { }
         }.start()
     }
 
