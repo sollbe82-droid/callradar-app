@@ -127,6 +127,7 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
 @Composable
 private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Color, onBrief: (String) -> Unit = {}) {
     var brief by remember { mutableStateOf("") }
+    val briefPrefs = LocalContext.current.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     LaunchedEffect(refreshKey) {
         val cal = java.util.Calendar.getInstance()
         val today = listOf("일", "월", "화", "수", "목", "금", "토")[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
@@ -140,7 +141,9 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
             } catch (_: Exception) {}
             try {
                 val arr = JSONArray((URL("$SERVER_URL/api/events?days=2").openConnection() as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
-                if (arr.length() > 0) { val o = arr.getJSONObject(0); val t = o.optString("title"); val a = o.optString("area"); if (t.isNotBlank()) e = (if (a.isNotBlank() && a != "null") "$a " else "") + t }
+                val sel = (briefPrefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }
+                var i = 0
+                while (i < arr.length()) { val o = arr.getJSONObject(i); val a = o.optString("area"); if (sel.isEmpty() || sel.any { a.contains(it) || it.contains(a) }) { val t = o.optString("title"); if (t.isNotBlank()) { e = (if (a.isNotBlank() && a != "null") "$a " else "") + t; break } }; i++ }
             } catch (_: Exception) {}
             Pair(p, e)
         }
