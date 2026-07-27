@@ -372,35 +372,68 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 }
             }
         }
-        // 귀로콜 레이더 (지역 검색) — 시외 나갔을 때 그 지역 수요 조회. GPS 자동감지는 준비 중(카카오 로컬 API 후).
+        // 귀로콜 레이더 — 📍현재 위치(포그라운드 GPS→역지오코딩) 또는 지역 검색으로 그 지역 수요 조회.
         run {
             var radarArea by remember { mutableStateOf("") }
             var radarRows by remember { mutableStateOf(listOf<Triple<String, Int, Int>>()) }
             var radarBusy by remember { mutableStateOf(false) }
             var radarDone by remember { mutableStateOf(false) }
+            var geoStatus by remember { mutableStateOf("") }
+            val runSearch: (String) -> Unit = { area ->
+                if (area.isNotBlank()) {
+                    radarBusy = true; radarDone = false
+                    scope.launch {
+                        val list = withContext(Dispatchers.IO) {
+                            try {
+                                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?area=" + java.net.URLEncoder.encode(area, "UTF-8")).readText())
+                                val arr = o.optJSONArray("rows")
+                                (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("avg_fare")) }
+                            } catch (e: Exception) { emptyList() }
+                        }
+                        radarRows = list.take(8); radarBusy = false; radarDone = true
+                    }
+                }
+            }
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("🧭 귀로콜 레이더", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
-                    Text("시외에 나갔을 때 그 지역(동/구) 이름을 넣어보세요. 그 지역에서 콜이 자주 잡힌 곳·평균 요금을 알려줍니다. (GPS 자동 감지는 준비 중)", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+                    Text("시외에 나갔을 때 '📍현재 위치로'를 누르거나 지역(동/구)을 넣어보세요. 그 지역에서 콜이 자주 잡힌 곳·평균 요금을 알려줍니다.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
                     OutlinedTextField(value = radarArea, onValueChange = { radarArea = it }, label = { Text("지역 (예: 강남, 송도, 수원)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Button(
-                        onClick = {
-                            if (radarArea.isBlank()) return@Button
-                            radarBusy = true; radarDone = false
-                            scope.launch {
-                                val list = withContext(Dispatchers.IO) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                geoStatus = "현재 위치 확인 중…"
+                                val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (!fine && !coarse) { geoStatus = "위치 권한이 필요해요 (운행 버튼 켤 때 허용됩니다)" }
+                                else {
                                     try {
-                                        val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?area=" + java.net.URLEncoder.encode(radarArea, "UTF-8")).readText())
-                                        val arr = o.optJSONArray("rows")
-                                        (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("avg_fare")) }
-                                    } catch (e: Exception) { emptyList() }
+                                        com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context).lastLocation
+                                            .addOnSuccessListener { loc ->
+                                                if (loc == null) geoStatus = "위치를 못 잡았어요. 잠시 후 다시."
+                                                else scope.launch {
+                                                    val area = withContext(Dispatchers.IO) {
+                                                        try {
+                                                            val g = org.json.JSONObject(URL("$SETTINGS_SERVER/api/geocode/reverse?x=${loc.longitude}&y=${loc.latitude}").readText())
+                                                            val region = g.optString("region")
+                                                            region.split(" ").firstOrNull { it.endsWith("구") || it.endsWith("시") || it.endsWith("군") } ?: region.split(" ").lastOrNull() ?: ""
+                                                        } catch (e: Exception) { "" }
+                                                    }
+                                                    if (area.isNotBlank()) { radarArea = area; geoStatus = "현재 위치: $area"; runSearch(area) } else geoStatus = "주소 변환 실패"
+                                                }
+                                            }
+                                            .addOnFailureListener { geoStatus = "위치 오류: ${it.message}" }
+                                    } catch (e: SecurityException) { geoStatus = "위치 권한이 필요해요" }
                                 }
-                                radarRows = list.take(8); radarBusy = false; radarDone = true
-                            }
-                        },
-                        enabled = !radarBusy, modifier = Modifier.fillMaxWidth().height(44.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = card), shape = RoundedCornerShape(10.dp)
-                    ) { Text(if (radarBusy) "찾는 중…" else "이 지역 콜 포인트 검색", color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)
+                        ) { Text("📍 현재 위치로", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                        Button(
+                            onClick = { runSearch(radarArea) }, enabled = !radarBusy,
+                            modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = card), shape = RoundedCornerShape(10.dp)
+                        ) { Text(if (radarBusy) "찾는 중…" else "지역 검색", color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    }
+                    if (geoStatus.isNotEmpty()) Text(geoStatus, fontSize = 11.sp, color = accent)
                     radarRows.forEach { (o, c, f) -> Text("• $o · ${c}회 · 평균 " + String.format("%,d", f) + "원", fontSize = 13.sp, color = muted) }
                     if (radarDone && radarRows.isEmpty()) Text("아직 이 지역 데이터가 적어요. 기록이 쌓이면 보여드릴게요.", fontSize = 12.sp, color = muted)
                 }
