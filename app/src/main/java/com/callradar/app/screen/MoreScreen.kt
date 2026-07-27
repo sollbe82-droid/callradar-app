@@ -264,6 +264,11 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     // [v21] 음성 안내(TTS) On/Off — 핸즈프리 브리핑
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var voiceOn by remember { mutableStateOf(prefs.getBoolean("voice_on", false)) }
+    // [v21] 브리핑 요점 선택 (불필요한 안내 제한 — 켠 것만 말함)
+    var bRhythm by remember { mutableStateOf(prefs.getBoolean("brief_rhythm", true)) }
+    var bDemand by remember { mutableStateOf(prefs.getBoolean("brief_demand", true)) }
+    var bEvent by remember { mutableStateOf(prefs.getBoolean("brief_event", true)) }
+    var bAirport by remember { mutableStateOf(prefs.getBoolean("brief_airport", true)) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
         var engine: TextToSpeech? = null
@@ -278,10 +283,10 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
             val topPlace = demandRows.firstOrNull()?.first ?: ""
             val brief = buildString {
                 append("오늘은 ${today}요일입니다. ")
-                if (rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
-                if (topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
-                if (eventLine.isNotEmpty()) append(eventLine + " ")
-                if (airportPeak.isNotEmpty()) append(airportPeak + ". ")
+                if (bRhythm && rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
+                if (bDemand && topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
+                if (bEvent && eventLine.isNotEmpty()) append(eventLine + " ")
+                if (bAirport && airportPeak.isNotEmpty()) append(airportPeak + ". ")
                 append("안전 운전하세요.")
             }
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
@@ -293,7 +298,26 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                             Switch(checked = voiceOn, onCheckedChange = { voiceOn = it; prefs.edit().putBoolean("voice_on", it).apply(); if (it) tts?.speak(brief, TextToSpeech.QUEUE_FLUSH, null, "brief") })
                         }
                     }
+                    // 발동 모드 프리셋 (귀로안내/장거리 등 — 요점을 한 번에 세팅)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val modes = listOf(
+                            "기본" to listOf(true, true, true, true),
+                            "귀로" to listOf(false, true, false, false),
+                            "장거리" to listOf(false, false, true, true),
+                            "조용히" to listOf(false, false, false, false)
+                        )
+                        modes.forEach { (name, v) ->
+                            AssistChip(onClick = { bRhythm = v[0]; bDemand = v[1]; bEvent = v[2]; bAirport = v[3]; prefs.edit().putBoolean("brief_rhythm", v[0]).putBoolean("brief_demand", v[1]).putBoolean("brief_event", v[2]).putBoolean("brief_airport", v[3]).apply() }, label = { Text(name, fontSize = 10.sp, color = accent) })
+                        }
+                    }
                     Text(brief, fontSize = 13.sp, color = AppTheme.text, lineHeight = 19.sp)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(selected = bRhythm, onClick = { bRhythm = !bRhythm; prefs.edit().putBoolean("brief_rhythm", bRhythm).apply() }, label = { Text("리듬", fontSize = 10.sp) })
+                        FilterChip(selected = bDemand, onClick = { bDemand = !bDemand; prefs.edit().putBoolean("brief_demand", bDemand).apply() }, label = { Text("수요", fontSize = 10.sp) })
+                        FilterChip(selected = bEvent, onClick = { bEvent = !bEvent; prefs.edit().putBoolean("brief_event", bEvent).apply() }, label = { Text("이벤트", fontSize = 10.sp) })
+                        FilterChip(selected = bAirport, onClick = { bAirport = !bAirport; prefs.edit().putBoolean("brief_airport", bAirport).apply() }, label = { Text("공항", fontSize = 10.sp) })
+                    }
+                    Text("듣고 싶은 것만 켜세요 · 끈 항목은 말하지 않아요", fontSize = 9.sp, color = muted)
                     Button(onClick = { tts?.speak(brief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
                         Text("▶ 브리핑 듣기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
