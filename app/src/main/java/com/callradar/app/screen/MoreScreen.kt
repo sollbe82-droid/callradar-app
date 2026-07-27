@@ -818,7 +818,7 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
         Triple("quick_entry_enabled", "💬", "완료 후 팝업"),
         Triple("card_notice", "📢", "제보 배너")
     )
-    val state = remember { mutableStateMapOf<String, Boolean>().apply { items.forEach { put(it.first, prefs.getBoolean(it.first, true)) } } }
+    val state = remember { mutableStateMapOf<String, Boolean>().apply { items.forEach { put(it.first, prefs.getBoolean(it.first, it.first != "card_platform")) } } }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Text("🧩 기능 등록소", fontSize = 15.sp, color = AppTheme.text, fontWeight = FontWeight.Bold)

@@ -639,7 +639,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             EventHomeCard(prefs = prefs, refreshKey = refreshKey, card = card, accent = accent, muted = muted)
 
             // 플랫폼별 매출
-            if (prefs.getBoolean("card_platform", true) && platformStats.isNotEmpty()) {
+            if (prefs.getBoolean("card_platform", false) && platformStats.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text("플랫폼별 매출", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
