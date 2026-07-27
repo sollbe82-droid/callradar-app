@@ -263,6 +263,7 @@ class MainActivity : ComponentActivity() {
         var showLogoutDialog by remember { mutableStateOf(false) }
         var todaySummary by remember { mutableStateOf<TodaySummary?>(null) }
         var openSettleTick by remember { mutableStateOf(0) }   // [v19] 홈 '기사 설정' → 더보기 정산설정 열기 신호
+        var moreRoute by remember { mutableStateOf("") }       // [v21] 홈 블록 → 더보기 특정 하위화면 열기
         val scope = rememberCoroutineScope()
 
         // [v19] 홈이 아닌 탭에서 폰 뒤로가기 → 앱 종료 대신 홈 탭으로.
@@ -309,10 +310,10 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
                         }
                         showLogoutDialog = true
-                    }, onOpenSettings = { selectedTab = 3; openSettleTick++ }, onNavTab = { selectedTab = it })
-                    1 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { selectedTab = 3; openSettleTick++ })
+                    }, onOpenSettings = { moreRoute = ""; selectedTab = 3; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 3; openSettleTick++ })
+                    1 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { moreRoute = ""; selectedTab = 3; openSettleTick++ })
                     2 -> com.callradar.app.screen.AirportScreen()
-                    3 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick)
+                    3 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick, openRoute = moreRoute)
                 }
             }
             NavigationBar(containerColor = card) {

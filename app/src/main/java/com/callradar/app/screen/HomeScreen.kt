@@ -163,7 +163,7 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
 }
 
 @Composable
-fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}) {
+fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}, onNavMore: (String) -> Unit = {}) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B)
     val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val context = LocalContext.current
@@ -696,9 +696,12 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val registry = listOf(
                     Triple("import", "📥", "가져오기"), Triple("records", "📋", "기록"),
                     Triple("airport", "✈️", "공항"), Triple("namecard", "📇", "명함"),
+                    Triple("ai", "🤖", "AI비서"), Triple("events", "📅", "이벤트"),
+                    Triple("bookings", "🚕", "예약"), Triple("stats", "📊", "분석"),
+                    Triple("ranking", "🏆", "랭킹"), Triple("links", "🌐", "링크"),
                     Triple("settings", "⚙️", "기사설정"), Triple("more", "⋯", "더보기")
                 )
-                var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "import,records,airport,namecard,more") ?: "import,records,airport,namecard,more") }
+                var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "import,records,airport,ai,more") ?: "import,records,airport,ai,more") }
                 var blockEdit by remember { mutableStateOf(false) }
                 val order = blockCsv.split(",").map { it.trim() }.filter { id -> registry.any { it.first == id } }
                 val save: (List<String>) -> Unit = { l -> blockCsv = l.joinToString(","); prefs.edit().putString("home_blocks", blockCsv).apply() }
@@ -710,6 +713,12 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         "more" -> onNavTab(3)
                         "namecard" -> context.startActivity(Intent(context, com.callradar.app.NameCardActivity::class.java))
                         "settings" -> onOpenSettings()
+                        "ai" -> onNavMore("ai_assistant")
+                        "events" -> onNavMore("events")
+                        "bookings" -> onNavMore("bookings")
+                        "stats" -> onNavMore("stats")
+                        "ranking" -> onNavMore("ranking")
+                        "links" -> onNavMore("links")
                         else -> {}
                     }
                 }

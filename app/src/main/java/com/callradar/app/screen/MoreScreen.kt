@@ -78,7 +78,7 @@ private data class MoreEntry(
 private data class MoreGroup(val title: String, val entries: List<MoreEntry>)
 
 @Composable
-fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -> Unit = {}, openSettleTick: Int = 0) {
+fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -> Unit = {}, openSettleTick: Int = 0, openRoute: String = "") {
     val context = LocalContext.current
     var route by remember { mutableStateOf(R_HOME) }
     val card = AppTheme.card; val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
@@ -86,7 +86,7 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
     // [v19] 하위화면에서 폰 뒤로가기 → 앱 종료 대신 더보기 홈으로
     BackHandler(enabled = route != R_HOME) { route = R_HOME }
     // [v19] 홈 '기사 설정' 버튼에서 열면 정산 설정으로 바로 진입
-    LaunchedEffect(openSettleTick) { if (openSettleTick > 0) route = R_SETTLEMENT }
+    LaunchedEffect(openSettleTick) { if (openSettleTick > 0) route = if (openRoute.isNotBlank()) openRoute else R_SETTLEMENT }
 
     when (route) {
         R_HOME -> MoreHome(
