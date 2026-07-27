@@ -230,6 +230,24 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         demandRows = list.take(6)
     }
+    // [v21] 임박 이벤트 → 브리핑 수요 신호 (기존 /api/events 재사용, 심사 무관)
+    var eventLine by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val line = withContext(Dispatchers.IO) {
+            try {
+                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/events?days=2").readText())
+                if (arr.length() > 0) {
+                    val e = arr.getJSONObject(0)
+                    val title = e.optString("title"); val area = e.optString("area")
+                    val d = e.optString("start_at").take(10)
+                    val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(java.util.Date())
+                    val whenTxt = if (d == today) "오늘" else "곧"
+                    if (title.isNotEmpty()) "$whenTxt ${if (area.isNotEmpty()) area + "에서 " else ""}$title 있어 그 근처 수요가 늘 수 있어요(예상)." else ""
+                } else ""
+            } catch (e: Exception) { "" }
+        }
+        eventLine = line
+    }
     // [v21] 음성 안내(TTS) On/Off — 핸즈프리 브리핑
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var voiceOn by remember { mutableStateOf(prefs.getBoolean("voice_on", false)) }
@@ -249,6 +267,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 append("오늘은 ${today}요일입니다. ")
                 if (rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
                 if (topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
+                if (eventLine.isNotEmpty()) append(eventLine + " ")
                 append("안전 운전하세요.")
             }
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
