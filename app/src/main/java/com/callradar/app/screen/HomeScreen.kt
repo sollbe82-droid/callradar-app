@@ -138,7 +138,7 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
 }
 
 @Composable
-fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}) {
+fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B)
     val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val context = LocalContext.current
@@ -659,6 +659,30 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("${String.format("%,d", stat.totalFare)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green)
                                     if (feeRate > 0f) { Text("실수령 ${String.format("%,d", netFare)}원 (${fmtFee(feeRate)}%)", fontSize = 10.sp, color = accent) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // [v21] 홈 하단 바로가기 바 (튜닝 홈 1단계 · 온오프: home_shortcuts) — 오전 목업 #16 / 이미지 하단 바로가기
+            if (prefs.getBoolean("home_shortcuts", true)) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.padding(vertical = 12.dp, horizontal = 8.dp)) {
+                        Text("⚡ 바로가기", fontSize = 11.sp, color = muted, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            val sc = listOf<Triple<String, String, () -> Unit>>(
+                                Triple("📥", "가져오기", { com.callradar.app.ImageImportActivity.start(context) }),
+                                Triple("📋", "기록", { onNavTab(1) }),
+                                Triple("✈️", "공항", { onNavTab(2) }),
+                                Triple("📇", "명함", { context.startActivity(Intent(context, com.callradar.app.NameCardActivity::class.java)) }),
+                                Triple("⚙️", "더보기", { onNavTab(3) })
+                            )
+                            sc.forEach { (icon, label, act) ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { act() }.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                                    Box(Modifier.size(46.dp).background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 20.sp) }
+                                    Spacer(Modifier.height(4.dp)); Text(label, fontSize = 10.sp, color = AppTheme.text)
                                 }
                             }
                         }
