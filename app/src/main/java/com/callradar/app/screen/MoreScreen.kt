@@ -55,6 +55,7 @@ private const val R_RANKING = "ranking"
 private const val R_LINKS = "links"
 private const val R_REGISTRY = "registry"
 private const val R_SETTLEMENT = "settlement"
+private const val R_EVENTS = "events"
 
 // 한 항목(타일/행 공통 데이터). onClick으로 동작.
 private data class MoreEntry(
@@ -103,6 +104,9 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
         R_SETTLEMENT -> MoreSubScreen("정산 설정", onBack = { route = R_HOME }) {
             SettlementSettings(userId = userId, context = context, card = card, accent = accent,
                 green = AppTheme.green, muted = muted)
+        }
+        R_EVENTS -> MoreSubScreen("이벤트·수요 정보", onBack = { route = R_HOME }) {
+            EventsView(context = context, accent = accent, muted = muted, card = card)
         }
     }
 }
@@ -241,6 +245,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             }
         )),
         MoreGroup("정보", listOf(
+            MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) },
             MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
             MoreEntry("💬", "오픈톡방", "아이디어·개선·버그 제보 환영", chevron = true) {
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_CHAT_URL))) } catch (e: Exception) {}
@@ -994,6 +999,84 @@ private fun parsePayslip(raw: String, lines: List<Triple<String, Int, Int>> = em
     val other = incomeTax + amountFor("지방소득세", "지방세") + amountFor("기타공제", "기타 공제")
     val net = amountFor("차인지급액", "실지급액", "실수령")
     return PayParsed(base, insurance, union, other, net)
+}
+
+// [v20] 이벤트·수요 정보 — 서버 /api/events(공식데이터 실시간) + 지역/카테고리 온오프
+@Composable
+private fun EventsView(context: Context, accent: Color, muted: Color, card: Color) {
+    val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    val allCats = listOf("축제", "공연", "야구", "크루즈", "지역행사")
+    val regions = listOf("전국", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주")
+    var region by remember { mutableStateOf(prefs.getString("event_region", "전국") ?: "전국") }
+    val offCats = remember { mutableStateListOf<String>().apply { addAll((prefs.getString("event_off_cats", "") ?: "").split(",").filter { it.isNotBlank() }) } }
+    var loading by remember { mutableStateOf(true) }
+    var events by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+    fun load() {
+        loading = true
+        scope.launch {
+            val list = ArrayList<JSONObject>()
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    val conn = (URL("$SETTINGS_SERVER/api/events?days=90").openConnection() as HttpURLConnection).apply { requestMethod = "GET"; connectTimeout = 8000; readTimeout = 8000 }
+                    conn.inputStream.bufferedReader().use { it.readText() }
+                }
+                val arr = org.json.JSONArray(json)
+                for (i in 0 until arr.length()) list.add(arr.getJSONObject(i))
+            } catch (e: Exception) { }
+            events = list; loading = false
+        }
+    }
+    LaunchedEffect(Unit) { load() }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Text("지역", fontSize = 13.sp, color = muted)
+        Spacer(Modifier.height(4.dp))
+        regions.chunked(5).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                row.forEach { r ->
+                    FilterChip(selected = region == r, onClick = { region = r; prefs.edit().putString("event_region", r).apply() },
+                        label = { Text(r, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("카테고리 (탭해서 켜고/끄기)", fontSize = 13.sp, color = muted)
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            allCats.forEach { c ->
+                val on = !offCats.contains(c)
+                FilterChip(selected = on, onClick = {
+                    if (on) offCats.add(c) else offCats.remove(c)
+                    prefs.edit().putString("event_off_cats", offCats.joinToString(",")).apply()
+                }, label = { Text(c, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        if (loading) {
+            Text("불러오는 중…", fontSize = 14.sp, color = muted)
+        } else {
+            val filtered = events.filter { e ->
+                val cat = e.optString("category"); val area = e.optString("area")
+                !offCats.contains(cat) && (region == "전국" || area == region)
+            }
+            Text("표시 중 ${filtered.size}건", fontSize = 12.sp, color = muted)
+            Spacer(Modifier.height(6.dp))
+            if (filtered.isEmpty()) Text("표시할 이벤트가 없어요. (지역·카테고리 확인)", fontSize = 14.sp, color = muted)
+            filtered.take(60).forEach { e ->
+                val title = e.optString("title"); val cat = e.optString("category")
+                val area = e.optString("area"); val venue = e.optString("venue"); val start = e.optString("start_at").take(10)
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    val areaTxt = if (area.isNotBlank() && area != "null") area else ""
+                    Text("$cat · $areaTxt · $start", fontSize = 12.sp, color = accent)
+                    if (venue.isNotBlank() && venue != "null") Text(venue, fontSize = 12.sp, color = muted)
+                }
+                HorizontalDivider(color = AppTheme.surface2)
+            }
+        }
+    }
 }
 
 @Composable
