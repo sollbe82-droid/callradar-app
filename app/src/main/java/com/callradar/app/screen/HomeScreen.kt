@@ -101,7 +101,7 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                         val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, durMin)
                         SimpleDateFormat("HH:mm", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(cal.time)
                     } catch (ex: Exception) { "" }
-                    val big = cat in listOf("야구", "콘서트", "스포츠", "크루즈", "페스티벌", "축제")
+                    val big = cat in listOf("야구", "콘서트", "스포츠", "크루즈")  // 규모 큰 게 확실한 것만(축제는 천차만별→표기 안 함, 구라 방지)
                     Text("• $title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, maxLines = 2)
                     Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈$paLabel $paTime" else "") + (if (big) " · 대형(수천명↑) 콜↑" else ""), fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
                 }
