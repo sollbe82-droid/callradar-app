@@ -354,6 +354,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             val payNominalBase = if (isCorporate && payZeroNet) prefs.getInt("pay_base", 0) else 0  // 명목 기본급(표시용)
             // 기사 실수령: 현금 미납부면 발생액 + 현금(내 몫) + 기본급 − 4대보험 − 조합비 − 기타공제 (실급여0이면 명세서 0 기여)
             val takeHome = (if (isCorporate && !cashToCompany) netIncome + monthCash else netIncome) + monthTip - personalExpense - miscExpense + payBase - payIns - payUnion - payOther
+            // [v21 재설계] 홈에서 계산된 실수령·월매출을 캐시 → 기록 '월급' 탭이 동일값 표시 (계산 로직 무손상)
+            LaunchedEffect(takeHome, netIncome, monthFare, month) {
+                prefs.edit()
+                    .putInt("cached_takehome", takeHome)
+                    .putInt("cached_net_income", netIncome)
+                    .putInt("cached_month_fare", monthFare)
+                    .putInt("cached_takehome_month", month)
+                    .putBoolean("cached_is_corporate", isCorporate)
+                    .apply()
+            }
             // [v21 재설계] 오늘 매출 — 홈 최상단(오늘 중심)
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(20.dp)) {

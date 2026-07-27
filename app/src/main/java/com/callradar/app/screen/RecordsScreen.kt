@@ -551,17 +551,34 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                 }
             }
             3 -> {
-                // [v21 재설계] 월급 · 정산 탭
+                // [v21 재설계] 월급 · 정산 탭 — 홈에서 계산된 실수령을 동일하게 표시(캐시)
+                val mprefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
+                val cachedTake = mprefs.getInt("cached_takehome", 0)
+                val cachedNet = mprefs.getInt("cached_net_income", 0)
+                val cachedFare = mprefs.getInt("cached_month_fare", 0)
+                val cachedMonth = mprefs.getInt("cached_takehome_month", 0)
+                val cachedCorp = mprefs.getBoolean("cached_is_corporate", false)
                 Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Text("💰 월급 · 정산", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                     Spacer(Modifier.height(10.dp))
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                    if (cachedTake != 0 || cachedFare != 0) {
+                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("${cachedMonth}월 " + (if (cachedCorp) "예상 실수령(월급)" else "예상 순수익"), fontSize = 13.sp, color = muted)
+                                Text(String.format("%,d", cachedTake) + "원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = accent)
+                                HorizontalDivider(color = AppTheme.surface2)
+                                Text("월 매출: " + String.format("%,d", cachedFare) + "원", fontSize = 13.sp, color = AppTheme.text)
+                                if (cachedCorp) Text("사납금·가스·지출 차감 후: " + String.format("%,d", cachedNet) + "원", fontSize = 13.sp, color = AppTheme.text)
+                                Text("사납금·4대보험·조합비·기타공제가 모두 반영된 값입니다(홈과 동일).", fontSize = 11.sp, color = muted)
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(12.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("이번 달 예상 실수령(월급)은 홈 상단 '예상 월급' 카드에서 확인하세요.", fontSize = 14.sp, color = AppTheme.text)
-                            Text("사납금·4대보험·조합비·기타공제가 모두 반영된 정확한 금액입니다.", fontSize = 12.sp, color = muted)
-                            HorizontalDivider(color = AppTheme.surface2)
+                            if (cachedTake == 0 && cachedFare == 0) Text("홈 화면을 한 번 열면 이번 달 실수령이 여기 표시됩니다.", fontSize = 13.sp, color = AppTheme.text)
                             Text("• 회사 명세서 적용 / 역산 계산: 더보기 → 기사 설정", fontSize = 13.sp, color = accent)
-                            Text("• 이번 달 매출·카드·현금·지출: '달력' 탭", fontSize = 13.sp, color = accent)
+                            Text("• 이번 달 매출·카드·현금·지출 상세: '달력' 탭", fontSize = 13.sp, color = accent)
                         }
                     }
                 }
