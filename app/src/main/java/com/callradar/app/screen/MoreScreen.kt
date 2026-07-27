@@ -214,6 +214,19 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         rhythmTotal = r.first; rhythmDay = r.second; rhythmHour = r.third
     }
+    // [v21] 전체 기사 통합 — 지금 시간대 콜 잘 잡히는 곳 (2단계: 더 많은 데이터)
+    var demandRows by remember { mutableStateOf(listOf<Triple<String, Int, Int>>()) }
+    LaunchedEffect(Unit) {
+        val hr = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val list = withContext(Dispatchers.IO) {
+            try {
+                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?hour=$hr").readText())
+                val arr = o.optJSONArray("rows")
+                (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("drivers")) }
+            } catch (e: Exception) { emptyList() }
+        }
+        demandRows = list.take(6)
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
@@ -243,6 +256,18 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                         Text("• $o · ${c}회" + (if (h in 0..23) " · 평균 ${h}시경" else ""), fontSize = 13.sp, color = muted)
                     }
                     Text("데이터가 적을수록 참고용입니다. 기록이 쌓일수록 정확해집니다.", fontSize = 11.sp, color = muted)
+                }
+            }
+        }
+        // 전체 기사 통합 — 지금 이 시간대 콜 잘 잡히는 곳 (비식별 집계, 기사 수 표기로 정직)
+        if (demandRows.isNotEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("⏰ 지금 시간대 콜 잘 잡히는 곳 (전체 기사)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
+                    demandRows.forEach { (o, c, d) ->
+                        Text("• $o · ${c}회 · 기사 ${d}명", fontSize = 13.sp, color = muted)
+                    }
+                    Text("전체 기사 데이터가 쌓일수록 시간·지역이 더 촘촘해집니다.", fontSize = 11.sp, color = muted)
                 }
             }
         }
