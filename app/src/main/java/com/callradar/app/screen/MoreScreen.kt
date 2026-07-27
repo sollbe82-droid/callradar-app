@@ -822,7 +822,21 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Text("🧩 기능 등록소", fontSize = 15.sp, color = AppTheme.text, fontWeight = FontWeight.Bold)
-            Text("안 쓰는 건 끄고, 필요한 것만 홈에 켜두세요 · 탭하면 바로 반영", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp, bottom = 12.dp))
+            Text("안 쓰는 건 끄고, 필요한 것만 홈에 켜두세요 · 탭하면 바로 반영", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
+            // [v21] 홈 스타일 프리셋 (골라 쓰는 홈) — 기존 온/오프 묶음 적용
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val presets = listOf(
+                    "심플" to mapOf("card_brief" to true, "card_salary" to false, "card_platform" to false, "card_notice" to false),
+                    "기본" to mapOf("card_brief" to true, "card_salary" to true, "card_platform" to false, "card_notice" to true),
+                    "정보형" to mapOf("card_brief" to true, "card_salary" to true, "card_platform" to true, "card_notice" to true)
+                )
+                presets.forEach { (name, m) ->
+                    Box(modifier = Modifier.weight(1f).height(38.dp).background(AppTheme.surface2, RoundedCornerShape(10.dp)).border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(10.dp)).clickable { m.forEach { (k, v) -> state[k] = v; prefs.edit().putBoolean(k, v).apply() } }, contentAlignment = Alignment.Center) {
+                        Text(name, fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Text("홈 스타일: 탭하면 카드 구성이 한 번에 바뀝니다 (아래에서 개별 조정도 가능)", fontSize = 10.sp, color = muted, modifier = Modifier.padding(bottom = 12.dp))
             items.chunked(3).forEach { rowItems ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     rowItems.forEach { triple ->
