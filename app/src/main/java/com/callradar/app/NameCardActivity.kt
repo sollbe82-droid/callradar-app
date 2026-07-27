@@ -99,8 +99,12 @@ private fun NameCardScreen(onClose: () -> Unit) {
     }
     fun openUrl(u: String) { try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (e: Exception) {} }
 
+    // [v20] QR = 무설치 예약 링크 (스캔→그 기사 예약페이지). userId 없으면 vCard 폴백.
+    val myUserId = prefs.getString("user_id", "") ?: ""
+    val bookingUrl = if (myUserId.isNotBlank()) "https://callradar-server.onrender.com/book/$myUserId?name=" + java.net.URLEncoder.encode(name.ifBlank { "기사" }, "UTF-8") else ""
     val vcard = buildVCard(name, phone, slogan, kakao.ifBlank { insta })
-    val qr = remember(vcard) { genQr(vcard, 640) }
+    val qrText = if (bookingUrl.isNotBlank()) bookingUrl else vcard
+    val qr = remember(qrText) { genQr(qrText, 640) }
 
     // 명함을 한 장 이미지로 렌더 → 공유
     fun shareCard() {
