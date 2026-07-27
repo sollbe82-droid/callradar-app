@@ -444,7 +444,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("운행기록", "월별", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
