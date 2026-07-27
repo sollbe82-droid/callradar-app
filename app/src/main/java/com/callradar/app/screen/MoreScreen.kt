@@ -197,6 +197,23 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         hotspots = list.take(8); hsLoaded = true
     }
+    // [v21] 개인 운행 리듬 (본인 데이터 — Day-1 가치)
+    var rhythmDay by remember { mutableStateOf("") }
+    var rhythmHour by remember { mutableStateOf("") }
+    var rhythmTotal by remember { mutableStateOf(-1) }
+    LaunchedEffect(Unit) {
+        val r = withContext(Dispatchers.IO) {
+            try {
+                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/rhythm/$userId").readText())
+                val days = listOf("일", "월", "화", "수", "목", "금", "토")
+                val dw = o.optJSONArray("by_dow"); val hr = o.optJSONArray("by_hour")
+                val dt = if (dw != null && dw.length() > 0) { val d = dw.getJSONObject(0); days.getOrElse(d.optInt("dow")) { "?" } + "요일 (평균 " + String.format("%,d", d.optInt("avg_fare")) + "원)" } else ""
+                val ht = if (hr != null && hr.length() > 0) { val h = hr.getJSONObject(0); h.optInt("hour").toString() + "시경 (평균 " + String.format("%,d", h.optInt("avg_fare")) + "원)" } else ""
+                Triple(o.optInt("total_trips"), dt, ht)
+            } catch (e: Exception) { Triple(0, "", "") }
+        }
+        rhythmTotal = r.first; rhythmDay = r.second; rhythmHour = r.third
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
@@ -205,6 +222,16 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 Text("준비 중 · 데이터를 모으는 중입니다", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
                 Text("시외(영업 외 지역)에 나갔을 때 언제·어디서 귀로콜이 잡혔는지 기록해 두세요. 기록이 쌓이면 '이 시간, 이 지역에서 서울행 콜이 잦다' 같은 분석을 비서가 대신 해드립니다. 지금 남기는 건 우선 내 개인 기록으로 그대로 남고, 데이터가 충분해지면 분석이 켜집니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
                 Text("※ 아직 없는 분석을 있는 척하지 않습니다. 데이터가 먼저입니다.", fontSize = 11.sp, color = muted)
+            }
+        }
+        // 내 운행 리듬 (본인 데이터, 표본 5건 이상일 때만 — 정직)
+        if (rhythmTotal >= 5 && (rhythmDay.isNotEmpty() || rhythmHour.isNotEmpty())) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("📈 내 운행 리듬 (내 기록 ${rhythmTotal}건 기준)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    if (rhythmDay.isNotEmpty()) Text("• 매출 높은 요일: $rhythmDay", fontSize = 13.sp, color = muted)
+                    if (rhythmHour.isNotEmpty()) Text("• 매출 높은 시간대: $rhythmHour", fontSize = 13.sp, color = muted)
+                }
             }
         }
         // 자주 잡히는 포인트 (실제 집계 — 데이터 적으면 참고용으로 정직 표기)
