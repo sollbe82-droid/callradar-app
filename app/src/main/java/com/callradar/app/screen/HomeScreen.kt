@@ -58,7 +58,8 @@ data class PlatformStat(val platform: String, val count: Int, val totalFare: Int
 private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: Int, card: Color, accent: Color, muted: Color) {
     var events by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(refreshKey) {
+    var regionCsv by remember { mutableStateOf(prefs.getString("event_regions", "") ?: "") }
+    LaunchedEffect(refreshKey, regionCsv) {
         loading = true
         val regionList = ArrayList<JSONObject>(); val allList = ArrayList<JSONObject>()
         try {
@@ -67,14 +68,14 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                 conn.inputStream.bufferedReader().use { it.readText() }
             }
             val arr = JSONArray(json)
-            val sel = (prefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }
+            val sel = regionCsv.split(",").filter { it.isNotBlank() }
             val off = (prefs.getString("event_off_cats", "") ?: "").split(",").filter { it.isNotBlank() }
             for (i in 0 until arr.length()) {
                 val e = arr.getJSONObject(i)
                 val cat = e.optString("category"); val area = e.optString("area")
                 if (off.contains(cat)) continue
                 allList.add(e)
-                if (sel.isEmpty() || sel.contains(area)) regionList.add(e)
+                if (sel.isEmpty() || sel.any { area.contains(it) || it.contains(area) }) regionList.add(e)
             }
         } catch (e: Exception) { }
         events = if (regionList.isNotEmpty()) regionList else allList  // 지역에 없으면 전국 폴백
@@ -82,7 +83,17 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
     }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text("📅 내 지역 수요 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(bottom = 8.dp))
+            Text("📅 내 지역 수요 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(bottom = 6.dp))
+            // [v21] 내 권역 선택 (서울 기사가 전남/울산 안 보게) — 저장·즉시 반영. 아무것도 안 켜면 전국.
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                val selSet = regionCsv.split(",").filter { it.isNotBlank() }.toSet()
+                listOf("서울", "경기", "인천", "부산", "대구", "대전").forEach { r ->
+                    FilterChip(selected = selSet.contains(r), onClick = {
+                        val ns = if (selSet.contains(r)) selSet - r else selSet + r
+                        regionCsv = ns.joinToString(","); prefs.edit().putString("event_regions", regionCsv).apply()
+                    }, label = { Text(r, fontSize = 10.sp) }, modifier = Modifier.height(30.dp))
+                }
+            }
             if (loading) {
                 Text("불러오는 중…", fontSize = 12.sp, color = muted)
             } else if (events.isEmpty()) {
