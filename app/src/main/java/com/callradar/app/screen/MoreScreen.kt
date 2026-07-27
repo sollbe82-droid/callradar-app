@@ -171,17 +171,20 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                     if (timeStr.isBlank() && tm != null) timeStr = tm
                     // "출발 → 목적" 형태 우선 인식
                     val arrowLine = lines.firstOrNull { it.contains("→") || it.contains("->") || it.contains("=>") || it.contains(" - ") }
+                    val placeRe = Regex("[가-힣A-Za-z0-9]+(동|구|시|읍|면|리|역|공항|터미널|나들목|IC)")
                     if (arrowLine != null) {
                         val parts = arrowLine.split("→", "->", "=>", " - ").map { it.trim() }.filter { it.isNotEmpty() }
                         if (origin.isBlank() && parts.isNotEmpty()) origin = parts[0].take(30)
                         if (dest.isBlank() && parts.size >= 2) dest = parts[1].take(30)
                     } else {
-                        if (origin.isBlank() && lines.isNotEmpty()) origin = lines[0].take(30)
-                        if (dest.isBlank() && lines.size >= 2) dest = lines[1].take(30)
+                        // 지명처럼 보이는 줄만 채움(쓰레기 자동입력 방지). 없으면 비워두고 사용자가 메모 원문 보고 채움.
+                        val places = lines.filter { placeRe.containsMatchIn(it) && it.length <= 20 }
+                        if (origin.isBlank() && places.isNotEmpty()) origin = places[0].take(30)
+                        if (dest.isBlank() && places.size >= 2) dest = places[1].take(30)
                     }
                     rawOcr = text.take(1000)   // 교정 전 원본(학습 말뭉치)
-                    memo = text.take(300)   // 원문 보존(서버 AI가 나중에 더 잘 파싱)
-                    ocrStatus = "읽었어요 — 출발지·목적지를 확인·수정 후 저장하세요."
+                    memo = text.take(500)   // 읽은 원문 전체(사용자 참고·교정용)
+                    ocrStatus = "원문을 메모에 담았어요. 출발지·목적지를 확인해 채워주세요. (채팅 스샷은 초반 인식이 부정확할 수 있어요)"
                 }
                 .addOnFailureListener { e -> ocrStatus = "읽기 실패: ${e.message}" }
         } catch (e: Exception) { ocrStatus = "오류: ${e.message}" }
