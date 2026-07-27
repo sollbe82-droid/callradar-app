@@ -444,7 +444,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "제보").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "제보", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
@@ -592,6 +592,22 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                     }
                     item {
                         Button(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("📡 콜 제보하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                    }
+                }
+            }
+            4 -> {
+                // [v21 재설계] 월급 · 정산 탭
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                    Text("💰 월급 · 정산", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    Spacer(Modifier.height(10.dp))
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("이번 달 예상 실수령(월급)은 홈 상단 '예상 월급' 카드에서 확인하세요.", fontSize = 14.sp, color = AppTheme.text)
+                            Text("사납금·4대보험·조합비·기타공제가 모두 반영된 정확한 금액입니다.", fontSize = 12.sp, color = muted)
+                            HorizontalDivider(color = AppTheme.surface2)
+                            Text("• 회사 명세서 적용 / 역산 계산: 더보기 → 기사 설정", fontSize = 13.sp, color = accent)
+                            Text("• 이번 달 매출·카드·현금·지출: '달력' 탭", fontSize = 13.sp, color = accent)
+                        }
                     }
                 }
             }
