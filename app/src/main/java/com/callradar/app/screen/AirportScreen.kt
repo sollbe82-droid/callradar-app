@@ -528,12 +528,13 @@ fun AirportScreen() {
                         }
                     }
                     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
+                        if(customPhrases.isNotEmpty()){
+                            item{Text("⭐ 내가 추가한 문장 (${customPhrases.size}개) · 맨 위 고정",fontSize=12.sp,color=accent,modifier=Modifier.padding(bottom=4.dp))}
+                            items(customPhrases){p->PhraseCardItem(p,phraseLanguage,expandedPhraseId==p.id,{expandedPhraseId=if(expandedPhraseId==p.id)null else p.id},{t->speakText(t,phraseLanguage)},{val u=customPhrases.filter{it.id!=p.id};customPhrases=u;saveCustomPhrases(context,u)},card,accent,muted,green,red)}
+                            item{Spacer(Modifier.height(10.dp))}
+                        } else { item{ Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF0D1117)),shape=RoundedCornerShape(12.dp)){Column(Modifier.padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("✨",fontSize=28.sp);Spacer(Modifier.height(8.dp));Text("나만의 회화카드를 추가하면 맨 위에 표시됩니다!",fontSize=13.sp,color=muted)}}; Spacer(Modifier.height(10.dp)) } }
                         item{Text("기본 문장 (${DEFAULT_PHRASES.size}개)",fontSize=12.sp,color=muted,modifier=Modifier.padding(bottom=4.dp))}
                         items(DEFAULT_PHRASES){p->PhraseCardItem(p,phraseLanguage,expandedPhraseId==p.id,{expandedPhraseId=if(expandedPhraseId==p.id)null else p.id},{t->speakText(t,phraseLanguage)},null,card,accent,muted,green,red)}
-                        if(customPhrases.isNotEmpty()){
-                            item{Spacer(Modifier.height(4.dp));Text("내가 추가한 문장 (${customPhrases.size}개)",fontSize=12.sp,color=accent,modifier=Modifier.padding(bottom=4.dp))}
-                            items(customPhrases){p->PhraseCardItem(p,phraseLanguage,expandedPhraseId==p.id,{expandedPhraseId=if(expandedPhraseId==p.id)null else p.id},{t->speakText(t,phraseLanguage)},{val u=customPhrases.filter{it.id!=p.id};customPhrases=u;saveCustomPhrases(context,u)},card,accent,muted,green,red)}
-                        } else { item{Spacer(Modifier.height(8.dp));Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF0D1117)),shape=RoundedCornerShape(12.dp)){Column(Modifier.padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("✨",fontSize=28.sp);Spacer(Modifier.height(8.dp));Text("나만의 회화카드를 추가해보세요!",fontSize=13.sp,color=muted)}}} }
                         item{Spacer(Modifier.height(20.dp))}
                     }
                 }
