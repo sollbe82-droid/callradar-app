@@ -444,11 +444,12 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "제보", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
                 if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+                if (selectedTab == 0) { TextButton(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📡 제보", fontSize = 13.sp, color = muted, fontWeight = FontWeight.Bold) } }
                 if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
             }
         }
@@ -551,51 +552,6 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                 }
             }
             3 -> {
-                // 제보 탭 - 왜 제보하는지 설명
-                LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                            Text("📡", fontSize = 44.sp); Spacer(Modifier.height(8.dp))
-                            Text("콜 제보로 함께 만드는 콜 지도", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Spacer(Modifier.height(4.dp))
-                            Text("어디서 콜이 잡혔는지 제보하면\n모두의 데이터가 됩니다", fontSize = 12.sp, color = muted, lineHeight = 18.sp, modifier = Modifier.padding(top = 2.dp))
-                        }
-                    }
-                    // 왜 제보?
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("🗺️", fontSize = 22.sp)
-                                    Column { Text("실시간 콜 지도", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("기사들의 제보가 모여 '지금 콜이 터지는 곳'이 지도에 표시됩니다", fontSize = 12.sp, color = muted, lineHeight = 17.sp) }
-                                }
-                                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("🤖", fontSize = 22.sp)
-                                    Column { Text("AI 핫존 추천", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent); Text("제보가 쌓이면 AI가 '지금 강남역 3분 내 콜 확률 높음' 같은 추천을 해드려요", fontSize = 12.sp, color = muted, lineHeight = 17.sp) }
-                                }
-                                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("🏅", fontSize = 22.sp)
-                                    Column { Text("정보원 배지 + 포인트", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green); Text("제보를 많이 한 기사에게는 정보원 배지와 포인트가 쌓입니다", fontSize = 12.sp, color = muted, lineHeight = 17.sp) }
-                                }
-                            }
-                        }
-                    }
-                    // 제보 방법
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("💡 이렇게 제보하세요", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Spacer(Modifier.height(6.dp))
-                                Text("콜을 받은 위치(출발지)와 목적지를 남겨주세요. 금액은 선택입니다.\n한 번의 제보가 다른 기사에게 큰 도움이 됩니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
-                            }
-                        }
-                    }
-                    item {
-                        Button(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("📡 콜 제보하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                    }
-                }
-            }
-            4 -> {
                 // [v21 재설계] 월급 · 정산 탭
                 Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Text("💰 월급 · 정산", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
