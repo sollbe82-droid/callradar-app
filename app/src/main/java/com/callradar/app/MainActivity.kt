@@ -310,7 +310,7 @@ class MainActivity : ComponentActivity() {
                         }
                         showLogoutDialog = true
                     }, onOpenSettings = { selectedTab = 3; openSettleTick++ }, onNavTab = { selectedTab = it })
-                    1 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true })
+                    1 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { selectedTab = 3; openSettleTick++ })
                     2 -> com.callradar.app.screen.AirportScreen()
                     3 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick)
                 }

@@ -80,7 +80,7 @@ data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
+fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     var selectedTab by remember { mutableStateOf(0) }
     var trips by remember { mutableStateOf<List<TripRecord>>(emptyList()) }
@@ -596,7 +596,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(12.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (cachedTake == 0 && cachedFare == 0) Text("홈 화면을 한 번 열면 이번 달 실수령이 여기 표시됩니다.", fontSize = 13.sp, color = AppTheme.text)
-                            Text("• 회사 명세서 적용 / 역산 계산: 더보기 → 기사 설정", fontSize = 13.sp, color = accent)
+                            Text("회사마다 명세서가 다르니, 명세서 사진/수동으로 공제(사납금·4대보험·조합비 등)를 입력하면 실수령이 정확해져요.", fontSize = 12.sp, color = muted)
+                            Button(onClick = { onOpenSettings() }, modifier = Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
+                                Text("📋 회사 명세서 입력 · 역산 열기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
                             Text("• 이번 달 매출·카드·현금·지출 상세: '달력' 탭", fontSize = 13.sp, color = accent)
                         }
                     }
