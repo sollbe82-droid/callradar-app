@@ -229,7 +229,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                         put("fare", 0); put("payment_type", "report"); put("source", "report"); put("is_report", true)
                                         if (rawOcr.isNotEmpty()) put("raw_ocr", rawOcr)   // (원본→교정) 학습 말뭉치
                                     }
-                                    val conn = (URL("$SETTINGS_SERVER/api/trips").openConnection() as HttpURLConnection).apply {
+                                    val conn = (URL("$SETTINGS_SERVER/api/trips/manual").openConnection() as HttpURLConnection).apply {
                                         requestMethod = "POST"; doOutput = true; connectTimeout = 12000; readTimeout = 12000
                                         setRequestProperty("Content-Type", "application/json")
                                     }
