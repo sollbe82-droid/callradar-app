@@ -274,6 +274,8 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 Text("준비 중 · 데이터를 모으는 중입니다", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
                 Text("시외(영업 외 지역)에 나갔을 때 언제·어디서 귀로콜이 잡혔는지 기록해 두세요. 기록이 쌓이면 '이 시간, 이 지역에서 서울행 콜이 잦다' 같은 분석을 비서가 대신 해드립니다. 지금 남기는 건 우선 내 개인 기록으로 그대로 남고, 데이터가 충분해지면 분석이 켜집니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
                 Text("※ 아직 없는 분석을 있는 척하지 않습니다. 데이터가 먼저입니다.", fontSize = 11.sp, color = muted)
+                HorizontalDivider(color = AppTheme.surface2)
+                Text("🎁 지금은 베타라 모든 기능이 무료입니다. 정식 출시 후엔 정밀 위치·귀로콜 자동감지 같은 일부 고급 기능만 구독으로 전환될 예정이고, 기본 기능(기록·동단위 수요·개인 리듬)은 계속 무료입니다. 베타에 함께해 주신 기사님껜 감사 혜택을 드려요.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
             }
         }
         // 내 운행 리듬 (본인 데이터, 표본 5건 이상일 때만 — 정직)
