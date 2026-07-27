@@ -184,6 +184,19 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         } catch (e: Exception) { ocrStatus = "오류: ${e.message}" }
     }
     val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> if (uri != null) runReportOcr(uri) }
+    // [v21] 핫스팟 집계 로드 (내 기록+제보에서 자주 잡히는 출발지·평균 시간대)
+    var hotspots by remember { mutableStateOf(listOf<Triple<String, Int, Int>>()) }
+    var hsLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val list = withContext(Dispatchers.IO) {
+            try {
+                val txt = URL("$SETTINGS_SERVER/api/report-hotspots").readText()
+                val arr = org.json.JSONArray(txt)
+                (0 until arr.length()).map { val o = arr.getJSONObject(it); Triple(o.optString("origin"), o.optInt("cnt"), o.optInt("avg_hour")) }
+            } catch (e: Exception) { emptyList() }
+        }
+        hotspots = list.take(8); hsLoaded = true
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
@@ -192,6 +205,18 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 Text("준비 중 · 데이터를 모으는 중입니다", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
                 Text("시외(영업 외 지역)에 나갔을 때 언제·어디서 귀로콜이 잡혔는지 기록해 두세요. 기록이 쌓이면 '이 시간, 이 지역에서 서울행 콜이 잦다' 같은 분석을 비서가 대신 해드립니다. 지금 남기는 건 우선 내 개인 기록으로 그대로 남고, 데이터가 충분해지면 분석이 켜집니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
                 Text("※ 아직 없는 분석을 있는 척하지 않습니다. 데이터가 먼저입니다.", fontSize = 11.sp, color = muted)
+            }
+        }
+        // 자주 잡히는 포인트 (실제 집계 — 데이터 적으면 참고용으로 정직 표기)
+        if (hsLoaded && hotspots.isNotEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("📍 자주 잡히는 포인트 (내 기록+제보 기준)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    hotspots.forEach { (o, c, h) ->
+                        Text("• $o · ${c}회" + (if (h in 0..23) " · 평균 ${h}시경" else ""), fontSize = 13.sp, color = muted)
+                    }
+                    Text("데이터가 적을수록 참고용입니다. 기록이 쌓일수록 정확해집니다.", fontSize = 11.sp, color = muted)
+                }
             }
         }
         // 시외·귀로콜 기록 입력
