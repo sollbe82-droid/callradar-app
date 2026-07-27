@@ -82,7 +82,7 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
     }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text("📅 내 지역 수요 정보", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(bottom = 8.dp))
+            Text("📅 내 지역 수요 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(bottom = 8.dp))
             if (loading) {
                 Text("불러오는 중…", fontSize = 12.sp, color = muted)
             } else if (events.isEmpty()) {
@@ -98,8 +98,10 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                         val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, 150)
                         SimpleDateFormat("HH:mm", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(cal.time)
                     } catch (ex: Exception) { "" }
-                    Text("• $title", fontSize = 13.sp, color = AppTheme.text, maxLines = 1)
-                    Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈파장 $paTime 콜↑" else ""), fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
+                    val cat = e.optString("category")
+                    val big = cat in listOf("야구", "콘서트", "스포츠", "크루즈", "페스티벌", "축제")
+                    Text("• $title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, maxLines = 2)
+                    Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈파장 $paTime" else "") + (if (big) " · 대형(수천명↑) 콜↑" else ""), fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))
