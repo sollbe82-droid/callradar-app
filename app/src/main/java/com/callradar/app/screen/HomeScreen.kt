@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -102,7 +103,7 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
 
 // [v21] 홈 상단 오늘 브리핑 한 줄 (온/오프: card_brief). 매일 보이는 재방문 훅.
 @Composable
-private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Color) {
+private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Color, onBrief: (String) -> Unit = {}) {
     var brief by remember { mutableStateOf("") }
     LaunchedEffect(refreshKey) {
         val cal = java.util.Calendar.getInstance()
@@ -124,6 +125,7 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
         if (place.isNotBlank()) sb.append(" · 지금 ${place} 콜↑")
         if (ev.isNotBlank()) sb.append(" · ${ev} 수요예상")
         brief = sb.toString()
+        onBrief(brief)
     }
     if (brief.isNotBlank()) {
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
@@ -141,6 +143,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    // [v21] 출근 시 브리핑 음성 낭독 (voice_on일 때만)
+    var homeBrief by remember { mutableStateOf("") }
+    var homeTts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(Unit) {
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context) { st -> if (st == TextToSpeech.SUCCESS) engine?.language = Locale.KOREAN }
+        homeTts = engine
+        onDispose { engine?.stop(); engine?.shutdown() }
+    }
     var goalFare by remember { mutableStateOf(prefs.getInt("goal_fare", 300000)) }
     var salaryExpanded by remember { mutableStateOf(false) }  // [v5] 월급명세서 접기/펼치기
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
@@ -567,7 +578,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Spacer(Modifier.height(12.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); if (distEnabled) startMeter() }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
@@ -611,7 +622,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
             // [v21] 오늘 브리핑 한 줄 (온/오프: card_brief)
             if (prefs.getBoolean("card_brief", true)) {
-                HomeBriefCard(refreshKey = refreshKey, card = card, accent = accent, muted = muted)
+                HomeBriefCard(refreshKey = refreshKey, card = card, accent = accent, muted = muted, onBrief = { homeBrief = it })
             }
 
             // [v20] 내 지역 수요 정보 (Tier0 공식데이터 + AI 비서 게이트)
