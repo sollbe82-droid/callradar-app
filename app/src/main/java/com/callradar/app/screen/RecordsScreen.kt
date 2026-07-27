@@ -373,6 +373,8 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
             } catch (e: Exception) { }
         }
     }
+    // [v21] #4 지출·운행 통합: 내역 요약에 지출·순수익 표시 위해 초기 로드
+    LaunchedEffect(Unit) { loadExpenses() }
 
     // 지출 추가 다이얼로그
     if (showExpenseDialog) {
@@ -480,6 +482,19 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                             Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB3 ${String.format("%,d", cardFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)); Text("카드/플랫폼", fontSize = 9.sp, color = muted) }
                                 if (cashFare > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB5 ${String.format("%,d", cashFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24)); Text("현금(내 몫)", fontSize = 9.sp, color = muted) } }
+                            }
+                            // [v21] #4 지출·운행 통합: 같은 기간 지출·순수익
+                            run {
+                                val fd0 = getFilterDate()
+                                val mmdd = fd0?.let { if (it.length >= 10) it.substring(5).replace("-", "/") else null }
+                                val periodExpense = if (mmdd != null) expenses.filter { it.date.startsWith(mmdd) }.sumOf { it.amount } else 0
+                                if (periodExpense > 0) {
+                                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 6.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("-${String.format("%,d", periodExpense)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444)); Text("지출", fontSize = 10.sp, color = muted) }
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("${String.format("%,d", totalFare - periodExpense)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green); Text("순수익", fontSize = 10.sp, color = muted) }
+                                    }
+                                }
                             }
                         }
                     }
