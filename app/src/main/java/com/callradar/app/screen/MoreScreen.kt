@@ -1007,7 +1007,7 @@ private fun EventsView(context: Context, accent: Color, muted: Color, card: Colo
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     val allCats = listOf("축제", "공연", "야구", "크루즈", "지역행사")
     val regions = listOf("전국", "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주")
-    var region by remember { mutableStateOf(prefs.getString("event_region", "전국") ?: "전국") }
+    val selRegions = remember { mutableStateListOf<String>().apply { addAll((prefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }) } }
     val offCats = remember { mutableStateListOf<String>().apply { addAll((prefs.getString("event_off_cats", "") ?: "").split(",").filter { it.isNotBlank() }) } }
     var loading by remember { mutableStateOf(true) }
     var events by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
@@ -1029,12 +1029,15 @@ private fun EventsView(context: Context, accent: Color, muted: Color, card: Colo
     }
     LaunchedEffect(Unit) { load() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("지역", fontSize = 13.sp, color = muted)
+        Text("지역 (여러 개 선택 가능 · 전국=전체)", fontSize = 13.sp, color = muted)
         Spacer(Modifier.height(4.dp))
         regions.chunked(5).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 row.forEach { r ->
-                    FilterChip(selected = region == r, onClick = { region = r; prefs.edit().putString("event_region", r).apply() },
+                    FilterChip(selected = (r == "전국" && selRegions.isEmpty()) || selRegions.contains(r), onClick = {
+                        if (r == "전국") selRegions.clear() else { if (selRegions.contains(r)) selRegions.remove(r) else selRegions.add(r) }
+                        prefs.edit().putString("event_regions", selRegions.joinToString(",")).apply()
+                    },
                         label = { Text(r, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
                 }
@@ -1059,7 +1062,7 @@ private fun EventsView(context: Context, accent: Color, muted: Color, card: Colo
         } else {
             val filtered = events.filter { e ->
                 val cat = e.optString("category"); val area = e.optString("area")
-                !offCats.contains(cat) && (region == "전국" || area == region)
+                !offCats.contains(cat) && (selRegions.isEmpty() || selRegions.contains(area))
             }
             Text("표시 중 ${filtered.size}건", fontSize = 12.sp, color = muted)
             Spacer(Modifier.height(6.dp))

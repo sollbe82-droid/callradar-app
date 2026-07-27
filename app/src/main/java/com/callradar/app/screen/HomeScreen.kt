@@ -54,34 +54,38 @@ data class PlatformStat(val platform: String, val count: Int, val totalFare: Int
 
 // [v20] 홈 Tier0 이벤트 카드 — 서버 공식데이터(축제 등) 지역·카테고리 필터 요약 + AI 비서 게이트
 @Composable
-private fun EventHomeCard(prefs: android.content.SharedPreferences, card: Color, accent: Color, muted: Color) {
+private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: Int, card: Color, accent: Color, muted: Color) {
     var events by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
-        scope.launch {
-            val list = ArrayList<JSONObject>()
-            try {
-                val json = withContext(Dispatchers.IO) {
-                    val conn = (URL("$SERVER_URL/api/events?days=30").openConnection() as HttpURLConnection).apply { connectTimeout = 6000; readTimeout = 6000 }
-                    conn.inputStream.bufferedReader().use { it.readText() }
-                }
-                val arr = JSONArray(json)
-                val region = prefs.getString("event_region", "전국") ?: "전국"
-                val off = (prefs.getString("event_off_cats", "") ?: "").split(",").filter { it.isNotBlank() }
-                for (i in 0 until arr.length()) {
-                    val e = arr.getJSONObject(i)
-                    val cat = e.optString("category"); val area = e.optString("area")
-                    if (!off.contains(cat) && (region == "전국" || area == region)) list.add(e)
-                }
-            } catch (e: Exception) { }
-            events = list
-        }
+    var loading by remember { mutableStateOf(true) }
+    LaunchedEffect(refreshKey) {
+        loading = true
+        val regionList = ArrayList<JSONObject>(); val allList = ArrayList<JSONObject>()
+        try {
+            val json = withContext(Dispatchers.IO) {
+                val conn = (URL("$SERVER_URL/api/events?days=45").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                conn.inputStream.bufferedReader().use { it.readText() }
+            }
+            val arr = JSONArray(json)
+            val sel = (prefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }
+            val off = (prefs.getString("event_off_cats", "") ?: "").split(",").filter { it.isNotBlank() }
+            for (i in 0 until arr.length()) {
+                val e = arr.getJSONObject(i)
+                val cat = e.optString("category"); val area = e.optString("area")
+                if (off.contains(cat)) continue
+                allList.add(e)
+                if (sel.isEmpty() || sel.contains(area)) regionList.add(e)
+            }
+        } catch (e: Exception) { }
+        events = if (regionList.isNotEmpty()) regionList else allList  // 지역에 없으면 전국 폴백
+        loading = false
     }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text("📅 내 지역 수요 정보", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(bottom = 8.dp))
-            if (events.isEmpty()) {
-                Text("표시할 이벤트가 없어요 (더보기 → 이벤트에서 지역·카테고리 설정)", fontSize = 12.sp, color = muted)
+            if (loading) {
+                Text("불러오는 중…", fontSize = 12.sp, color = muted)
+            } else if (events.isEmpty()) {
+                Text("표시할 이벤트가 없어요 (더보기 → 이벤트에서 설정)", fontSize = 12.sp, color = muted)
             } else {
                 events.take(3).forEach { e ->
                     val title = e.optString("title"); val area = e.optString("area"); val start = e.optString("start_at").take(10)
@@ -572,7 +576,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             }
 
             // [v20] 내 지역 수요 정보 (Tier0 공식데이터 + AI 비서 게이트)
-            EventHomeCard(prefs = prefs, card = card, accent = accent, muted = muted)
+            EventHomeCard(prefs = prefs, refreshKey = refreshKey, card = card, accent = accent, muted = muted)
 
             // 플랫폼별 매출
             if (prefs.getBoolean("card_platform", true) && platformStats.isNotEmpty()) {
