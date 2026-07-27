@@ -122,10 +122,11 @@ private fun NameCardScreen(onClose: () -> Unit) {
             c.drawText(slogan.take(24), w / 2f, 220f, p)
             qr?.let { val qs = 460; val left = (w - qs) / 2; c.drawBitmap(Bitmap.createScaledBitmap(it, qs, qs, false), left.toFloat(), 280f, null) }
             p.textSize = 26f; p.color = android.graphics.Color.parseColor("#111827")
-            c.drawText("QR을 찍으면 연락처가 저장돼요", w / 2f, 810f, p)
+            c.drawText("QR 스캔 → 예약·연락처 저장 (앱 설치 불필요)", w / 2f, 810f, p)
             if (phone.isNotBlank()) { p.textSize = 30f; p.isFakeBoldText = true; c.drawText("📞 $phone", w / 2f, 870f, p) }
             p.textSize = 22f; p.isFakeBoldText = false; p.color = android.graphics.Color.parseColor("#9CA3AF")
-            c.drawText("콜레이더 기사 명함", w / 2f, 950f, p)
+            p.color = android.graphics.Color.parseColor("#F59E0B"); p.isFakeBoldText = true; p.textSize = 30f
+            c.drawText("🚕 콜레이더 · CallRadar", w / 2f, 950f, p)
             val dir = File(ctx.cacheDir, "shares").apply { mkdirs() }
             val f = File(dir, "namecard_${System.currentTimeMillis()}.png")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
