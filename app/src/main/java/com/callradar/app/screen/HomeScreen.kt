@@ -153,6 +153,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
         onDispose { engine?.stop(); engine?.shutdown() }
     }
     var goalFare by remember { mutableStateOf(prefs.getInt("goal_fare", 300000)) }
+    // [v21] 익명 사용성 텔레메트리 (자기진화 루프) — 옵트아웃 시 미전송
+    LaunchedEffect(Unit) { com.callradar.app.Telemetry.log(context, "open_app", "home") }
     var salaryExpanded by remember { mutableStateOf(false) }  // [v5] 월급명세서 접기/펼치기
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
     val driverType = prefs.getString("driver_type", "personal") ?: "personal"

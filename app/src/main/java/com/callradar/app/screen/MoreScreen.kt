@@ -472,6 +472,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
 
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
     var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+    var telemetryOn by remember { mutableStateOf(prefs.getBoolean("telemetry_on", true)) }
     var isDark by remember { mutableStateOf(AppTheme.isDark) }
     var nickname by remember { mutableStateOf(prefs.getString("nickname", "") ?: "") }
     var showNameDialog by remember { mutableStateOf(false) }
@@ -575,6 +576,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
         )),
         MoreGroup("정보", listOf(
             MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) },
+            MoreEntry("📈", "사용성 개선 참여 (익명)", "익명 통계로 앱을 함께 개선 · 개인정보 없음", right = if (telemetryOn) "참여중" else "끔", rightKind = if (telemetryOn) 1 else 2) { telemetryOn = !telemetryOn; prefs.edit().putBoolean("telemetry_on", telemetryOn).apply() },
             MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) },
             MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) },
             MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
