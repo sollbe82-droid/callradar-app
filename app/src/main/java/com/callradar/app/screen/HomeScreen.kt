@@ -91,17 +91,19 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                 events.take(3).forEach { e ->
                     val title = e.optString("title"); val area = e.optString("area"); val start = e.optString("start_at").take(10)
                     val areaTxt = if (area.isNotBlank() && area != "null") area else ""
-                    // [v21] 파장(끝) 예상 시각 = 시작 + 2.5시간 → 그 시간 그 지역 콜↑ (사람 나올 때)
+                    // [v21] 유형별 파장/입항 예상 시각 (크루즈=입항시각, 스포츠 3h, 공연 2.5h) → 그 시간 그 지역 콜↑
+                    val cat = e.optString("category")
+                    val durMin = when (cat) { "크루즈" -> 0; "야구", "스포츠" -> 180; else -> 150 }
+                    val paLabel = if (cat == "크루즈") "입항" else "파장"
                     val paTime = try {
                         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("UTC")
                         val d = sdf.parse(e.optString("start_at").take(19))!!
-                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, 150)
+                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, durMin)
                         SimpleDateFormat("HH:mm", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(cal.time)
                     } catch (ex: Exception) { "" }
-                    val cat = e.optString("category")
                     val big = cat in listOf("야구", "콘서트", "스포츠", "크루즈", "페스티벌", "축제")
                     Text("• $title", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, maxLines = 2)
-                    Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈파장 $paTime" else "") + (if (big) " · 대형(수천명↑) 콜↑" else ""), fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈$paLabel $paTime" else "") + (if (big) " · 대형(수천명↑) 콜↑" else ""), fontSize = 13.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))
