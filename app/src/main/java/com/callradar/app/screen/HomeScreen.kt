@@ -691,25 +691,58 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
             }
 
-            // [v21] 홈 하단 바로가기 바 (튜닝 홈 1단계 · 온오프: home_shortcuts) — 오전 목업 #16 / 이미지 하단 바로가기
+            // [v21] 튜닝 홈 2단계 — 커스텀 바로가기 블록 (추가/제거/순서변경). 온오프: home_shortcuts
             if (prefs.getBoolean("home_shortcuts", true)) {
+                val registry = listOf(
+                    Triple("import", "📥", "가져오기"), Triple("records", "📋", "기록"),
+                    Triple("airport", "✈️", "공항"), Triple("namecard", "📇", "명함"),
+                    Triple("settings", "⚙️", "기사설정"), Triple("more", "⋯", "더보기")
+                )
+                var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "import,records,airport,namecard,more") ?: "import,records,airport,namecard,more") }
+                var blockEdit by remember { mutableStateOf(false) }
+                val order = blockCsv.split(",").map { it.trim() }.filter { id -> registry.any { it.first == id } }
+                val save: (List<String>) -> Unit = { l -> blockCsv = l.joinToString(","); prefs.edit().putString("home_blocks", blockCsv).apply() }
+                val runBlock: (String) -> Unit = { id ->
+                    when (id) {
+                        "import" -> com.callradar.app.ImageImportActivity.start(context)
+                        "records" -> onNavTab(1)
+                        "airport" -> onNavTab(2)
+                        "more" -> onNavTab(3)
+                        "namecard" -> context.startActivity(Intent(context, com.callradar.app.NameCardActivity::class.java))
+                        "settings" -> onOpenSettings()
+                        else -> {}
+                    }
+                }
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
-                    Column(Modifier.padding(vertical = 12.dp, horizontal = 8.dp)) {
-                        Text("⚡ 바로가기", fontSize = 11.sp, color = muted, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            val sc = listOf<Triple<String, String, () -> Unit>>(
-                                Triple("📥", "가져오기", { com.callradar.app.ImageImportActivity.start(context) }),
-                                Triple("📋", "기록", { onNavTab(1) }),
-                                Triple("✈️", "공항", { onNavTab(2) }),
-                                Triple("📇", "명함", { context.startActivity(Intent(context, com.callradar.app.NameCardActivity::class.java)) }),
-                                Triple("⚙️", "더보기", { onNavTab(3) })
-                            )
-                            sc.forEach { (icon, label, act) ->
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { act() }.padding(horizontal = 4.dp, vertical = 4.dp)) {
-                                    Box(Modifier.size(46.dp).background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 20.sp) }
-                                    Spacer(Modifier.height(4.dp)); Text(label, fontSize = 10.sp, color = AppTheme.text)
+                    Column(Modifier.padding(12.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡ 바로가기 (내 맘대로 꾸미기)", fontSize = 12.sp, color = muted)
+                            TextButton(onClick = { blockEdit = !blockEdit }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(if (blockEdit) "완료" else "✏️ 편집", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold) }
+                        }
+                        if (!blockEdit) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                order.forEach { id ->
+                                    val r = registry.first { it.first == id }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { runBlock(id) }.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                                        Box(Modifier.size(46.dp).background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text(r.second, fontSize = 20.sp) }
+                                        Spacer(Modifier.height(4.dp)); Text(r.third, fontSize = 10.sp, color = AppTheme.text)
+                                    }
+                                }
+                                if (order.isEmpty()) Text("편집에서 바로가기를 추가하세요", fontSize = 11.sp, color = muted)
+                            }
+                        } else {
+                            registry.forEach { (id, icon, label) ->
+                                val on = order.contains(id); val idx = order.indexOf(id)
+                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("$icon $label", fontSize = 13.sp, color = AppTheme.text)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (on && idx > 0) TextButton(onClick = { val m = order.toMutableList(); val t = m.removeAt(idx); m.add(idx - 1, t); save(m) }, contentPadding = PaddingValues(2.dp)) { Text("▲", color = accent) }
+                                        if (on && idx >= 0 && idx < order.size - 1) TextButton(onClick = { val m = order.toMutableList(); val t = m.removeAt(idx); m.add(idx + 1, t); save(m) }, contentPadding = PaddingValues(2.dp)) { Text("▼", color = accent) }
+                                        Switch(checked = on, onCheckedChange = { c -> val m = order.toMutableList(); if (c) { if (!m.contains(id)) m.add(id) } else m.remove(id); save(m) })
+                                    }
                                 }
                             }
+                            Text("켜기/끄기 · ▲▼로 순서 · 홈에 바로 반영", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
