@@ -490,7 +490,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(trips) { _, trip ->
                             Card(modifier = Modifier.fillMaxWidth().clickable { editingTrip = trip; editDest = trip.destination; editOrigin = trip.origin; editFare = if (trip.fare > 0) trip.fare.toString() else ""; editPaymentType = trip.paymentType; editPlatform = trip.platform; editHour = trip.time.split(":").getOrElse(0) { "" }; editMinute = trip.time.split(":").getOrElse(1) { "" }; editDate = trip.rawDate.ifEmpty { todayStr }; showEditDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    val payTintX = when (trip.paymentType) { "card" -> accent; "cash" -> green; else -> muted }
+                                    val payLabelX = when (trip.paymentType) { "card" -> "💳"; "cash" -> "💵"; else -> "🚕" }
+                                    Box(modifier = Modifier.size(34.dp).background(payTintX.copy(alpha = 0.15f), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) { Text(payLabelX, fontSize = 15.sp) }
+                                    Spacer(Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (trip.origin.isNotEmpty()) { Text(trip.origin.take(6), fontSize = 12.sp, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(" \u2192 ", fontSize = 12.sp, color = muted) }
