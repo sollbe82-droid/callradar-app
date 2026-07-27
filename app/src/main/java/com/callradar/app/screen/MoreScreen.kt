@@ -163,8 +163,19 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                     val text = vt.text.trim()
                     if (text.isEmpty()) { ocrStatus = "글자를 못 읽었어요. 더 선명한 스샷이면 좋아요."; return@addOnSuccessListener }
                     val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                    if (origin.isBlank() && lines.isNotEmpty()) origin = lines[0].take(30)
-                    if (dest.isBlank() && lines.size >= 2) dest = lines[1].take(30)
+                    // 시간 자동 추출 (23:40 형태)
+                    val tm = Regex("([01]?\\d|2[0-3]):[0-5]\\d").find(text)?.value
+                    if (timeStr.isBlank() && tm != null) timeStr = tm
+                    // "출발 → 목적" 형태 우선 인식
+                    val arrowLine = lines.firstOrNull { it.contains("→") || it.contains("->") || it.contains("=>") || it.contains(" - ") }
+                    if (arrowLine != null) {
+                        val parts = arrowLine.split("→", "->", "=>", " - ").map { it.trim() }.filter { it.isNotEmpty() }
+                        if (origin.isBlank() && parts.isNotEmpty()) origin = parts[0].take(30)
+                        if (dest.isBlank() && parts.size >= 2) dest = parts[1].take(30)
+                    } else {
+                        if (origin.isBlank() && lines.isNotEmpty()) origin = lines[0].take(30)
+                        if (dest.isBlank() && lines.size >= 2) dest = lines[1].take(30)
+                    }
                     rawOcr = text.take(1000)   // 교정 전 원본(학습 말뭉치)
                     memo = text.take(300)   // 원문 보존(서버 AI가 나중에 더 잘 파싱)
                     ocrStatus = "읽었어요 — 출발지·목적지를 확인·수정 후 저장하세요."
