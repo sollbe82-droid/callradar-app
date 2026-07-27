@@ -27,6 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.window.Dialog
@@ -440,10 +443,10 @@ fun AirportScreen() {
                             else
                                 (curData?.hourly ?: emptyList()).map { it.hour to it.pax }
                             val maxPax = (bars.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
-                            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                            Card(Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures(onLongPress = { val sb = StringBuilder("🚕 콜레이더 · " + tn + " 시간대별 입국 예고 (인천공항)\n"); bars.sortedByDescending { it.second }.take(5).forEach { (h, p) -> sb.append(String.format("%02d시 · %,d명\n", h, p)) }; sb.append("\n공항 손님 몰리는 시간 참고! · 콜레이더"); context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, sb.toString()) }, "공유")) }) }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
                                 Column(Modifier.padding(20.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("📊", fontSize = 18.sp); Text("$tn 시간대별 입국 예고", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                        Text("📊", fontSize = 18.sp); Text("$tn 시간대별 입국 예고 (꾹 눌러 공유)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                                     }
                                     Text(if (fromForecast) "오늘 예상 입국 승객 (인천공항 승객예고)" else "앞으로 도착 예정 항공편 기준 시간대별 입국 인원", fontSize = 11.sp, color = muted)
                                     Spacer(Modifier.height(14.dp))
