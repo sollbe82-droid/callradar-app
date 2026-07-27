@@ -91,8 +91,15 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                 events.take(3).forEach { e ->
                     val title = e.optString("title"); val area = e.optString("area"); val start = e.optString("start_at").take(10)
                     val areaTxt = if (area.isNotBlank() && area != "null") area else ""
+                    // [v21] 파장(끝) 예상 시각 = 시작 + 2.5시간 → 그 시간 그 지역 콜↑ (사람 나올 때)
+                    val paTime = try {
+                        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("UTC")
+                        val d = sdf.parse(e.optString("start_at").take(19))!!
+                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, 150)
+                        SimpleDateFormat("HH:mm", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(cal.time)
+                    } catch (ex: Exception) { "" }
                     Text("• $title", fontSize = 13.sp, color = AppTheme.text, maxLines = 1)
-                    Text("   $areaTxt · $start", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
+                    Text("   $areaTxt · $start" + (if (paTime.isNotEmpty()) " · ≈파장 $paTime 콜↑" else ""), fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))
