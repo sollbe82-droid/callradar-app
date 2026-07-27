@@ -449,7 +449,6 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
                 if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
-                if (selectedTab == 0) { TextButton(onClick = { isReportMode = true; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📡 제보", fontSize = 13.sp, color = muted, fontWeight = FontWeight.Bold) } }
                 if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
             }
         }

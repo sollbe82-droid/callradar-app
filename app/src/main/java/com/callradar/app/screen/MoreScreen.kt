@@ -57,6 +57,7 @@ private const val R_REGISTRY = "registry"
 private const val R_SETTLEMENT = "settlement"
 private const val R_EVENTS = "events"
 private const val R_BOOKINGS = "bookings"
+private const val R_AI = "ai_assistant"
 
 // 한 항목(타일/행 공통 데이터). onClick으로 동작.
 private data class MoreEntry(
@@ -112,6 +113,9 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
         R_BOOKINGS -> MoreSubScreen("예약 요청 (단골)", onBack = { route = R_HOME }) {
             BookingsView(userId = userId, context = context, accent = accent, muted = muted, card = card)
         }
+        R_AI -> MoreSubScreen("AI 운행 비서", onBack = { route = R_HOME }) {
+            AiAssistantView(userId = userId, context = context, accent = accent, muted = muted, card = card)
+        }
     }
 }
 
@@ -132,6 +136,78 @@ private fun MoreSubScreen(title: String, onBack: () -> Unit, content: @Composabl
             Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
         }
         Box(Modifier.weight(1f)) { content() }
+    }
+}
+
+// [v21] AI 운행 비서 — 정직판(준비 중). 시외·귀로콜 기록이 곧 비서를 키우는 데이터.
+@Composable
+private fun AiAssistantView(userId: String, context: Context, accent: Color, muted: Color, card: Color) {
+    val scope = rememberCoroutineScope()
+    var origin by remember { mutableStateOf("") }
+    var dest by remember { mutableStateOf("") }
+    var timeStr by remember { mutableStateOf("") }
+    var outArea by remember { mutableStateOf(true) }   // 시외(영업 외)가 이 기능의 핵심 → 기본 on
+    var memo by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf("") }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("🤖 AI 운행 비서", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                Text("준비 중 · 데이터를 모으는 중입니다", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
+                Text("시외(영업 외 지역)에 나갔을 때 언제·어디서 귀로콜이 잡혔는지 기록해 두세요. 기록이 쌓이면 '이 시간, 이 지역에서 서울행 콜이 잦다' 같은 분석을 비서가 대신 해드립니다. 지금 남기는 건 우선 내 개인 기록으로 그대로 남고, 데이터가 충분해지면 분석이 켜집니다.", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
+                Text("※ 아직 없는 분석을 있는 척하지 않습니다. 데이터가 먼저입니다.", fontSize = 11.sp, color = muted)
+            }
+        }
+        // 시외·귀로콜 기록 입력
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("📡 시외·귀로콜 기록", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                OutlinedTextField(value = origin, onValueChange = { origin = it }, label = { Text("콜 잡힌 위치 (출발지)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("목적지") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = timeStr, onValueChange = { timeStr = it }, label = { Text("시간 (예: 23:40, 선택)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = outArea, onCheckedChange = { outArea = it })
+                    Text("시외(영업 외 지역) 콜", fontSize = 13.sp, color = AppTheme.text)
+                }
+                OutlinedTextField(value = memo, onValueChange = { memo = it }, label = { Text("메모 (선택)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Button(
+                    onClick = {
+                        if (origin.isBlank()) { msg = "출발지를 입력하세요"; return@Button }
+                        busy = true; msg = ""
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                try {
+                                    val note = buildString {
+                                        if (timeStr.isNotBlank()) append(timeStr).append(" ")
+                                        if (outArea) append("[시외] ")
+                                        append(memo)
+                                    }.trim()
+                                    val json = JSONObject().apply {
+                                        put("user_id", userId); put("platform", "콜제보")
+                                        put("originName", origin); put("destName", dest.ifBlank { "미정" } + (if (note.isNotEmpty()) " · $note" else ""))
+                                        put("fare", 0); put("payment_type", "report"); put("source", "report"); put("is_report", true)
+                                    }
+                                    val conn = (URL("$SETTINGS_SERVER/api/trips").openConnection() as HttpURLConnection).apply {
+                                        requestMethod = "POST"; doOutput = true; connectTimeout = 12000; readTimeout = 12000
+                                        setRequestProperty("Content-Type", "application/json")
+                                    }
+                                    conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
+                                    val code = conn.responseCode; conn.disconnect(); code in 200..299
+                                } catch (e: Exception) { false }
+                            }
+                            busy = false
+                            if (ok) { msg = "기록 완료 · 고맙습니다 🙏"; origin = ""; dest = ""; timeStr = ""; memo = ""; outArea = true }
+                            else msg = "저장 실패 — 네트워크를 확인하세요"
+                        }
+                    },
+                    enabled = !busy, modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)
+                ) { Text(if (busy) "저장 중…" else "기록 남기기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                if (msg.isNotEmpty()) Text(msg, fontSize = 12.sp, color = accent)
+            }
+        }
     }
 }
 
@@ -249,6 +325,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             }
         )),
         MoreGroup("정보", listOf(
+            MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) },
             MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) },
             MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) },
             MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
