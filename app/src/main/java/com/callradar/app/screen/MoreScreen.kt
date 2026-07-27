@@ -310,6 +310,40 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 }
             }
         }
+        // 귀로콜 레이더 (지역 검색) — 시외 나갔을 때 그 지역 수요 조회. GPS 자동감지는 준비 중(카카오 로컬 API 후).
+        run {
+            var radarArea by remember { mutableStateOf("") }
+            var radarRows by remember { mutableStateOf(listOf<Triple<String, Int, Int>>()) }
+            var radarBusy by remember { mutableStateOf(false) }
+            var radarDone by remember { mutableStateOf(false) }
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("🧭 귀로콜 레이더", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
+                    Text("시외에 나갔을 때 그 지역(동/구) 이름을 넣어보세요. 그 지역에서 콜이 자주 잡힌 곳·평균 요금을 알려줍니다. (GPS 자동 감지는 준비 중)", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+                    OutlinedTextField(value = radarArea, onValueChange = { radarArea = it }, label = { Text("지역 (예: 강남, 송도, 수원)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Button(
+                        onClick = {
+                            if (radarArea.isBlank()) return@Button
+                            radarBusy = true; radarDone = false
+                            scope.launch {
+                                val list = withContext(Dispatchers.IO) {
+                                    try {
+                                        val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?area=" + java.net.URLEncoder.encode(radarArea, "UTF-8")).readText())
+                                        val arr = o.optJSONArray("rows")
+                                        (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("avg_fare")) }
+                                    } catch (e: Exception) { emptyList() }
+                                }
+                                radarRows = list.take(8); radarBusy = false; radarDone = true
+                            }
+                        },
+                        enabled = !radarBusy, modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = card), shape = RoundedCornerShape(10.dp)
+                    ) { Text(if (radarBusy) "찾는 중…" else "이 지역 콜 포인트 검색", color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    radarRows.forEach { (o, c, f) -> Text("• $o · ${c}회 · 평균 " + String.format("%,d", f) + "원", fontSize = 13.sp, color = muted) }
+                    if (radarDone && radarRows.isEmpty()) Text("아직 이 지역 데이터가 적어요. 기록이 쌓이면 보여드릴게요.", fontSize = 12.sp, color = muted)
+                }
+            }
+        }
         // 시외·귀로콜 기록 입력
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
