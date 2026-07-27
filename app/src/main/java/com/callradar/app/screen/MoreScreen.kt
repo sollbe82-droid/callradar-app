@@ -248,6 +248,19 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         eventLine = line
     }
+    // [v21] 공항 입국 예고 피크 → 브리핑/음성 결합 (기존 /api/airport/passengers 재사용, 심사 무관)
+    var airportPeak by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val p = withContext(Dispatchers.IO) {
+            try {
+                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/airport/passengers").readText())
+                var bh = -1; var bn = -1
+                for (i in 0 until arr.length()) { val o = arr.getJSONObject(i); val tot = o.optInt("t1") + o.optInt("t2"); if (tot > bn) { bn = tot; bh = o.optInt("hour") } }
+                if (bh >= 0 && bn > 0) "인천공항 입국은 ${bh}시경 약 ${String.format("%,d", bn)}명으로 가장 붐벼요" else ""
+            } catch (e: Exception) { "" }
+        }
+        airportPeak = p
+    }
     // [v21] 음성 안내(TTS) On/Off — 핸즈프리 브리핑
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var voiceOn by remember { mutableStateOf(prefs.getBoolean("voice_on", false)) }
@@ -268,6 +281,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 if (rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
                 if (topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
                 if (eventLine.isNotEmpty()) append(eventLine + " ")
+                if (airportPeak.isNotEmpty()) append(airportPeak + ". ")
                 append("안전 운전하세요.")
             }
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
