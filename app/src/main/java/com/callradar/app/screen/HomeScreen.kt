@@ -100,6 +100,41 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
     }
 }
 
+// [v21] 홈 상단 오늘 브리핑 한 줄 (온/오프: card_brief). 매일 보이는 재방문 훅.
+@Composable
+private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Color) {
+    var brief by remember { mutableStateOf("") }
+    LaunchedEffect(refreshKey) {
+        val cal = java.util.Calendar.getInstance()
+        val today = listOf("일", "월", "화", "수", "목", "금", "토")[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
+        val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val sb = StringBuilder("오늘은 ${today}요일")
+        val (place, ev) = withContext(Dispatchers.IO) {
+            var p = ""; var e = ""
+            try {
+                val d = JSONObject((URL("$SERVER_URL/api/demand?hour=$hr").openConnection() as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
+                val rows = d.optJSONArray("rows"); if (rows != null && rows.length() > 0) p = rows.getJSONObject(0).optString("origin")
+            } catch (_: Exception) {}
+            try {
+                val arr = JSONArray((URL("$SERVER_URL/api/events?days=2").openConnection() as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
+                if (arr.length() > 0) { val o = arr.getJSONObject(0); val t = o.optString("title"); val a = o.optString("area"); if (t.isNotBlank()) e = (if (a.isNotBlank() && a != "null") "$a " else "") + t }
+            } catch (_: Exception) {}
+            Pair(p, e)
+        }
+        if (place.isNotBlank()) sb.append(" · 지금 ${place} 콜↑")
+        if (ev.isNotBlank()) sb.append(" · ${ev} 수요예상")
+        brief = sb.toString()
+    }
+    if (brief.isNotBlank()) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("🔊", fontSize = 16.sp); Spacer(Modifier.width(8.dp))
+                Text(brief, fontSize = 12.sp, color = AppTheme.text, lineHeight = 17.sp)
+            }
+        }
+    }
+}
+
 @Composable
 fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B)
@@ -572,6 +607,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         }
                     }
                 }
+            }
+
+            // [v21] 오늘 브리핑 한 줄 (온/오프: card_brief)
+            if (prefs.getBoolean("card_brief", true)) {
+                HomeBriefCard(refreshKey = refreshKey, card = card, accent = accent, muted = muted)
             }
 
             // [v20] 내 지역 수요 정보 (Tier0 공식데이터 + AI 비서 게이트)

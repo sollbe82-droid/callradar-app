@@ -810,6 +810,7 @@ private fun MoreList(groups: List<MoreGroup>, accent: Color, green: Color, red: 
 @Composable
 private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Color, muted: Color, card: Color) {
     val items = listOf(
+        Triple("card_brief", "🔊", "오늘 브리핑"),
         Triple("card_salary", "💰", "월급 명세서"),
         Triple("card_platform", "🏷️", "플랫폼별 매출"),
         Triple("work_session_enabled", "⏱", "근무 세션"),
