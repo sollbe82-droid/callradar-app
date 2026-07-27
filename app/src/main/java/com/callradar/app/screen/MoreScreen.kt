@@ -150,6 +150,29 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     var memo by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf("") }
+    var ocrStatus by remember { mutableStateOf("") }
+    var rawOcr by remember { mutableStateOf("") }   // 원본 OCR(교정 전) — 학습 말뭉치용
+    // [v21] 오픈톡방 스샷 → 한국어 OCR → 제보 자동 채움 (온디바이스). 초반 인식율 낮고 쓸수록 진화.
+    fun runReportOcr(uri: Uri) {
+        ocrStatus = "스샷을 읽는 중…"
+        try {
+            val image = InputImage.fromFilePath(context, uri)
+            TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                .process(image)
+                .addOnSuccessListener { vt ->
+                    val text = vt.text.trim()
+                    if (text.isEmpty()) { ocrStatus = "글자를 못 읽었어요. 더 선명한 스샷이면 좋아요."; return@addOnSuccessListener }
+                    val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                    if (origin.isBlank() && lines.isNotEmpty()) origin = lines[0].take(30)
+                    if (dest.isBlank() && lines.size >= 2) dest = lines[1].take(30)
+                    rawOcr = text.take(1000)   // 교정 전 원본(학습 말뭉치)
+                    memo = text.take(300)   // 원문 보존(서버 AI가 나중에 더 잘 파싱)
+                    ocrStatus = "읽었어요 — 출발지·목적지를 확인·수정 후 저장하세요."
+                }
+                .addOnFailureListener { e -> ocrStatus = "읽기 실패: ${e.message}" }
+        } catch (e: Exception) { ocrStatus = "오류: ${e.message}" }
+    }
+    val reportPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> if (uri != null) runReportOcr(uri) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
@@ -164,6 +187,11 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("📡 시외·귀로콜 기록", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                Text("오픈톡방 등에서 캡처한 스샷을 올리면 자동으로 읽어옵니다. 손으로 적는 건 쉴 때만 하세요.\n※ 초반엔 인식율이 낮을 수 있어요. 쓸수록 데이터가 쌓여 점점 정확해집니다.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+                Button(onClick = { reportPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                    Text("📷 스샷으로 제보 (자동 인식)", color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                if (ocrStatus.isNotEmpty()) Text(ocrStatus, fontSize = 11.sp, color = accent)
                 OutlinedTextField(value = origin, onValueChange = { origin = it }, label = { Text("콜 잡힌 위치 (출발지)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("목적지") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = timeStr, onValueChange = { timeStr = it }, label = { Text("시간 (예: 23:40, 선택)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -188,6 +216,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                         put("user_id", userId); put("platform", "콜제보")
                                         put("originName", origin); put("destName", dest.ifBlank { "미정" } + (if (note.isNotEmpty()) " · $note" else ""))
                                         put("fare", 0); put("payment_type", "report"); put("source", "report"); put("is_report", true)
+                                        if (rawOcr.isNotEmpty()) put("raw_ocr", rawOcr)   // (원본→교정) 학습 말뭉치
                                     }
                                     val conn = (URL("$SETTINGS_SERVER/api/trips").openConnection() as HttpURLConnection).apply {
                                         requestMethod = "POST"; doOutput = true; connectTimeout = 12000; readTimeout = 12000
@@ -198,7 +227,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                 } catch (e: Exception) { false }
                             }
                             busy = false
-                            if (ok) { msg = "기록 완료 · 고맙습니다 🙏"; origin = ""; dest = ""; timeStr = ""; memo = ""; outArea = true }
+                            if (ok) { msg = "기록 완료 · 고맙습니다 🙏"; origin = ""; dest = ""; timeStr = ""; memo = ""; outArea = true; rawOcr = ""; ocrStatus = "" }
                             else msg = "저장 실패 — 네트워크를 확인하세요"
                         }
                     },
