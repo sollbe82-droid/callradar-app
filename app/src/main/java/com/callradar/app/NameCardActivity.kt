@@ -214,14 +214,17 @@ private fun NameCardScreen(onClose: () -> Unit) {
             // [v20] 담백한 1인칭 홍보 문구 + 예약링크 → 공유시트(카톡·당근·카페). AI 티 안 나게, 편집은 공유앱에서.
             OutlinedButton(onClick = {
                 val txt = buildString {
-                    append(if (name.isBlank()) "안전운행 기사입니다." else "${name} 기사입니다.")
+                    append(if (name.isBlank()) "안녕하세요, 안전운행 기사입니다." else "안녕하세요, ${name} 기사입니다.")
                     if (slogan.isNotBlank()) { append("\n"); append(slogan) }
-                    if (phone.isNotBlank()) { append("\n☎ ${phone}") }
-                    if (bookingUrl.isNotBlank()) { append("\n예약(앱 설치 불필요): "); append(bookingUrl) }
+                    append("\n\n공항 가실 때, 장거리, 늦은 밤 귀가까지 편하게 불러주세요. 시간 맞춰 안전하게 모시겠습니다.")
+                    if (bookingUrl.isNotBlank()) { append("\n\n📅 예약은 앱 설치 없이 1분이면 돼요 (다음엔 정보가 기억됩니다)\n"); append(bookingUrl) }
+                    if (phone.isNotBlank()) { append("\n☎ 문의·예약: ${phone}") }
+                    append("\n\n믿고 불러주시면 정성껏 모시겠습니다. 감사합니다 🙏")
                 }
+                try { val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager; cm.setPrimaryClip(android.content.ClipData.newPlainText("홍보문구", txt)); android.widget.Toast.makeText(ctx, "홍보 문구 복사됨! 카톡·당근에 붙여넣기(길게 눌러 붙여넣기) 하세요", android.widget.Toast.LENGTH_LONG).show() } catch (e: Exception) {}
                 try { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txt) }, "홍보 문구 공유").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (e: Exception) {}
             }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                Text("📢 홍보 문구 공유(카톡·당근·카페)", color = accent, fontWeight = FontWeight.Bold)
+                Text("📢 홍보 문구 복사+공유(카톡·당근)", color = accent, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(40.dp))
