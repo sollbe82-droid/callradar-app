@@ -308,6 +308,41 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             val payNominalBase = if (isCorporate && payZeroNet) prefs.getInt("pay_base", 0) else 0  // 명목 기본급(표시용)
             // 기사 실수령: 현금 미납부면 발생액 + 현금(내 몫) + 기본급 − 4대보험 − 조합비 − 기타공제 (실급여0이면 명세서 0 기여)
             val takeHome = (if (isCorporate && !cashToCompany) netIncome + monthCash else netIncome) + monthTip - personalExpense - miscExpense + payBase - payIns - payUnion - payOther
+            // [v21 재설계] 오늘 매출 — 홈 최상단(오늘 중심)
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("오늘 매출", fontSize = 12.sp, color = muted)
+                            Text(if (todayFare > 0) "${String.format("%,d", todayFare)}원" else "0원", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
+                            if (dailySanap > 0 || lpgDailyCost > 0) {
+                                val sanapDaysQuota = (workDaysSetting - prefs.getInt("annual_leave", 0)).coerceAtLeast(0)
+                                val owedSanap = dailySanap * sanapDaysQuota
+                                val sanapMet = driverType == "corporate" && dailySanap > 0 && sanapDaysQuota > 0 && owedSanap > 0 &&
+                                    (monthWorkedDays > sanapDaysQuota || (profile?.monthFare ?: 0) >= owedSanap)
+                                val todayNet = calcNetIncome(todayFare, 1, if (sanapMet) 0 else dailySanap)
+                                Text((if (sanapMet) "순수익 " else "순수익 ") + "${String.format("%,d", todayNet)}원" + (if (sanapMet) " (사납금 완납)" else ""), fontSize = 11.sp, color = if (todayNet > 0) accent else red)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            val progress = (todayFare.toFloat() / goalFare.toFloat()).coerceIn(0f, 1f)
+                            Text("${(progress * 100).toInt()}%", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (progress >= 1f) green else accent)
+                            TextButton(onClick = { goalInput = goalFare.toString(); sanapInput = dailySanap.toString(); showGoalDialog = true }, contentPadding = PaddingValues(0.dp)) { Text("목표 ${String.format("%,d", goalFare)}원 ✏️", fontSize = 11.sp, color = muted) }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    val progress = (todayFare.toFloat() / goalFare.toFloat()).coerceIn(0f, 1f)
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = if (progress >= 1f) green else accent, trackColor = AppTheme.surface2)
+                    Spacer(Modifier.height(14.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("$todayTrips", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("오늘 콜", fontSize = 11.sp, color = muted) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { val avg = if (todayTrips > 0) todayFare / todayTrips else 0; Text("${String.format("%,d", avg)}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("콜 평균", fontSize = 11.sp, color = muted) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayFare >= goalFare) "달성!" else "${String.format("%,d", goalFare - todayFare)}", fontSize = if (todayFare >= goalFare) 18.sp else 20.sp, fontWeight = FontWeight.Bold, color = if (todayFare >= goalFare) green else AppTheme.text); Text(if (todayFare >= goalFare) "목표완료" else "남은금액", fontSize = 11.sp, color = muted) }
+                    }
+                }
+            }
+
+            // 💰 예상 월급/순수익
             if (prefs.getBoolean("card_salary", true))
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -412,42 +447,6 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Text("\uD83D\uDCA1 설정에서 사납금·가스단가·연차를 조정하면 더 정확해져요", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
                         }
-                    }
-                }
-            }
-
-            // 오늘 매출
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("오늘 매출", fontSize = 12.sp, color = muted)
-                            Text(if (todayFare > 0) "${String.format("%,d", todayFare)}원" else "0원", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
-                            if (dailySanap > 0 || lpgDailyCost > 0) {
-                                // [v19] 이번 달 고정 사납금 완납 시 오늘 순수익엔 사납금 차감 안 함 → 지출비(가스·수수료)만 남음.
-                                //  완납 판정: 정산일수(만근−연차)를 넘겨 근무했거나(=총사납금 다 낸 셈), 또는 이번달 총매출이 총사납금 이상.
-                                val sanapDaysQuota = (workDaysSetting - prefs.getInt("annual_leave", 0)).coerceAtLeast(0)
-                                val owedSanap = dailySanap * sanapDaysQuota
-                                val sanapMet = driverType == "corporate" && dailySanap > 0 && sanapDaysQuota > 0 && owedSanap > 0 &&
-                                    (monthWorkedDays > sanapDaysQuota || (profile?.monthFare ?: 0) >= owedSanap)
-                                val todayNet = calcNetIncome(todayFare, 1, if (sanapMet) 0 else dailySanap)
-                                Text((if (sanapMet) "순수익 " else "순수익 ") + "${String.format("%,d", todayNet)}원" + (if (sanapMet) " (사납금 완납)" else ""), fontSize = 11.sp, color = if (todayNet > 0) accent else red)
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            val progress = (todayFare.toFloat() / goalFare.toFloat()).coerceIn(0f, 1f)
-                            Text("${(progress * 100).toInt()}%", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (progress >= 1f) green else accent)
-                            TextButton(onClick = { goalInput = goalFare.toString(); sanapInput = dailySanap.toString(); showGoalDialog = true }, contentPadding = PaddingValues(0.dp)) { Text("목표 ${String.format("%,d", goalFare)}원 ✏️", fontSize = 11.sp, color = muted) }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    val progress = (todayFare.toFloat() / goalFare.toFloat()).coerceIn(0f, 1f)
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = if (progress >= 1f) green else accent, trackColor = AppTheme.surface2)
-                    Spacer(Modifier.height(14.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("$todayTrips", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("오늘 콜", fontSize = 11.sp, color = muted) }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { val avg = if (todayTrips > 0) todayFare / todayTrips else 0; Text("${String.format("%,d", avg)}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("콜 평균", fontSize = 11.sp, color = muted) }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayFare >= goalFare) "달성!" else "${String.format("%,d", goalFare - todayFare)}", fontSize = if (todayFare >= goalFare) 18.sp else 20.sp, fontWeight = FontWeight.Bold, color = if (todayFare >= goalFare) green else AppTheme.text); Text(if (todayFare >= goalFare) "목표완료" else "남은금액", fontSize = 11.sp, color = muted) }
                     }
                 }
             }
