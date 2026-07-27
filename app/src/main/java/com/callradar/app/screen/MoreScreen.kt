@@ -56,6 +56,7 @@ private const val R_LINKS = "links"
 private const val R_REGISTRY = "registry"
 private const val R_SETTLEMENT = "settlement"
 private const val R_EVENTS = "events"
+private const val R_BOOKINGS = "bookings"
 
 // 한 항목(타일/행 공통 데이터). onClick으로 동작.
 private data class MoreEntry(
@@ -107,6 +108,9 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
         }
         R_EVENTS -> MoreSubScreen("이벤트·수요 정보", onBack = { route = R_HOME }) {
             EventsView(context = context, accent = accent, muted = muted, card = card)
+        }
+        R_BOOKINGS -> MoreSubScreen("예약 요청 (단골)", onBack = { route = R_HOME }) {
+            BookingsView(userId = userId, context = context, accent = accent, muted = muted, card = card)
         }
     }
 }
@@ -245,6 +249,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             }
         )),
         MoreGroup("정보", listOf(
+            MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) },
             MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) },
             MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
             MoreEntry("💬", "오픈톡방", "아이디어·개선·버그 제보 환영", chevron = true) {
@@ -999,6 +1004,78 @@ private fun parsePayslip(raw: String, lines: List<Triple<String, Int, Int>> = em
     val other = incomeTax + amountFor("지방소득세", "지방세") + amountFor("기타공제", "기타 공제")
     val net = amountFor("차인지급액", "실지급액", "실수령")
     return PayParsed(base, insurance, union, other, net)
+}
+
+// [v20] 예약 요청 — 명함 QR로 승객이 넣은 예약을 기사가 확인·수락/거절·전화
+@Composable
+private fun BookingsView(userId: String, context: Context, accent: Color, muted: Color, card: Color) {
+    var loading by remember { mutableStateOf(true) }
+    var items by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var reloadTick by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    fun setStatus(id: Int, status: String) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val conn = (URL("$SETTINGS_SERVER/api/bookings/$id/status").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
+                    conn.outputStream.use { it.write("{\"status\":\"$status\"}".toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
+                }
+            } catch (e: Exception) { }
+            reloadTick++
+        }
+    }
+    LaunchedEffect(reloadTick) {
+        loading = true
+        val list = ArrayList<JSONObject>()
+        try {
+            val json = withContext(Dispatchers.IO) {
+                val conn = (URL("$SETTINGS_SERVER/api/bookings/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                conn.inputStream.bufferedReader().use { it.readText() }
+            }
+            val arr = org.json.JSONArray(json)
+            for (i in 0 until arr.length()) list.add(arr.getJSONObject(i))
+        } catch (e: Exception) { }
+        items = list; loading = false
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("명함 QR로 받은 예약", fontSize = 13.sp, color = muted)
+            TextButton(onClick = { reloadTick++ }) { Text("새로고침", fontSize = 13.sp, color = accent) }
+        }
+        Spacer(Modifier.height(6.dp))
+        if (loading) {
+            Text("불러오는 중…", fontSize = 14.sp, color = muted)
+        } else if (items.isEmpty()) {
+            Text("아직 받은 예약이 없어요.\n명함 QR을 손님이 찍고 예약을 넣으면 여기에 떠요.", fontSize = 14.sp, color = muted)
+        } else {
+            items.forEach { b ->
+                val id = b.optInt("id", 0); val nm = b.optString("passenger_name", "").ifBlank { "이름없음" }
+                val ph = b.optString("passenger_phone", ""); val st = b.optString("status", "requested")
+                val d = b.optString("ride_date", ""); val t = b.optString("ride_time", "")
+                val o = b.optString("origin", ""); val ds = b.optString("destination", ""); val memo = b.optString("memo", "")
+                val stLabel = when (st) { "accepted" -> "✅ 수락함"; "declined" -> "❌ 거절함"; else -> "🔔 새 요청" }
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(nm, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text(stLabel, fontSize = 12.sp, color = if (st == "requested") accent else muted)
+                        }
+                        if (d.isNotBlank() || t.isNotBlank()) Text("🗓 $d $t", fontSize = 13.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                        if (o.isNotBlank() || ds.isNotBlank()) Text("📍 ${o.ifBlank{"?"}} → ${ds.ifBlank{"?"}}", fontSize = 13.sp, color = AppTheme.text, modifier = Modifier.padding(top = 2.dp))
+                        if (memo.isNotBlank() && memo != "null") Text("메모: $memo", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            if (ph.isNotBlank()) OutlinedButton(onClick = { try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$ph")).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (e: Exception) {} }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("📞 전화", fontSize = 13.sp, color = accent) }
+                            if (st == "requested") {
+                                Button(onClick = { setStatus(id, "accepted") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("수락", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                                OutlinedButton(onClick = { setStatus(id, "declined") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("거절", fontSize = 13.sp, color = muted) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // [v20] 이벤트·수요 정보 — 서버 /api/events(공식데이터 실시간) + 지역/카테고리 온오프

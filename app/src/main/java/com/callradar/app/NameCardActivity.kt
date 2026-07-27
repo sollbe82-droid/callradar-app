@@ -101,7 +101,7 @@ private fun NameCardScreen(onClose: () -> Unit) {
 
     // [v20] QR = 무설치 예약 링크 (스캔→그 기사 예약페이지). userId 없으면 vCard 폴백.
     val myUserId = prefs.getString("user_id", "") ?: ""
-    val bookingUrl = if (myUserId.isNotBlank()) "https://callradar-server.onrender.com/book/$myUserId?name=" + java.net.URLEncoder.encode(name.ifBlank { "기사" }, "UTF-8") else ""
+    val bookingUrl = if (myUserId.isNotBlank()) "https://callradar-server.onrender.com/book/$myUserId?name=" + java.net.URLEncoder.encode(name.ifBlank { "기사" }, "UTF-8") + (if (phone.isNotBlank()) "&tel=" + java.net.URLEncoder.encode(phone, "UTF-8") else "") else ""
     val vcard = buildVCard(name, phone, slogan, kakao.ifBlank { insta })
     val qrText = if (bookingUrl.isNotBlank()) bookingUrl else vcard
     val qr = remember(qrText) { genQr(qrText, 640) }
