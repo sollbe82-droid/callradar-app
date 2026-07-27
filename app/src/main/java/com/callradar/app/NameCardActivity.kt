@@ -187,7 +187,7 @@ private fun NameCardScreen(onClose: () -> Unit) {
                     Spacer(Modifier.height(6.dp)); Text(slogan, fontSize = 14.sp, color = accent, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
                     qr?.let { Image(it.asImageBitmap(), contentDescription = "QR", modifier = Modifier.size(200.dp)) }
-                    Spacer(Modifier.height(8.dp)); Text("QR을 찍으면 연락처가 저장돼요", fontSize = 12.sp, color = muted)
+                    Spacer(Modifier.height(8.dp)); Text("QR을 찍으면 예약·연락처 저장 페이지가 열려요", fontSize = 12.sp, color = muted)
                     if (phone.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text("📞 $phone", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text) }
                 }
             }
@@ -209,6 +209,19 @@ private fun NameCardScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { shareCard() }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
                 Text("📤 명함 이미지로 공유(카톡·문자)", color = accent, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            // [v20] 담백한 1인칭 홍보 문구 + 예약링크 → 공유시트(카톡·당근·카페). AI 티 안 나게, 편집은 공유앱에서.
+            OutlinedButton(onClick = {
+                val txt = buildString {
+                    append(if (name.isBlank()) "안전운행 기사입니다." else "${name} 기사입니다.")
+                    if (slogan.isNotBlank()) { append("\n"); append(slogan) }
+                    if (phone.isNotBlank()) { append("\n☎ ${phone}") }
+                    if (bookingUrl.isNotBlank()) { append("\n예약(앱 설치 불필요): "); append(bookingUrl) }
+                }
+                try { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txt) }, "홍보 문구 공유").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (e: Exception) {}
+            }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
+                Text("📢 홍보 문구 공유(카톡·당근·카페)", color = accent, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(40.dp))
