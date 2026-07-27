@@ -15,6 +15,9 @@ import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.speech.tts.TextToSpeech
+import java.util.Locale
+import java.util.Calendar
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -227,7 +230,43 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         demandRows = list.take(6)
     }
+    // [v21] 음성 안내(TTS) On/Off — 핸즈프리 브리핑
+    val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    var voiceOn by remember { mutableStateOf(prefs.getBoolean("voice_on", false)) }
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(Unit) {
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context) { st -> if (st == TextToSpeech.SUCCESS) engine?.language = Locale.KOREAN }
+        tts = engine
+        onDispose { engine?.stop(); engine?.shutdown() }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 오늘의 브리핑 (음성 On/Off + 듣기) — 매일 듣는 습관 = 중독화 훅
+        run {
+            val today = listOf("일", "월", "화", "수", "목", "금", "토")[Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 1]
+            val topPlace = demandRows.firstOrNull()?.first ?: ""
+            val brief = buildString {
+                append("오늘은 ${today}요일입니다. ")
+                if (rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
+                if (topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
+                append("안전 운전하세요.")
+            }
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("🔊 오늘의 브리핑", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("음성", fontSize = 12.sp, color = muted); Spacer(Modifier.width(4.dp))
+                            Switch(checked = voiceOn, onCheckedChange = { voiceOn = it; prefs.edit().putBoolean("voice_on", it).apply(); if (it) tts?.speak(brief, TextToSpeech.QUEUE_FLUSH, null, "brief") })
+                        }
+                    }
+                    Text(brief, fontSize = 13.sp, color = AppTheme.text, lineHeight = 19.sp)
+                    Button(onClick = { tts?.speak(brief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
+                        Text("▶ 브리핑 듣기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
         // 정직한 준비-중 안내 (구라 없이: 지금은 개인 기록으로 남고, 데이터 쌓이면 분석이 켜짐)
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
