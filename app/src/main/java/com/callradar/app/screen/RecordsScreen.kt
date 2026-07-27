@@ -42,6 +42,25 @@ import java.util.*
 
 private const val SERVER_URL = Config.SERVER_URL
 
+// [v22] 다이얼로그 키보드 가림 완전수정: AlertDialog는 별도 윈도우라 imePadding()이 IME inset을 못 받아 무시됨.
+// 다이얼로그 윈도우에 decorFitsSystemWindows=false를 걸면 imePadding()이 실제 작동 → 저장 버튼이 키보드 위로 올라옴.
+@Composable
+private fun DialogImeFix() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(view) {
+        var p: android.view.ViewParent? = view.parent
+        var win: android.view.Window? = null
+        while (p != null) {
+            if (p is androidx.compose.ui.window.DialogWindowProvider) { win = p.window; break }
+            p = p.parent
+        }
+        win?.let {
+            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, false)
+        }
+    }
+}
+
 // 운행/콜 공유 — 브랜딩 문구 + (등록된 오픈방이 있으면) 복사+방 열기 1터치, 없으면 공유시트
 private fun shareTrip(context: android.content.Context, origin: String, dest: String, hour: String, minute: String, fare: String) {
     val prefs = context.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
@@ -299,10 +318,14 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
 
     // 직접추가
     if (showManualDialog) {
-        AlertDialog(onDismissRequest = { showManualDialog = false },
-            title = { Text(if (isReportMode) "콜 제보" else "운행 추가", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column(modifier = Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showManualDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            DialogImeFix()
+            BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+              val scrollMaxH = (maxHeight - 150.dp).coerceIn(140.dp, 440.dp)
+              Surface(shape = RoundedCornerShape(20.dp), color = AppTheme.card, modifier = Modifier.fillMaxWidth(0.94f)) {
+              Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (isReportMode) "콜 제보" else "운행 추가", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Column(modifier = Modifier.heightIn(max = scrollMaxH).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // [v6] 날짜 선택 - 지난 날 운행도 입력 가능 (기본=오늘)
                 if (!isReportMode) {
                     Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
@@ -353,8 +376,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                         }; showManualDialog = false; val savedDate = manualDate; val savedHour = manualHour; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { val effH = if (savedHour.isNotEmpty()) (savedHour.toIntOrNull() ?: 0) else Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY); val sdfB = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdfB.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val bizCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); bizCal.time = sdfB.parse(savedDate)!!; if (effH < dayStartHour) bizCal.add(Calendar.DAY_OF_MONTH, -1); val bizDate = sdfB.format(bizCal.time); if (bizDate == todayStr) { dateFilter = "오늘"; customDate = "" } else { customDate = bizDate; dateFilter = "날짜선택" } }; loadData() } catch (e: Exception) { showManualDialog = false } } }
                     }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
-            } },
-            confirmButton = { }, containerColor = AppTheme.card)
+              }
+              }
+            }
+        }
     }
 
     fun loadExpenses() {
@@ -378,10 +403,14 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
 
     // 지출 추가 다이얼로그
     if (showExpenseDialog) {
-        AlertDialog(onDismissRequest = { showExpenseDialog = false },
-            title = { Text("지출 추가", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column(modifier = Modifier.imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Column(modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showExpenseDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            DialogImeFix()
+            BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+              val scrollMaxH = (maxHeight - 150.dp).coerceIn(140.dp, 440.dp)
+              Surface(shape = RoundedCornerShape(20.dp), color = AppTheme.card, modifier = Modifier.fillMaxWidth(0.94f)) {
+              Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("지출 추가", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Column(modifier = Modifier.heightIn(max = scrollMaxH).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // [v6] 지출 날짜 선택 (기본=오늘)
                 Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 OutlinedButton(onClick = { showExpenseDatePicker = true }, modifier = Modifier.fillMaxWidth(),
@@ -430,8 +459,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                             }; showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses() } catch (e: Exception) { showExpenseDialog = false } } }
                     }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
-            } },
-            confirmButton = { }, containerColor = AppTheme.card)
+              }
+              }
+            }
+        }
     }
 
     // 지출 삭제 확인

@@ -46,6 +46,25 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 private const val SETTINGS_SERVER = Config.SERVER_URL
+
+// [v22] 다이얼로그 키보드 가림 완전수정: AlertDialog는 별도 윈도우라 imePadding()이 IME inset을 못 받아 무시됨.
+// 다이얼로그 윈도우에 decorFitsSystemWindows=false를 걸면 imePadding()이 실작동 → 입력칸/저장버튼이 키보드 위로.
+@Composable
+private fun DialogImeFix() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(view) {
+        var p: android.view.ViewParent? = view.parent
+        var win: android.view.Window? = null
+        while (p != null) {
+            if (p is androidx.compose.ui.window.DialogWindowProvider) { win = p.window; break }
+            p = p.parent
+        }
+        win?.let {
+            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, false)
+        }
+    }
+}
 // 무료 버전 플래그: true면 자동화(접근성/알림 등) 권한 카드 숨김. 유료판 낼 때 false로.
 private const val IS_FREE_VERSION = true
 // 오픈톡방 링크 (버그·제안 제보방)
@@ -1052,7 +1071,8 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
         val payPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> if (uri != null) runPayOcr(uri) }
         AlertDialog(onDismissRequest = { showPayDialog = false },
             title = { Text("급여 공제 (명세서 기준)", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            text = { Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DialogImeFix()
                 Text("급여명세서에 적힌 월 고정 항목을 넣으면 예상 월급이 정확해져요. 회사마다 달라요.", fontSize = 12.sp, color = muted)
                 Button(onClick = { payPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
                     Text("📷 명세서 사진으로 자동 채우기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
