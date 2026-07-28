@@ -91,7 +91,7 @@ class ScreenCaptureService : Service() {
                 var bmp = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888)
                 bmp.copyPixelsFromBuffer(buffer)
                 if (bmp.width != w) bmp = Bitmap.createBitmap(bmp, 0, 0, w, h)
-                val stamped = watermark(bmp)
+                val stamped = watermark(cropForShare(bmp))
                 shareImage(stamped)
             } catch (e: Exception) {
                 toast("이미지 처리 실패")
@@ -101,6 +101,21 @@ class ScreenCaptureService : Service() {
                 stopSelfSafe()
             }
         }, handler)
+    }
+
+    /**
+     * 공유용 크롭 — 플랫폼 콜 팝업(상단 카드)만 남기고 잘라 가볍게.
+     * 프리셋(높이 프랙션)으로 저장·조정: shot_crop_top / shot_crop_bottom (기본 카카오T용).
+     * 플랫폼마다 위치가 달라 프리셋을 바꿔 대응(추후 앱별 자동선택). shot_crop_on=false면 전체 화면.
+     */
+    private fun cropForShare(src: Bitmap): Bitmap {
+        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("shot_crop_on", true)) return src
+        val topF = prefs.getFloat("shot_crop_top", 0.04f).coerceIn(0f, 0.9f)
+        val botF = prefs.getFloat("shot_crop_bottom", 0.52f).coerceIn(topF + 0.05f, 1f)
+        val top = (src.height * topF).toInt().coerceIn(0, src.height - 1)
+        val bottom = (src.height * botF).toInt().coerceIn(top + 1, src.height)
+        return try { Bitmap.createBitmap(src, 0, top, src.width, bottom - top) } catch (e: Exception) { src }
     }
 
     /** 콜레이더 브랜드 워터마크 (하단 반투명 바) — 어디에 공유되든 우리 이름이 박힘 */
