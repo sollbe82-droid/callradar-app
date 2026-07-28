@@ -144,8 +144,8 @@
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
 
-        <!-- [v23] 알림 자동캡처 — 택시앱 완료 알림에서 금액 자동 추출→미입력 운행 자동 반영("손 안 가는 앱"의 핵심).
-             주의: 다른 앱 알림 읽기라 플레이스토어 심사 민감. 옵트인 + 명확한 고지/개인정보처리방침 필요. -->
+        <!-- [v23][스토어버전 제외] 알림 자동캡처(CallCaptureService) — 자동화 차수(phase-2)에서만 등록.
+             다른 앱 알림 읽기라 첫 심사엔 넣지 않음. phase-2 때 아래 주석 해제 + Config.NOTIF_CAPTURE_ENABLED=true.
         <service
             android:name=".CallCaptureService"
             android:exported="false"
@@ -155,6 +155,7 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+        -->
     </application>
 
 </manifest>

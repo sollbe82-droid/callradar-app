@@ -23,18 +23,21 @@ class CallCaptureService : NotificationListenerService() {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     companion object {
+        // 택시앱(자동결제·요금 알림용)
         val TARGET_PACKAGES = setOf(
             "com.kakao.taxi.driver",        // 카카오T 기사용
             "com.ubercab.driver",           // 우버 기사
             "com.thinkware.inaviair.tmoney" // 티머니GO 기사(추정)
         )
-        // "12,000원" / "12000 원" 등에서 금액 추출
-        private val AMOUNT = Regex("([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,6})\\s*원")
+        // [검증됨/옛 TmoneyNotificationService] 금액은 카드결제 알림 "[택시승인] 국민카드 13,640원"에서도 옴 → 문구로도 잡음.
+        // 금액은 여러 개면 마지막(총액)을 씀.
+        private val AMOUNT = Regex("([0-9,]+)\\s*원")
+        @Volatile private var lastFare = 0
+        @Volatile private var lastTime = 0L
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val pkg = sbn?.packageName ?: return
-        if (pkg !in TARGET_PACKAGES) return
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("notif_capture_on", false)) return
         val userId = prefs.getString("user_id", "") ?: ""
@@ -45,7 +48,20 @@ class CallCaptureService : NotificationListenerService() {
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
         val full = "$title\n$text\n$big"
-        val amount = AMOUNT.find(full)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+
+        // 캡처 대상: (1) 카드 택시결제 알림 "[택시승인]/[택시결제]"(패키지 무관) (2) 택시앱 결제·요금 알림
+        val isTaxiPay = full.contains("택시승인") || full.contains("택시결제")
+        val isPlatformPay = pkg in TARGET_PACKAGES && (full.contains("결제") || full.contains("요금") || full.contains("완료"))
+        if (!isTaxiPay && !isPlatformPay) return
+
+        val amount = AMOUNT.findAll(full).lastOrNull()?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            ?.takeIf { it in 1000..500000 }
+        // 쿨다운: 같은 금액 60초 내 중복 무시
+        val now = System.currentTimeMillis()
+        if (amount != null) {
+            if (amount == lastFare && now - lastTime < 60000L) return
+            lastFare = amount; lastTime = now
+        }
 
         scope.launch {
             try {

@@ -573,8 +573,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
             }
 
-            // [v23] 금액 자동 입력(알림 캡처) — "손 안 가는 앱"의 핵심. 카카오T·우버 완료 알림 → 금액 자동 반영. 베타·옵트인.
-            run {
+            // [v23] 금액 자동 입력(알림 캡처) — "손 안 가는 앱"의 핵심. 자동화 차수(phase-2)에서만 노출(첫 심사 리스크 회피).
+            if (Config.NOTIF_CAPTURE_ENABLED) run {
                 var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
                 Card(colors = CardDefaults.cardColors(containerColor = if (capOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

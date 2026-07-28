@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 // 서버 주소 한 곳 관리 — 바뀌면 여기 한 줄만 수정
 object Config {
     const val SERVER_URL = "https://callradar-server.onrender.com"
+    // [v23] 알림 자동캡처(금액 자동입력) 노출 플래그. 스토어 첫 심사(v18/19)=false(심사 리스크).
+    // 자동화 차수(phase-2)에서 true + Manifest의 CallCaptureService 주석 해제.
+    const val NOTIF_CAPTURE_ENABLED = false
 }
 
 // [v17] 플랫폼 수수료 소수점 지원. 기존엔 Int(putInt)로 저장돼 있어서
