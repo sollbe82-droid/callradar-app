@@ -312,7 +312,7 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
                         }
                         showLogoutDialog = true
-                    }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 4; openSettleTick++ })
+                    }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 4; openSettleTick++ }, onToggleFloating = { on -> if (on) startFloatingButton() else stopFloatingButton() }, isOverlayGranted = { isOverlayGranted() })
                     1 -> com.callradar.app.screen.RadarScreen(userId = userId)
                     2 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ })
                     3 -> com.callradar.app.screen.AirportScreen()

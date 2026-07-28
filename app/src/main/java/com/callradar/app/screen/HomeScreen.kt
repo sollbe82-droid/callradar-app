@@ -172,7 +172,7 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
 }
 
 @Composable
-fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}, onNavMore: (String) -> Unit = {}) {
+fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}, onNavMore: (String) -> Unit = {}, onToggleFloating: (Boolean) -> Unit = {}, isOverlayGranted: () -> Boolean = { false }) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B)
     val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val context = LocalContext.current
@@ -549,6 +549,24 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Text("\uD83D\uDCA1 설정에서 사납금·가스단가·연차를 조정하면 더 정확해져요", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
                         }
+                    }
+                }
+            }
+
+            // [v23] 홈 상단 — 운행 자동 기록(플로팅) 토글. "버튼만 누르면 자동" 약속 실현 + 첫 운행 넛지(활성화)
+            run {
+                var floatingOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+                Card(colors = CardDefaults.cardColors(containerColor = if (floatingOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (floatingOn) "🟢 운행 자동 기록 켜짐" else "🚕 운행 자동 기록", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text(if (floatingOn) "화면 위 버튼 → 출발·도착이 자동 기록돼요" else "버튼만 누르면 출발·도착이 자동 기록돼요. 첫 운행부터 켜보세요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        Switch(checked = floatingOn, onCheckedChange = { on ->
+                            onToggleFloating(on)
+                            floatingOn = if (on) isOverlayGranted() else false  // 권한 없으면 설정창 열리고 아직 꺼짐 유지
+                            com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "home")
+                        })
                     }
                 }
             }
