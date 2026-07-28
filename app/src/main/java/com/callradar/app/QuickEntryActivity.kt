@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -47,9 +48,16 @@ class QuickEntryActivity : ComponentActivity() {
 private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () -> Unit) {
     val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
     val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    val qPrefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     var fare by remember { mutableStateOf("") }
-    var platform by remember { mutableStateOf("") }
-    var payType by remember { mutableStateOf("card") }
+    var tip by remember { mutableStateOf("") }
+    var promo by remember { mutableStateOf("") }
+    var promoType by remember { mutableStateOf("프로모션") }
+    // 마지막 쓴 플랫폼·결제 기억 (다중플랫폼 기사도 매번 안 고르게)
+    var platform by remember { mutableStateOf(qPrefs.getString("last_platform", "") ?: "") }
+    var payType by remember { mutableStateOf(qPrefs.getString("last_paytype", "card") ?: "card") }
+    var showExtra by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onClose) {
@@ -84,6 +92,27 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () ->
                     }
                 }
 
+                Spacer(Modifier.height(10.dp))
+                if (!showExtra) {
+                    TextButton(onClick = { showExtra = true }, contentPadding = PaddingValues(vertical = 2.dp)) { Text("+ 추가금·팁", color = accent, fontSize = 13.sp) }
+                } else {
+                    Text("추가금", fontSize = 12.sp, color = muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                        listOf("프로모션", "포인트콜").forEach { t -> FilterChip(selected = promoType == t, onClick = { promoType = t }, label = { Text(t, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
+                    }
+                    OutlinedTextField(value = promo, onValueChange = { promo = it.filter { c -> c.isDigit() } }, label = { Text("추가금 (원)", color = muted) }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    Spacer(Modifier.height(8.dp))
+                    Text("팁", fontSize = 12.sp, color = muted)
+                    OutlinedTextField(value = tip, onValueChange = { tip = it.filter { c -> c.isDigit() } }, label = { Text("팁 (원)", color = muted) }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFBBF24), unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                        listOf(1000, 2000, 3000).forEach { amt ->
+                            OutlinedButton(onClick = { val cur = tip.toIntOrNull() ?: 0; tip = (cur + amt).toString() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 6.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24))) { Text("팁+${amt / 1000}천", fontSize = 11.sp) }
+                        }
+                    }
+                }
+                val liveTotal = (fare.toIntOrNull() ?: 0) + (tip.toIntOrNull() ?: 0) + (promo.toIntOrNull() ?: 0)
+                if (liveTotal > 0) { Spacer(Modifier.height(10.dp)); Text("합계 ${String.format("%,d", liveTotal)}원", fontSize = 15.sp, color = accent, fontWeight = FontWeight.Bold) }
+
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("나중에", color = muted) }
@@ -91,15 +120,19 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () ->
                         if (busy) return@Button
                         busy = true
                         val f = fare.toIntOrNull() ?: 0
+                        val t = tip.toIntOrNull() ?: 0
+                        val pr = promo.toIntOrNull() ?: 0
+                        qPrefs.edit().putString("last_platform", platform).putString("last_paytype", payType).apply()
                         scope.launch {
                             try {
                                 withContext(Dispatchers.IO) {
-                                    val json = JSONObject().apply { put("user_id", userId); if (f > 0) put("fare", f); if (platform.isNotEmpty()) put("platform", platform); put("payment_type", payType) }
+                                    val json = JSONObject().apply { put("user_id", userId); if (f > 0) put("fare", f); if (t > 0) put("tip", t); if (pr > 0) { put("promo", pr); put("promo_type", promoType) }; if (platform.isNotEmpty()) put("platform", platform); put("payment_type", payType) }
                                     val conn = (URL("${Config.SERVER_URL}/api/trips/$tripId").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
                                     conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                                     conn.responseCode
                                 }
-                            } catch (e: Exception) {}
+                                com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = true, meta = platform)
+                            } catch (e: Exception) { com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = false) }
                             onClose()
                         }
                     }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(10.dp)) {

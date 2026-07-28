@@ -312,15 +312,16 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
                         }
                         showLogoutDialog = true
-                    }, onOpenSettings = { moreRoute = ""; selectedTab = 3; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 3; openSettleTick++ })
-                    1 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { moreRoute = ""; selectedTab = 3; openSettleTick++ })
-                    2 -> com.callradar.app.screen.AirportScreen()
-                    3 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick, openRoute = moreRoute)
+                    }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 4; openSettleTick++ })
+                    1 -> com.callradar.app.screen.RadarScreen(userId = userId)
+                    2 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ })
+                    3 -> com.callradar.app.screen.AirportScreen()
+                    4 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick, openRoute = moreRoute)
                 }
             }
             NavigationBar(containerColor = card) {
-               listOf("홈" to "🏠", "기록" to "📋", "공항" to "✈️", "더보기" to "⋯").forEachIndexed { index, (title, emoji) ->
-                    NavigationBarItem(selected = selectedTab == index, onClick = { if (index == 0) { homeRefreshKey++ }; selectedTab = index }, icon = { Text(emoji, fontSize = 20.sp) }, label = { Text(title, fontSize = 11.sp, color = if (selectedTab == index) Color(0xFFF59E0B) else Color(0xFF6B7280)) })
+               listOf("홈" to "🏠", "레이더" to "📡", "기록" to "📋", "공항" to "✈️", "더보기" to "⋯").forEachIndexed { index, (title, emoji) ->
+                    NavigationBarItem(selected = selectedTab == index, onClick = { if (index == 0) { homeRefreshKey++ }; selectedTab = index; com.callradar.app.Telemetry.log(this@MainActivity, "open_tab", listOf("home","radar","records","airport","more").getOrElse(index) { "" }) }, icon = { Text(emoji, fontSize = 20.sp) }, label = { Text(title, fontSize = 11.sp, color = if (selectedTab == index) Color(0xFFF59E0B) else Color(0xFF6B7280)) })
                 }
             }
         }

@@ -634,7 +634,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Spacer(Modifier.height(12.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); com.callradar.app.Telemetry.log(context, "shift_start", "home"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
@@ -667,6 +667,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                         workStart = 0L; pausedTotal = 0L; pauseStart = 0L
                                         prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
                                         stopMeter()
+                                        com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
                                         showEndSummary = true
                                     }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
                                 }
@@ -727,9 +728,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val runBlock: (String) -> Unit = { id ->
                     when (id) {
                         "import" -> com.callradar.app.ImageImportActivity.start(context)
-                        "records" -> onNavTab(1)
-                        "airport" -> onNavTab(2)
-                        "more" -> onNavTab(3)
+                        "records" -> onNavTab(2)
+                        "airport" -> onNavTab(3)
+                        "more" -> onNavTab(4)
+                        "radar" -> onNavTab(1)
                         "namecard" -> context.startActivity(Intent(context, com.callradar.app.NameCardActivity::class.java))
                         "settings" -> onOpenSettings()
                         "ai" -> onNavMore("ai_assistant")

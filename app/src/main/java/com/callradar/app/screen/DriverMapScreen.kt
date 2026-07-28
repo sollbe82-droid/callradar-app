@@ -33,7 +33,7 @@ import kotlin.math.roundToInt
 private const val MAP_SERVER = Config.SERVER_URL
 
 @Composable
-fun DriverMapScreen(userId: String, onBack: () -> Unit) {
+fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = false) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val accent = Color(0xFFF5A623)
@@ -46,10 +46,12 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit) {
     val hasKey = BuildConfig.KAKAO_NATIVE_KEY.isNotBlank()
 
     Column(Modifier.fillMaxSize().background(AppTheme.bg)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("‹ 더보기", color = accent, fontSize = 15.sp) }
-            Spacer(Modifier.width(6.dp))
-            Text("🗺️ 내 운행 지도", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        if (!embedded) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("‹ 더보기", color = accent, fontSize = 15.sp) }
+                Spacer(Modifier.width(6.dp))
+                Text("🗺️ 내 운행 지도", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
         }
 
         if (!hasKey) { SetupGuide(accent, muted); return }

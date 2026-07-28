@@ -138,6 +138,8 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     var manualDest by remember { mutableStateOf("") }
     var manualFare by remember { mutableStateOf("") }
     var manualTip by remember { mutableStateOf("") }
+    var manualPromo by remember { mutableStateOf("") }
+    var manualPromoType by remember { mutableStateOf("프로모션") }
     var manualHour by remember { mutableStateOf("") }
     var manualPlatform by remember { mutableStateOf("길빵/예약") }
     var manualMinute by remember { mutableStateOf("") }
@@ -159,6 +161,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     val scope = rememberCoroutineScope()
 
     val focusManager = LocalFocusManager.current
+    val teleCtx = androidx.compose.ui.platform.LocalContext.current
     fun getFilterDate(): String? {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
         // [v22] 홈 /api/today와 동일한 영업일 경계 사용: now에서 dayStart시간을 빼 현재 영업일을 구함(야간기사 홈-기록 "오늘" 불일치 해소)
@@ -382,6 +385,16 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                     OutlinedButton(onClick = { manualFare = "" }, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = muted)) { Text("C", fontSize = 12.sp) }
                 }
+                if (!isReportMode) {
+                    // 추가금(프로모션/포인트콜) — 선택. 플랫폼 이벤트 보너스. 수익에 합산됨
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("추가금", fontSize = 13.sp, color = Color(0xFF9CA3AF))
+                        listOf("프로모션", "포인트콜").forEach { t -> FilterChip(selected = manualPromoType == t, onClick = { manualPromoType = t }, label = { Text(t, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
+                    }
+                    OutlinedTextField(value = manualPromo, onValueChange = { manualPromo = it.filter { c -> c.isDigit() } }, label = { Text("추가금 (선택, 원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    val liveTotal = (manualFare.toIntOrNull() ?: 0) + (manualTip.toIntOrNull() ?: 0) + (manualPromo.toIntOrNull() ?: 0)
+                    if (liveTotal > 0) Text("합계 ${String.format("%,d", liveTotal)}원", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
+                }
               }
                 // [v20] 저장/취소: 필드 스크롤 영역 밖 + imePadding 안 → 키보드가 떠도, 스크롤 안 해도 항상 보임
                 Spacer(Modifier.height(6.dp))
@@ -389,10 +402,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     OutlinedButton(onClick = { showManualDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
                     Button(onClick = {
                         if (manualDest.isNotBlank() || (manualFare.toIntOrNull() ?: 0) > 0) { scope.launch { try { withContext(Dispatchers.IO) {
-                            val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest.ifBlank { "미정" }); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0); put("tip", if (manualTip.isNotEmpty()) manualTip.toInt() else 0); put("payment_type", if (isReportMode) "report" else manualPaymentType); put("source", if (isReportMode) "report" else "manual")
+                            val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest.ifBlank { "미정" }); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0); put("tip", if (manualTip.isNotEmpty()) manualTip.toInt() else 0); put("promo", if (manualPromo.isNotEmpty()) manualPromo.toInt() else 0); put("promo_type", manualPromoType); put("payment_type", if (isReportMode) "report" else manualPaymentType); put("source", if (isReportMode) "report" else "manual")
                                 run { val nowCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); val h = (if (manualHour.isNotEmpty()) manualHour else nowCal.get(Calendar.HOUR_OF_DAY).toString()).padStart(2, '0'); val m = (if (manualMinute.isNotEmpty()) manualMinute else nowCal.get(Calendar.MINUTE).toString()).padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${manualDate}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
                             }; val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
-                        }; showManualDialog = false; val savedDate = manualDate; val savedHour = manualHour; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { val effH = if (savedHour.isNotEmpty()) (savedHour.toIntOrNull() ?: 0) else Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY); val sdfB = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdfB.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val bizCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); bizCal.time = sdfB.parse(savedDate)!!; if (effH < dayStartHour) bizCal.add(Calendar.DAY_OF_MONTH, -1); val bizDate = sdfB.format(bizCal.time); if (bizDate == todayStr) { dateFilter = "오늘"; customDate = "" } else { customDate = bizDate; dateFilter = "날짜선택" } }; loadData() } catch (e: Exception) { showManualDialog = false } } }
+                        }; com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = true, meta = if (isReportMode) "report" else manualPlatform); showManualDialog = false; val savedDate = manualDate; val savedHour = manualHour; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualPromo = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { val effH = if (savedHour.isNotEmpty()) (savedHour.toIntOrNull() ?: 0) else Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY); val sdfB = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdfB.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val bizCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); bizCal.time = sdfB.parse(savedDate)!!; if (effH < dayStartHour) bizCal.add(Calendar.DAY_OF_MONTH, -1); val bizDate = sdfB.format(bizCal.time); if (bizDate == todayStr) { dateFilter = "오늘"; customDate = "" } else { customDate = bizDate; dateFilter = "날짜선택" } }; loadData() } catch (e: Exception) { com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = false); showManualDialog = false } } }
                     }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
               }
@@ -500,7 +513,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
-                if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+                if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualPromo = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
                 if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
             }
         }

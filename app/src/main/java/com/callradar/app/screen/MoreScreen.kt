@@ -111,7 +111,7 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
     when (route) {
         R_HOME -> MoreHome(
             userId = userId, onLogout = onLogout, onOpenDailySettlement = onOpenDailySettlement,
-            onNavigate = { route = it }
+            onNavigate = { route = it; com.callradar.app.Telemetry.log(context, "open_feature", it) }
         )
         R_STATS -> MoreSubScreen("분석", onBack = { route = R_HOME }) { StatsScreen(userId = userId) }
         R_RANKING -> MoreSubScreen("랭킹", onBack = { route = R_HOME }) { RankingScreen(userId = userId) }
