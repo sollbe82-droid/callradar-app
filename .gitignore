@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+_test/*.png 
+_test/*.xml
