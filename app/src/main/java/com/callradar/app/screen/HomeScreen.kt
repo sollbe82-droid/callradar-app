@@ -106,10 +106,19 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
                     val cat = e.optString("category")
                     val durMin = when (cat) { "크루즈" -> 0; "야구", "스포츠" -> 180; else -> 150 }
                     val paLabel = if (cat == "크루즈") "입항" else "파장"
+                    // [v22] start_at에 실제 공연 시각이 없고 날짜만(자정) 있으면, 유형별 통상 시작시각으로 대체 → 파장 현실화(구라 방지: ≈근사치)
+                    val rawStart = e.optString("start_at")
+                    val noRealTime = !rawStart.contains("T") || rawStart.substringAfter("T").startsWith("00:00")
                     val paTime = try {
                         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("UTC")
-                        val d = sdf.parse(e.optString("start_at").take(19))!!
-                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d; cal.add(Calendar.MINUTE, durMin)
+                        val d = sdf.parse(rawStart.take(19))!!
+                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.time = d
+                        if (noRealTime && cat != "크루즈") {
+                            // 통상 공연 시작(KST): 야구/스포츠 18:30, 그 외(콘서트/뮤지컬/페스티벌/공연) 19:00
+                            val (sh, sm) = if (cat in listOf("야구", "스포츠")) 18 to 30 else 19 to 0
+                            cal.set(Calendar.HOUR_OF_DAY, sh); cal.set(Calendar.MINUTE, sm)
+                        }
+                        cal.add(Calendar.MINUTE, durMin)
                         SimpleDateFormat("HH:mm", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(cal.time)
                     } catch (ex: Exception) { "" }
                     val big = cat in listOf("야구", "콘서트", "스포츠", "크루즈")  // 규모 큰 게 확실한 것만(축제는 천차만별→표기 안 함, 구라 방지)

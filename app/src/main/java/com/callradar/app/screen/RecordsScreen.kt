@@ -161,7 +161,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     val focusManager = LocalFocusManager.current
     fun getFilterDate(): String? {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
-        return when (dateFilter) { "오늘" -> sdf.format(Date()); "어제" -> { val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.add(Calendar.DAY_OF_MONTH, -1); sdf.format(cal.time) }; "날짜선택" -> customDate.ifEmpty { null }; else -> null }
+        // [v22] 홈 /api/today와 동일한 영업일 경계 사용: now에서 dayStart시간을 빼 현재 영업일을 구함(야간기사 홈-기록 "오늘" 불일치 해소)
+        return when (dateFilter) {
+            "오늘" -> { val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.add(Calendar.HOUR_OF_DAY, -dayStartHour); sdf.format(cal.time) }
+            "어제" -> { val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); cal.add(Calendar.HOUR_OF_DAY, -dayStartHour); cal.add(Calendar.DAY_OF_MONTH, -1); sdf.format(cal.time) }
+            "날짜선택" -> customDate.ifEmpty { null }
+            else -> null
+        }
     }
 
     fun loadData() {
