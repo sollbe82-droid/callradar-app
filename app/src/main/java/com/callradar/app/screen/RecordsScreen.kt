@@ -264,9 +264,14 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
 
     // 수정 다이얼로그
     if (showEditDialog && editingTrip != null) {
-        AlertDialog(onDismissRequest = { showEditDialog = false },
-            title = { Text("운행 기록 수정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showEditDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            DialogImeFix()
+            BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+              val scrollMaxH = (maxHeight - 150.dp).coerceIn(140.dp, 440.dp)
+              Surface(shape = RoundedCornerShape(20.dp), color = AppTheme.card, modifier = Modifier.fillMaxWidth(0.94f)) {
+              Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("운행 기록 수정", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Column(modifier = Modifier.heightIn(max = scrollMaxH).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("시간 수정", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 // [v18] 날짜 지정
                 Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
@@ -285,9 +290,17 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카드" to "card", "현금" to "cash", "자동결제" to "auto").forEach { (label, value) -> FilterChip(selected = editPaymentType == value, onClick = { editPaymentType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = editPlatform == p, onClick = { editPlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
-            } },
-            confirmButton = { Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", (editFare.filter { it.isDigit() }.toIntOrNull() ?: 0)); put("payment_type", editPaymentType); if (editPlatform.isNotEmpty()) put("platform", editPlatform); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { try { val today = editDate; val h = editHour.filter { it.isDigit() }.padStart(2, '0'); val m = editMinute.filter { it.isDigit() }.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } catch (e: Exception) {} } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode }; showEditDialog = false; kotlinx.coroutines.delay(500); loadData() } catch (e: Exception) { showEditDialog = false } } }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { OutlinedButton(onClick = { shareTrip(ctx, editOrigin, editDest, editHour, editMinute, editFare) }, contentPadding = PaddingValues(horizontal = 10.dp)) { Text("🔗 공유", color = accent, fontSize = 13.sp) }; OutlinedButton(onClick = { showEditDialog = false }) { Text("취소") } } }, containerColor = AppTheme.card)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { shareTrip(ctx, editOrigin, editDest, editHour, editMinute, editFare) }, contentPadding = PaddingValues(horizontal = 10.dp), shape = RoundedCornerShape(10.dp)) { Text("🔗 공유", color = accent, fontSize = 13.sp) }
+                    OutlinedButton(onClick = { showEditDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
+                    Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", (editFare.filter { it.isDigit() }.toIntOrNull() ?: 0)); put("payment_type", editPaymentType); if (editPlatform.isNotEmpty()) put("platform", editPlatform); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { try { val today = editDate; val h = editHour.filter { it.isDigit() }.padStart(2, '0'); val m = editMinute.filter { it.isDigit() }.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } catch (e: Exception) {} } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode }; showEditDialog = false; kotlinx.coroutines.delay(500); loadData() } catch (e: Exception) { showEditDialog = false } } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
+                }
+              }
+              }
+            }
+        }
     }
 
     // 빠른 금액 입력
