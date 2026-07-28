@@ -23,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -715,15 +716,53 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     if (showShareCfg) {
         var roomInput by remember { mutableStateOf(shareRoom) }
         var promoInput by remember { mutableStateOf(sharePromo) }
+        val cropPlatforms = listOf("카카오T", "우버", "티머니GO", "기타")
+        var cropOn by remember { mutableStateOf(prefs.getBoolean("shot_crop_on", true)) }
+        var cropPlat by remember { mutableStateOf(prefs.getString("shot_platform", "카카오T") ?: "카카오T") }
+        var cropTop by remember { mutableStateOf(prefs.getFloat("shot_crop_top_$cropPlat", 0.04f)) }
+        var cropBot by remember { mutableStateOf(prefs.getFloat("shot_crop_bottom_$cropPlat", 0.52f)) }
+        val previewBmp = remember { val f = java.io.File(context.cacheDir, "shares/last_full.png"); if (f.exists()) android.graphics.BitmapFactory.decodeFile(f.absolutePath) else null }
         AlertDialog(onDismissRequest = { showShareCfg = false },
             title = { Text("공유 설정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("공유를 누르면 문구가 자동복사되고 이 오픈방이 바로 열려요 (방에서 꾹→붙여넣기)", fontSize = 12.sp, color = muted)
                 OutlinedTextField(value = roomInput, onValueChange = { roomInput = it }, label = { Text("오픈방 주소 (open.kakao.com/...)", color = muted) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 OutlinedTextField(value = promoInput, onValueChange = { promoInput = it.take(60) }, label = { Text("홍보 문구/링크 (선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+
+                androidx.compose.material3.Divider(color = Color(0xFF374151))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📸 스샷 크롭 (콜 팝업만 잘라 공유)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = cropOn, onCheckedChange = { cropOn = it })
+                }
+                Text("플랫폼마다 콜 팝업 위치가 달라요. 플랫폼 고르고 아래 슬라이더로 맞추면 각각 저장돼요.", fontSize = 11.sp, color = muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    cropPlatforms.forEach { p ->
+                        FilterChip(selected = cropPlat == p, onClick = {
+                            prefs.edit().putFloat("shot_crop_top_$cropPlat", cropTop).putFloat("shot_crop_bottom_$cropPlat", cropBot).apply()
+                            cropPlat = p; cropTop = prefs.getFloat("shot_crop_top_$p", 0.04f); cropBot = prefs.getFloat("shot_crop_bottom_$p", 0.52f)
+                        }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+                    }
+                }
+                if (previewBmp != null) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp).aspectRatio(previewBmp.width.toFloat() / previewBmp.height.toFloat())) {
+                        androidx.compose.foundation.Image(bitmap = previewBmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize())
+                        // 잘려나갈 위/아래를 어둡게, 남는 밴드만 밝게
+                        Column(Modifier.fillMaxSize()) {
+                            Box(Modifier.fillMaxWidth().weight(cropTop.coerceAtLeast(0.001f)).background(Color(0xCC000000)))
+                            Box(Modifier.fillMaxWidth().weight((cropBot - cropTop).coerceAtLeast(0.001f)).background(Color(0x33F59E0B)))
+                            Box(Modifier.fillMaxWidth().weight((1f - cropBot).coerceAtLeast(0.001f)).background(Color(0xCC000000)))
+                        }
+                    }
+                } else {
+                    Text("카카오T 콜 화면에서 '화면 스샷 공유'를 한 번 하면 여기 실제 미리보기가 떠요.", fontSize = 11.sp, color = accent)
+                }
+                Text("위 자르기 ${(cropTop * 100).toInt()}%", fontSize = 12.sp, color = muted)
+                androidx.compose.material3.Slider(value = cropTop, onValueChange = { cropTop = it.coerceIn(0f, cropBot - 0.05f) }, valueRange = 0f..0.9f)
+                Text("아래 자르기 ${(cropBot * 100).toInt()}%", fontSize = 12.sp, color = muted)
+                androidx.compose.material3.Slider(value = cropBot, onValueChange = { cropBot = it.coerceIn(cropTop + 0.05f, 1f) }, valueRange = 0.1f..1f)
                 Text("비워두면 공유 시 앱 선택창(카톡/밴드 등)이 떠요", fontSize = 11.sp, color = muted)
             } },
-            confirmButton = { Button(onClick = { shareRoom = roomInput.trim(); sharePromo = promoInput.trim(); prefs.edit().putString("share_room_url", shareRoom).putString("share_promo", sharePromo).apply(); showShareCfg = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            confirmButton = { Button(onClick = { shareRoom = roomInput.trim(); sharePromo = promoInput.trim(); prefs.edit().putString("share_room_url", shareRoom).putString("share_promo", sharePromo).putBoolean("shot_crop_on", cropOn).putString("shot_platform", cropPlat).putFloat("shot_crop_top_$cropPlat", cropTop).putFloat("shot_crop_bottom_$cropPlat", cropBot).apply(); showShareCfg = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showShareCfg = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 

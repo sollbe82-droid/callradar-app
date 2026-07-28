@@ -91,6 +91,8 @@ class ScreenCaptureService : Service() {
                 var bmp = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888)
                 bmp.copyPixelsFromBuffer(buffer)
                 if (bmp.width != w) bmp = Bitmap.createBitmap(bmp, 0, 0, w, h)
+                // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
+                try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
                 val stamped = watermark(cropForShare(bmp))
                 shareImage(stamped)
             } catch (e: Exception) {
@@ -111,8 +113,9 @@ class ScreenCaptureService : Service() {
     private fun cropForShare(src: Bitmap): Bitmap {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("shot_crop_on", true)) return src
-        val topF = prefs.getFloat("shot_crop_top", 0.04f).coerceIn(0f, 0.9f)
-        val botF = prefs.getFloat("shot_crop_bottom", 0.52f).coerceIn(topF + 0.05f, 1f)
+        val plat = prefs.getString("shot_platform", "카카오T") ?: "카카오T"
+        val topF = prefs.getFloat("shot_crop_top_$plat", 0.04f).coerceIn(0f, 0.9f)
+        val botF = prefs.getFloat("shot_crop_bottom_$plat", 0.52f).coerceIn(topF + 0.05f, 1f)
         val top = (src.height * topF).toInt().coerceIn(0, src.height - 1)
         val bottom = (src.height * botF).toInt().coerceIn(top + 1, src.height)
         return try { Bitmap.createBitmap(src, 0, top, src.width, bottom - top) } catch (e: Exception) { src }
