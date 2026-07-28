@@ -82,6 +82,7 @@ private const val R_EVENTS = "events"
 private const val R_BOOKINGS = "bookings"
 private const val R_AI = "ai_assistant"
 private const val R_MAP = "driver_map"
+private const val R_KNOWHOW = "knowhow"
 
 // 한 항목(타일/행 공통 데이터). onClick으로 동작.
 private data class MoreEntry(
@@ -141,6 +142,7 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
             AiAssistantView(userId = userId, context = context, accent = accent, muted = muted, card = card)
         }
         R_MAP -> DriverMapScreen(userId = userId, onBack = { route = R_HOME })
+        R_KNOWHOW -> KnowHowScreen(userId = userId, onBack = { route = R_HOME })
     }
 }
 
@@ -634,6 +636,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
         )),
         MoreGroup("정보", listOf(
             MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) },
+            MoreEntry("📝", "내 노하우", "내가 아는 콜 패턴을 적어두면 비서가 알려줘요", right = "씨앗", chevron = true) { onNavigate(R_KNOWHOW) },
             MoreEntry("🗺️", "내 운행 지도", "내 출발지 밀도를 지도로 (카카오맵)", right = "지도", chevron = true) { onNavigate(R_MAP) },
             MoreEntry("📈", "사용성 개선 참여 (익명)", "익명 통계로 앱을 함께 개선 · 개인정보 없음", right = if (telemetryOn) "참여중" else "끔", rightKind = if (telemetryOn) 1 else 2) { telemetryOn = !telemetryOn; prefs.edit().putBoolean("telemetry_on", telemetryOn).apply() },
             MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) },
