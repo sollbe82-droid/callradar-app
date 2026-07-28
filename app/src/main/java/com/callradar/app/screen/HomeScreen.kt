@@ -202,6 +202,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
     var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var homeLoaded by remember { mutableStateOf(false) }   // [v22] 최초 로딩 완료 전엔 매출 카드에 스피너(0원/-사납금 깜빡임 방지)
     var showGoalDialog by remember { mutableStateOf(false) }
     var goalInput by remember { mutableStateOf("") }
     var sanapInput by remember { mutableStateOf("") }
@@ -306,8 +307,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } catch (e: Exception) { }
 
                 errorMessage = null
-                isLoading = false
-            } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false }
+                isLoading = false; homeLoaded = true
+            } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false; homeLoaded = true }
         }
     }
 
@@ -402,6 +403,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             }
             // [v21 재설계] 오늘 매출 — 홈 최상단(오늘 중심)
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                if (!homeLoaded) {
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
+                            Spacer(Modifier.height(10.dp))
+                            Text("오늘 매출 불러오는 중…", fontSize = 12.sp, color = muted)
+                        }
+                    }
+                } else
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
