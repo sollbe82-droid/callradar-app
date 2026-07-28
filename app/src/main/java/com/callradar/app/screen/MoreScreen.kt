@@ -244,6 +244,22 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         rhythmTotal = r.first; rhythmDay = r.second; rhythmHour = r.third
     }
+    // [v23] 내 노하우(씨앗) — 데이터 0이어도 개인 맞춤
+    var knowhow by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        val list = withContext(Dispatchers.IO) {
+            try {
+                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/knowhow/$userId").readText())
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    val head = listOfNotNull(o.optString("area").ifBlank { null }, o.optString("time_band").ifBlank { null }, o.optString("pattern").ifBlank { null }).joinToString(" · ")
+                    val nt = o.optString("note")
+                    (head + (if (nt.isNotBlank()) " — $nt" else "")).trim()
+                }.filter { it.isNotBlank() }
+            } catch (e: Exception) { emptyList() }
+        }
+        knowhow = list
+    }
     // [v21] 전체 기사 통합 — 지금 시간대 콜 잘 잡히는 곳 (2단계: 더 많은 데이터)
     var demandRows by remember { mutableStateOf(listOf<Triple<String, Int, Int>>()) }
     LaunchedEffect(Unit) {
@@ -360,6 +376,16 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                 Text("※ 아직 없는 분석을 있는 척하지 않습니다. 데이터가 먼저입니다.", fontSize = 11.sp, color = muted)
                 HorizontalDivider(color = AppTheme.surface2)
                 Text("🎁 지금은 베타라 모든 기능이 무료입니다. 정식 출시 후엔 정밀 위치·귀로콜 자동감지 같은 일부 고급 기능만 구독으로 전환될 예정이고, 기본 기능(기록·동단위 수요·개인 리듬)은 계속 무료입니다. 베타에 함께해 주신 기사님껜 감사 혜택을 드려요.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+            }
+        }
+        // [v23] 내 노하우(씨앗) — 내가 적은 것을 비서가 그대로 짚어줌(데이터 0이어도)
+        if (knowhow.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("📝 내 노하우", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    knowhow.take(6).forEach { Text("• $it", fontSize = 13.sp, color = muted) }
+                    Text("더보기 → 내 노하우 에서 추가·수정", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                }
             }
         }
         // 내 운행 리듬 (본인 데이터, 표본 5건 이상일 때만 — 정직)
