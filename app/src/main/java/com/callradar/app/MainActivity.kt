@@ -76,6 +76,14 @@ class MainActivity : ComponentActivity() {
     // [v13] 플로팅 운행 버튼 제어
     fun isOverlayGranted(): Boolean = Settings.canDrawOverlays(this)
 
+    // [v23] 알림 자동캡처 — 알림 접근 권한 확인/요청
+    fun isNotifAccessGranted(): Boolean = try {
+        (Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: "").contains(packageName)
+    } catch (e: Exception) { false }
+    fun openNotifAccessSettings() {
+        try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (e: Exception) {}
+    }
+
     fun requestOverlayPermission() {
         try {
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
@@ -312,7 +320,7 @@ class MainActivity : ComponentActivity() {
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
                         }
                         showLogoutDialog = true
-                    }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 4; openSettleTick++ }, onToggleFloating = { on -> if (on) startFloatingButton() else stopFloatingButton() }, isOverlayGranted = { isOverlayGranted() })
+                    }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ }, onNavTab = { selectedTab = it }, onNavMore = { r -> moreRoute = r; selectedTab = 4; openSettleTick++ }, onToggleFloating = { on -> if (on) startFloatingButton() else stopFloatingButton() }, isOverlayGranted = { isOverlayGranted() }, onToggleNotifCapture = { on -> if (on && !isNotifAccessGranted()) openNotifAccessSettings() }, isNotifAccessGranted = { isNotifAccessGranted() })
                     1 -> com.callradar.app.screen.RadarScreen(userId = userId)
                     2 -> com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showDailySettlement = true }, onOpenSettings = { moreRoute = ""; selectedTab = 4; openSettleTick++ })
                     3 -> com.callradar.app.screen.AirportScreen()

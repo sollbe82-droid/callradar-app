@@ -172,7 +172,7 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
 }
 
 @Composable
-fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}, onNavMore: (String) -> Unit = {}, onToggleFloating: (Boolean) -> Unit = {}, isOverlayGranted: () -> Boolean = { false }) {
+fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -> Unit, onOpenSettings: () -> Unit = {}, onNavTab: (Int) -> Unit = {}, onNavMore: (String) -> Unit = {}, onToggleFloating: (Boolean) -> Unit = {}, isOverlayGranted: () -> Boolean = { false }, onToggleNotifCapture: (Boolean) -> Unit = {}, isNotifAccessGranted: () -> Boolean = { false }) {
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B)
     val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val context = LocalContext.current
@@ -568,6 +568,25 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             onToggleFloating(on)
                             floatingOn = if (on) isOverlayGranted() else false  // 권한 없으면 설정창 열리고 아직 꺼짐 유지
                             com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "home")
+                        })
+                    }
+                }
+            }
+
+            // [v23] 금액 자동 입력(알림 캡처) — "손 안 가는 앱"의 핵심. 카카오T·우버 완료 알림 → 금액 자동 반영. 베타·옵트인.
+            run {
+                var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
+                Card(colors = CardDefaults.cardColors(containerColor = if (capOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text(if (capOn) "카카오T·우버 완료 알림에서 금액이 자동 입력돼요" else "카카오T·우버 알림을 읽어 금액을 자동 입력 — 손 안 가게. (알림 접근 권한 필요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        Switch(checked = capOn, onCheckedChange = { on ->
+                            prefs.edit().putBoolean("notif_capture_on", on).apply()
+                            onToggleNotifCapture(on)
+                            capOn = if (on) isNotifAccessGranted() else false
+                            com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "home")
                         })
                     }
                 }
