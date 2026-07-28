@@ -617,6 +617,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val paused = pauseStart > 0L
                 // [v17][#5] 퇴근 요약 카드
                 var showEndSummary by remember { mutableStateOf(false) }
+                var showEndConfirm by remember { mutableStateOf(false) }   // [v23] 실수 퇴근 방지 확인
                 var sumGrossMin by remember { mutableStateOf(0L) }
                 var sumNetMin by remember { mutableStateOf(0L) }
                 var sumDistKm by remember { mutableStateOf(0f) }
@@ -624,8 +625,49 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var sumPerHour by remember { mutableStateOf(0) }
                 fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
+                // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
+                val endShiftNow = {
+                    val now = System.currentTimeMillis()
+                    val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
+                    val grossMs = (now - workStart).coerceAtLeast(0L)
+                    val startFare = prefs.getInt("work_start_fare", 0)
+                    val sFare = (todayFare - startFare).coerceAtLeast(0)
+                    val hrs = netMs / 3600000.0
+                    sumGrossMin = grossMs / 60000L
+                    sumNetMin = netMs / 60000L
+                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f
+                    sumFare = sFare
+                    sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
+                    try {
+                        val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
+                        log.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
+                        val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
+                        prefs.edit().putString("work_session_log", trimmed.toString()).apply()
+                    } catch (e: Exception) {}
+                    // 이어가기용 스냅샷 저장(잘못 퇴근 시 복구)
+                    prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
+                    workStart = 0L; pausedTotal = 0L; pauseStart = 0L
+                    prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    stopMeter()
+                    com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
+                    showEndSummary = true
+                }
                 LaunchedEffect(active, paused) {
                     while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
+                }
+                // [v23] 퇴근 확인 — 실수로 눌러 세션이 초기화되는 것 방지
+                if (showEndConfirm) {
+                    val nowC = System.currentTimeMillis()
+                    val netMsC = ((nowC - workStart) - pausedTotal - (if (paused) nowC - pauseStart else 0L)).coerceAtLeast(0L)
+                    val hC = netMsC / 3600000L; val mC = (netMsC / 60000L) % 60
+                    AlertDialog(
+                        onDismissRequest = { showEndConfirm = false },
+                        title = { Text("퇴근할까요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = { Text("지금까지 근무 ${hC}시간 ${mC}분. 퇴근하면 이 세션이 끝나고 시간·평균이 초기화돼요. 실수로 누른 거면 '계속 근무'를 누르세요.", fontSize = 13.sp, color = muted) },
+                        confirmButton = { Button(onClick = { showEndConfirm = false; endShiftNow() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
+                        dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
+                        containerColor = AppTheme.card
+                    )
                 }
                 // [v17][#5] 퇴근 요약 다이얼로그
                 if (showEndSummary) {
@@ -693,34 +735,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                         if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); if (distEnabled) startMeter() }
                                         else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); stopMeter() }
                                     }, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(10.dp)) { Text(if (paused) "▶ 재개" else "⏸ 일시정지", color = accent, fontWeight = FontWeight.Bold) }
-                                    Button(onClick = {
-                                        // [v17][#5] 퇴근 = 근무 요약 계산 + 기록 저장 + 요약 카드 표시
-                                        val now = System.currentTimeMillis()
-                                        val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
-                                        val grossMs = (now - workStart).coerceAtLeast(0L)
-                                        val startFare = prefs.getInt("work_start_fare", 0)
-                                        val sFare = (todayFare - startFare).coerceAtLeast(0)
-                                        val hrs = netMs / 3600000.0
-                                        sumGrossMin = grossMs / 60000L
-                                        sumNetMin = netMs / 60000L
-                                        sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f
-                                        sumFare = sFare
-                                        sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
-                                        try {
-                                            val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
-                                            log.put(JSONObject().apply {
-                                                put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin)
-                                                put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour)
-                                            })
-                                            val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
-                                            prefs.edit().putString("work_session_log", trimmed.toString()).apply()
-                                        } catch (e: Exception) {}
-                                        workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-                                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
-                                        stopMeter()
-                                        com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
-                                        showEndSummary = true
-                                    }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
+                                    Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
                                 }
                             }
                         }
