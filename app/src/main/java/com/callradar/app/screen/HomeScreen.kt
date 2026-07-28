@@ -199,6 +199,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var profile by remember { mutableStateOf<HomeProfile?>(null) }
     var todayTrips by remember { mutableStateOf(0) }
     var todayFare by remember { mutableStateOf(0) }
+    var noFareCount by remember { mutableStateOf(0) }   // [v23] 오늘 금액 미입력 운행 수 (조용한 안전망 배너)
     var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
     var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -248,6 +249,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
+                noFareCount = todayJson.optInt("noFareCount", 0)
 
                 val recentArr = todayJson.optJSONArray("recentTrips") ?: JSONArray()
                 val rList = mutableListOf<RecentTrip>()
@@ -567,6 +569,18 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             floatingOn = if (on) isOverlayGranted() else false  // 권한 없으면 설정창 열리고 아직 꺼짐 유지
                             com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "home")
                         })
+                    }
+                }
+            }
+
+            // [v23] 조용한 안전망 — 오늘 금액 미입력 운행이 있으면 살짝만 알림(조르지 않음, 한 번 탭으로 채우러 이동)
+            if (noFareCount > 0) {
+                Card(colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.12f)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable { onNavTab(2) }) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("🧾", fontSize = 18.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("금액 안 넣은 운행 ${noFareCount}건 있어요", fontSize = 13.sp, color = AppTheme.text, modifier = Modifier.weight(1f))
+                        Text("채우기 ›", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
                     }
                 }
             }
