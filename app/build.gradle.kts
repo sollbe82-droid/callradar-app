@@ -31,6 +31,8 @@ android {
         versionCode = 21
         versionName = "2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // [v22] 카카오맵 네이티브 앱 키 — local.properties의 KAKAO_NATIVE_KEY 사용(코드/깃에 하드코딩 X)
+        buildConfigField("String", "KAKAO_NATIVE_KEY", "\"${keystoreProps.getProperty("KAKAO_NATIVE_KEY") ?: ""}\"")
     }
     buildTypes {
         release {
@@ -49,6 +51,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 dependencies {
@@ -64,6 +67,7 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")   // [v19] 명함 QR(vCard) 생성
     implementation("androidx.fragment:fragment:1.8.9")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.kakao.maps.open:android:2.13.2")   // [v22] 카카오맵 SDK v2 (내 운행 지도)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

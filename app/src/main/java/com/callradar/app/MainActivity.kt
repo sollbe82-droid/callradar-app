@@ -97,6 +97,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [v22] 카카오맵 SDK 초기화 (네이티브 앱 키는 BuildConfig=local.properties). 키 없으면 지도 화면에서 안내.
+        try { if (BuildConfig.KAKAO_NATIVE_KEY.isNotBlank()) com.kakao.vectormap.KakaoMapSdk.init(this, BuildConfig.KAKAO_NATIVE_KEY) } catch (e: Exception) {}
         handleKakaoDeepLink(intent)  // [v12] 카카오 딥링크 로그인 수신
         checkAndStartServices()
         // [v13] 플로팅 버튼: 사용자가 켜뒀고 권한 있으면 재시작

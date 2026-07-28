@@ -20,6 +20,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://maven.google.com") }
+        maven { url = uri("https://devrepo.kakao.com/nexus/repository/kakaomap-releases/") }
     }
 }
 
