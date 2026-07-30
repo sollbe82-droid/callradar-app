@@ -56,6 +56,19 @@ class FloatingTripService : Service() {
     private val confirmHandler = android.os.Handler(Looper.getMainLooper())
     private var confirmRunnable: Runnable? = null
     private val MIN_DISTANCE_M = 100f  // 최소 이동거리(제자리 연타 방지)
+    private val MAX_RIDE_MS = 3L * 60 * 60 * 1000  // [v2] 3시간 넘게 열린 운행 = '깜빡 잊고 안 끈' 스톨 → 복원·기록 안 함
+    private fun parseUtc(s: String): Long = try {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC")
+        sdf.parse(s)?.time ?: 0L
+    } catch (e: Exception) { 0L }
+    // [v2] 이 폰의 고유 기기 ID — 운행 상태에 찍어 '다른 폰 운행'을 절대 이어받지 않게 (투폰 독립 보장)
+    private fun deviceId(): String = try { android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "" } catch (e: Exception) { "" }
+
+    // [v2] 운행중 은은한 펄스(밝기 호흡) — "지금 기록 중, 끝나면 눌러요" 신호. 더보기에서 끌 수 있음.
+    private var pulseOn = false
+    private var pulsePhase = 0.0
+    private val pulseHandler = android.os.Handler(Looper.getMainLooper())
+    private var pulseRunnable: Runnable? = null
 
     private fun userId(): String {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
@@ -74,11 +87,12 @@ class FloatingTripService : Service() {
 
         // 플로팅 버튼(원형 텍스트뷰)
         val btn = TextView(this).apply {
-            text = "탑승"
-            textSize = 15f
-            setTextColor(Color.BLACK)
+            text = "시작"
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#F59E0B"))
+            background = ovalBg("#F59E0B")
             setPadding(0, 0, 0, 0)
         }
         floatingView = btn
@@ -96,8 +110,9 @@ class FloatingTripService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 20
-            y = 300
+            // [v2] 기본 위치를 오른쪽·중앙으로 — 좌상단 콘텐츠(레이더 맛집 등)와 겹치지 않게. 드래그로 이동 가능.
+            x = (resources.displayMetrics.widthPixels - sizePx - (16 * resources.displayMetrics.density)).toInt().coerceAtLeast(0)
+            y = (resources.displayMetrics.heightPixels * 0.42f).toInt()
         }
 
         // 드래그 이동 + 탭 구분
@@ -145,6 +160,7 @@ class FloatingTripService : Service() {
             .putString("ride_startAddr", startAddr)
             .putString("ride_startLat", startLat.toString())
             .putString("ride_startLng", startLng.toString())
+            .putString("ride_device", deviceId())   // [v2] 이 폰 기기 ID 각인 → 다른 폰이 이어받지 못하게
             .apply() } catch (e: Exception) {}
     }
     private fun clearRideState() {
@@ -154,13 +170,25 @@ class FloatingTripService : Service() {
         try {
             val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
             if (p.getBoolean("ride_active", false)) {
-                isRiding = true
-                startTime = p.getString("ride_startTime", "") ?: ""
-                startAddr = p.getString("ride_startAddr", "") ?: ""
-                startLat = p.getString("ride_startLat", "0.0")?.toDoubleOrNull() ?: 0.0
-                startLng = p.getString("ride_startLng", "0.0")?.toDoubleOrNull() ?: 0.0
-                if (startAddr.isNotBlank() && startAddr != "미상") updateButtonSmall("완료\n$startAddr", "#10B981") else updateButton("완료✓", "#10B981")
-                startLocationForeground()  // 운행중 유지 → 잠금 중에도 서비스가 안 죽음
+                val savedDev = p.getString("ride_device", "") ?: ""
+                val savedStart = p.getString("ride_startTime", "") ?: ""
+                val startMs = parseUtc(savedStart)
+                // [v2] 복원 거부 조건: (1) 다른 폰에서 시작된 운행(기기 ID 불일치) → 투폰 독립 보장,
+                //      (2) 시각 파싱 불가/3시간+ 열린 스톨 → 유령 운행·금액없는 기록 방지
+                val rejectRestore = (savedDev.isNotEmpty() && savedDev != deviceId()) ||
+                    startMs == 0L || System.currentTimeMillis() - startMs > MAX_RIDE_MS
+                if (rejectRestore) {
+                    clearRideState()
+                } else {
+                    isRiding = true
+                    startTime = savedStart
+                    startAddr = p.getString("ride_startAddr", "") ?: ""
+                    startLat = p.getString("ride_startLat", "0.0")?.toDoubleOrNull() ?: 0.0
+                    startLng = p.getString("ride_startLng", "0.0")?.toDoubleOrNull() ?: 0.0
+                    if (startAddr.isNotBlank() && startAddr != "미상") updateButtonSmall("운행중\n$startAddr", "#10B981") else updateButton("운행중", "#10B981")
+                    startPulse()               // [v2] 복원 시에도 운행중 펄스
+                    startLocationForeground()  // 운행중 유지 → 잠금 중에도 서비스가 안 죽음
+                }
             }
         } catch (e: Exception) {}
     }
@@ -172,8 +200,9 @@ class FloatingTripService : Service() {
             pendingConfirm = false
             confirmRunnable?.let { confirmHandler.removeCallbacks(it) }
             isRiding = false
+            stopPulse()
             stopLocationForeground(); clearRideState()
-            updateButton("탑승", "#F59E0B")
+            updateButton("시작", "#F59E0B")
             toast("운행 취소됨")
             return
         }
@@ -183,25 +212,27 @@ class FloatingTripService : Service() {
             isRiding = true
             startTime = utcNow()
             startLat = 0.0; startLng = 0.0; startAddr = ""
-            updateButton("완료", "#10B981")
+            updateButton("운행중", "#10B981")
+            startPulse()                // [v2] 운행중 은은한 펄스
             startLocationForeground()   // [v18] 운행 내내 포그라운드 유지 → 화면잠금에도 버튼/서비스 유지
             saveRideState()
-            toast("탑승 — 출발 확인 중 · 버튼 길게 누르면 공유")
+            toast("시작 — 출발 확인 중 · 버튼 길게 누르면 공유")
             // GPS는 백그라운드에서 따로 잡아 채움 (늦게 와도 됨). 잡히면 출발지 동을 버튼에 표시
             captureLocation { lat, lng, addr ->
                 startLat = lat; startLng = lng; startAddr = addr
                 saveRideState()
                 if (lat != 0.0 && isRiding && !pendingConfirm) {
                     // 출발지 동 있으면 "완료\n양재2동" 두 줄(글자 작게), 없으면 "완료✓"
-                    if (addr.isNotBlank() && addr != "미상") updateButtonSmall("완료\n$addr", "#10B981")
-                    else updateButton("완료✓", "#10B981")
+                    if (addr.isNotBlank() && addr != "미상") updateButtonSmall("운행중\n$addr", "#10B981")
+                    else updateButton("운행중", "#10B981")
                 }
             }
         } else {
             // ★완료: 버튼 즉시 "취소?"로 전환 (GPS 안 기다림)
+            stopPulse()                 // [v2] 운행 종료 → 펄스 멈춤
             pendingConfirm = true
-            updateButton("취소?", "#EF4444")
-            toast("완료 — 잠시 후 기록")
+            updateButton("취소", "#EF4444")
+            toast("종료 — 잠시 후 기록 (누르면 취소)")
             pendingDestLat = 0.0; pendingDestLng = 0.0; pendingDestAddr = ""
             // 3초 취소창 — 그 안에 다시 누르면 취소, 아니면 확정
             confirmRunnable = Runnable {
@@ -219,16 +250,25 @@ class FloatingTripService : Service() {
                             if (dist[0] < MIN_DISTANCE_M) {
                                 isRiding = false
                                 stopLocationForeground(); clearRideState()
-                                updateButton("탑승", "#F59E0B")
+                                updateButton("시작", "#F59E0B")
                                 toast("이동거리가 짧아 기록 안 함")
                                 return@captureLocation
                             }
+                        }
+                        // [v2] 비정상 장시간 운행(3h+) = 깜빡 잊고 안 끈 것 → 기록 안 함(금액없는 유령 운행 방지)
+                        val sMs = parseUtc(startTime)
+                        if (sMs > 0L && System.currentTimeMillis() - sMs > MAX_RIDE_MS) {
+                            isRiding = false
+                            stopLocationForeground(); clearRideState()
+                            updateButton("시작", "#F59E0B")
+                            toast("운행이 너무 길어(3시간+) 기록 안 함 — 필요하면 수동으로 추가하세요")
+                            return@captureLocation
                         }
                         // GPS 하나라도 없으면 체크 건너뛰고 기록(아예 안하는것보단), 있으면 거리 통과분만
                         createTrip(startLat, startLng, startAddr, startTime, lat, lng, addr)
                         isRiding = false
                         stopLocationForeground(); clearRideState()
-                        updateButton("탑승", "#F59E0B")
+                        updateButton("시작", "#F59E0B")
                         toast("운행 기록됨")
                     }
                 }
@@ -237,44 +277,73 @@ class FloatingTripService : Service() {
         }
     }
 
-    // 플로팅 버튼 롱프레스 → 현재 콜 공유 (인터림: 출발지 텍스트 + 브랜드. 스샷 버전은 MediaProjection 심사 후)
+    // [v2] 플로팅 버튼 롱프레스 → 콜 화면 공유. 모드는 더보기에서 선택(share_mode).
+    //   screenshot: 화면 캡처 → 콜 팝업만 크롭 → 워터마크 → 이미지 공유
+    //   text: 화면 캡처 → 콜 팝업 OCR(한글) → 텍스트만 공유
+    //   off: 아무 것도 안 함
+    //  스샷/텍스트 둘 다 화면 캡처 동의가 필요 → ScreenCapturePermissionActivity로 진입.
+    //  ScreenCaptureService가 share_mode를 읽어 이미지/텍스트를 알아서 처리한다.
     private fun shareCall() {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-        val room = (prefs.getString("share_room_url", "") ?: "").trim()
-        val promo = (prefs.getString("share_promo", "") ?: "").trim()
-        val origin = if (startAddr.isNotBlank() && startAddr != "미상") startAddr else "출발지"
-        val body = if (isRiding) "🚕 ${origin}에서 콜 잡았습니다!" else "🚕 콜레이더 운행 공유"
-        val brand = "\n\n📻 콜레이더 — 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
-        val text = body + brand
+        val mode = prefs.getString("share_mode", "screenshot") ?: "screenshot"
+        if (mode == "off") { toast("공유 꺼짐 — 더보기 > 운행 버튼에서 켜기"); return }
         try {
-            if (room.isNotEmpty()) {
-                try { val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager; cm.setPrimaryClip(android.content.ClipData.newPlainText("콜레이더", text)) } catch (e: Exception) {}
-                toast("문구 복사됨 — 방에서 꾹 눌러 붙여넣기")
-                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(room)).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) })
-            } else {
-                startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, text) }, "공유").apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) })
-            }
-        } catch (e: Exception) { toast("공유 실패 — 설정에서 오픈방 주소를 확인해 주세요") }
+            ScreenCapturePermissionActivity.start(this)
+        } catch (e: Exception) { toast("공유를 시작할 수 없어요") }
     }
 
     private fun toast(msg: String) {
         floatingView?.post { android.widget.Toast.makeText(applicationContext, msg, android.widget.Toast.LENGTH_SHORT).show() }
     }
 
+    // [v2] 운행중 펄스 시작/정지 (밝기 0.55~1.0 사인 호흡, ~1.2초 주기)
+    private fun startPulse() {
+        val enabled = getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("floating_pulse", true)
+        if (!enabled || pulseOn) return
+        pulseOn = true; pulsePhase = 0.0
+        pulseRunnable = object : Runnable {
+            override fun run() {
+                pulsePhase += 0.16
+                val a = (0.55 + 0.45 * ((Math.sin(pulsePhase) + 1) / 2)).toFloat()
+                floatingView?.alpha = a
+                if (pulseOn) pulseHandler.postDelayed(this, 55)
+            }
+        }
+        pulseHandler.post(pulseRunnable!!)
+    }
+    private fun stopPulse() {
+        pulseOn = false
+        pulseRunnable?.let { pulseHandler.removeCallbacks(it) }
+        floatingView?.post { floatingView?.alpha = 1f }
+    }
+
+    // [v2] 원형 + 흰 외곽 테두리 배경 (상태별 색 채움)
+    private fun ovalBg(colorHex: String): android.graphics.drawable.GradientDrawable {
+        return android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(Color.parseColor(colorHex))
+            setStroke((3 * resources.displayMetrics.density).toInt(), Color.WHITE)
+        }
+    }
+
     private fun updateButton(txt: String, colorHex: String) {
         floatingView?.post {
-            floatingView?.textSize = 15f   // 기본 크기 복구 (작은 표시에서 돌아올 때)
+            floatingView?.textSize = 18f   // 기본 크기 복구 (작은 표시에서 돌아올 때)
+            floatingView?.setTextColor(Color.WHITE)
+            floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
             floatingView?.text = txt
-            floatingView?.setBackgroundColor(Color.parseColor(colorHex))
+            floatingView?.background = ovalBg(colorHex)
         }
     }
 
     // 출발지 동까지 두 줄로 표시할 때 (글자 작게 해서 64dp 안에 들어가게)
     private fun updateButtonSmall(txt: String, colorHex: String) {
         floatingView?.post {
-            floatingView?.textSize = 10f   // 두 줄 + 동이름 담기 위해 작게
+            floatingView?.textSize = 12f   // 두 줄 + 동이름 담기 위해 작게
+            floatingView?.setTextColor(Color.WHITE)
+            floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
             floatingView?.text = txt
-            floatingView?.setBackgroundColor(Color.parseColor(colorHex))
+            floatingView?.background = ovalBg(colorHex)
         }
     }
 
@@ -408,7 +477,7 @@ class FloatingTripService : Service() {
                     put("started_at", sTime)
                     put("ended_at", utcNow())
                 }
-                val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     doOutput = true; connectTimeout = 8000; readTimeout = 8000
@@ -433,6 +502,7 @@ class FloatingTripService : Service() {
         super.onDestroy()
         try { getSharedPreferences("callradar_prefs", MODE_PRIVATE).edit().putString("overlay_died", java.text.SimpleDateFormat("MM-dd HH:mm:ss").format(java.util.Date()) + " (onDestroy)").apply() } catch (e: Exception) {}
         confirmRunnable?.let { confirmHandler.removeCallbacks(it) }
+        stopPulse()
         try { floatingView?.let { windowManager.removeView(it) } } catch (e: Exception) {}
     }
 

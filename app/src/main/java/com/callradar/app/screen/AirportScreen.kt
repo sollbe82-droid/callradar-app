@@ -124,7 +124,7 @@ fun saveCustomPhrases(context: Context, phrases: List<PhraseCard>) {
 suspend fun translateWithGoogle(text: String, targetLang: String): String {
     return withContext(Dispatchers.IO) { try {
         val encoded = java.net.URLEncoder.encode(text, "UTF-8")
-        val conn = (URL("https://api.mymemory.translated.net/get?q=$encoded&langpair=ko|$targetLang").openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 15000 }
+        val conn = (URL("https://api.mymemory.translated.net/get?q=$encoded&langpair=ko|$targetLang").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 15000 }
         val json = JSONObject(conn.inputStream.bufferedReader().readText()); json.getJSONObject("responseData").getString("translatedText")
     } catch (e: Exception) { "(번역 실패)" } }
 }
@@ -240,7 +240,7 @@ fun AirportScreen() {
             if (t1Data == null && t2Data == null) isLoading = true
             try {
                 withContext(Dispatchers.IO) {
-                    val conn = (URL("$SERVER_URL/api/airport/cached").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                    val conn = (URL("$SERVER_URL/api/airport/cached").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                     val raw = conn.inputStream.bufferedReader().readText(); conn.disconnect()
                     val json = JSONObject(raw)
 
@@ -287,7 +287,7 @@ fun AirportScreen() {
 
                     // 시간대별 입국 예고 (승객예고)
                     try {
-                        val pConn = (URL("$SERVER_URL/api/airport/passengers").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                        val pConn = (URL("$SERVER_URL/api/airport/passengers").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                         val pRaw = pConn.inputStream.bufferedReader().readText(); pConn.disconnect()
                         val pArr = JSONArray(pRaw)
                         val fList = mutableListOf<HourPax>()

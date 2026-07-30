@@ -103,8 +103,35 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    // [보안 v24] 저장된 계정(user_id)에 맞는 인증 토큰을 서버에서 받아 저장.
+    //  계정 전환·구버전 설치(토큰 없음)를 다음 실행 때 자가치유. 이 요청은 옛 토큰을 보내지 않는다(불일치 403 방지).
+    private fun ensureAuthToken() {
+        Thread {
+            try {
+                val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                val uid = prefs.getString(KEY_USER_ID, "") ?: ""
+                if (uid.isBlank()) return@Thread
+                val androidId = try { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "" } catch (e: Exception) { "" }
+                if (androidId.isEmpty()) return@Thread
+                val deviceId = "guest_$androidId"
+                val json = org.json.JSONObject().apply { put("device_id", deviceId); put("user_id", uid) }
+                val conn = (URL("$SERVER_URL/api/auth/token").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000
+                }
+                conn.outputStream.write(json.toString().toByteArray())
+                if (conn.responseCode in 200..299) {
+                    val j = org.json.JSONObject(conn.inputStream.bufferedReader().readText())
+                    val t = j.optString("token", "")
+                    if (t.isNotEmpty()) com.callradar.app.Auth.save(prefs, t)
+                }
+            } catch (e: Exception) {}
+        }.start()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.callradar.app.Auth.load(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))  // [보안 v24] 저장된 토큰 로드
+        ensureAuthToken()  // [보안 v24] 현재 계정 토큰 서버와 재동기화(자가치유)
         // [v22] 카카오맵 SDK 초기화 (네이티브 앱 키는 BuildConfig=local.properties). 키 없으면 지도 화면에서 안내.
         try { if (BuildConfig.KAKAO_NATIVE_KEY.isNotBlank()) com.kakao.vectormap.KakaoMapSdk.init(this, BuildConfig.KAKAO_NATIVE_KEY) } catch (e: Exception) {}
         handleKakaoDeepLink(intent)  // [v12] 카카오 딥링크 로그인 수신
@@ -146,8 +173,9 @@ class MainActivity : ComponentActivity() {
         if (data.scheme == "callradar" && data.host == "auth") {
             val uid = data.getQueryParameter("user_id") ?: return
             val nickname = data.getQueryParameter("nickname") ?: "기사님"
-            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-                .putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
+            val prefsDl = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefsDl.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
+            com.callradar.app.Auth.save(prefsDl, data.getQueryParameter("token"))  // [보안 v24] 카카오 로그인 토큰 저장
             sessionLoggedIn = true   // [v17] 방금 로그인 → 자동로그인 체크 여부와 무관하게 이번 세션은 진입
             recreate()  // 저장 후 화면 재구성 → isLoggedIn=true 로 시작
         }
@@ -205,6 +233,7 @@ class MainActivity : ComponentActivity() {
                     .remove(KEY_NICKNAME)
                     .putBoolean(KEY_AUTO_LOGIN, false)
                     .apply()
+                com.callradar.app.Auth.clear(prefs)  // [보안 v24] 로그아웃 시 토큰 제거(옛 토큰으로 403 방지)
                 sessionLoggedIn = false
                 stopService(Intent(this, LocationTrackingService::class.java))
                 isLoggedIn = false; userNickname = ""; userId = ""
@@ -314,7 +343,7 @@ class MainActivity : ComponentActivity() {
                         onLogout = {
                         scope.launch {
                             try {
-                                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                                 val json = JSONObject(response)
                                 todaySummary = TodaySummary(json.optInt("tripCount", 0), json.optString("topDest", ""), json.optInt("todayFare", 0))
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
@@ -421,14 +450,14 @@ class MainActivity : ComponentActivity() {
                                 val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                                 val resp = withContext(Dispatchers.IO) {
                                     val json = org.json.JSONObject().apply { put("device_id", deviceId); put("nickname", "기사님") }
-                                    val conn = (URL("$SERVER_URL/api/auth/guest").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                                    val conn = (URL("$SERVER_URL/api/auth/guest").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                                     conn.outputStream.write(json.toString().toByteArray())
                                     conn.inputStream.bufferedReader().readText()
                                 }
                                 val j = org.json.JSONObject(resp)
                                 val uid = j.optString("user_id", "")
                                 val nick = j.optString("nickname", "기사님")
-                                if (uid.isNotEmpty()) onLoginSuccess(uid, nick) else guestLoading = false
+                                if (uid.isNotEmpty()) { com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", "")); onLoginSuccess(uid, nick) } else guestLoading = false
                             } catch (e: Exception) { guestLoading = false }
                         }
                     },
@@ -463,7 +492,7 @@ class MainActivity : ComponentActivity() {
                                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                                         val resp = withContext(Dispatchers.IO) {
                                             val json = JSONObject().apply { put("device_id", deviceId); put("code", pairCode); put("label", "서브폰") }
-                                            val conn = (URL("$SERVER_URL/api/pair/claim").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                                            val conn = (URL("$SERVER_URL/api/pair/claim").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                                             conn.outputStream.write(json.toString().toByteArray())
                                             val rc = conn.responseCode
                                             val body = (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
@@ -472,6 +501,7 @@ class MainActivity : ComponentActivity() {
                                         val j = try { JSONObject(resp.second) } catch (e: Exception) { JSONObject() }
                                         if (resp.first in 200..299 && j.optString("user_id", "").isNotEmpty()) {
                                             showPair = false
+                                            com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", ""))  // [보안 v24] 서브폰 토큰 저장
                                             onLoginSuccess(j.optString("user_id", ""), j.optString("nickname", "기사님"))
                                         } else {
                                             pairMsg = j.optString("error", "연결 실패 — 코드를 확인하세요")

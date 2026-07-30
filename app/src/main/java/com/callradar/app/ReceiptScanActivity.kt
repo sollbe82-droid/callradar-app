@@ -117,7 +117,7 @@ class ReceiptScanActivity : ComponentActivity() {
                     put("raw_text", result.rawText.take(500))
                 }
                 val url = URL("$SERVER_URL/api/receipts")
-                val conn = url.openConnection() as HttpURLConnection
+                val conn = url.openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.doOutput = true

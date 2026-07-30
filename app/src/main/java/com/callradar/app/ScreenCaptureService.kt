@@ -82,6 +82,7 @@ class ScreenCaptureService : Service() {
 
         reader?.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
+            val cropped: Bitmap
             try {
                 val planes = image.planes
                 val buffer = planes[0].buffer
@@ -93,13 +94,19 @@ class ScreenCaptureService : Service() {
                 if (bmp.width != w) bmp = Bitmap.createBitmap(bmp, 0, 0, w, h)
                 // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
                 try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
-                val stamped = watermark(cropForShare(bmp))
-                shareImage(stamped)
+                cropped = cropForShare(bmp)   // 독립 비트맵 복사본 → 아래서 projection 해제해도 유지
             } catch (e: Exception) {
                 toast("이미지 처리 실패")
-            } finally {
-                image.close()
-                cleanup()
+                image.close(); cleanup(); stopSelfSafe()
+                return@setOnImageAvailableListener
+            }
+            image.close()
+            cleanup()   // projection/display 해제 (cropped는 독립 복사본)
+            val mode = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("share_mode", "screenshot") ?: "screenshot"
+            if (mode == "text") {
+                ocrAndShare(cropped)   // 한글 OCR 비동기 → 콜백에서 종료
+            } else {
+                shareImage(watermark(cropped))
                 stopSelfSafe()
             }
         }, handler)
@@ -170,6 +177,36 @@ class ScreenCaptureService : Service() {
         } catch (e: Exception) {
             toast("공유 실패")
         }
+    }
+
+    /** [v2] 텍스트 공유 — 크롭한 콜 팝업을 한글 OCR로 읽어 글자만 공유(스샷 대신). */
+    private fun ocrAndShare(bmp: Bitmap) {
+        try {
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+                com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions.Builder().build())
+            val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bmp, 0)
+            recognizer.process(image)
+                .addOnSuccessListener { vt -> shareText(vt.text); stopSelfSafe() }
+                .addOnFailureListener { shareText(""); stopSelfSafe() }
+        } catch (e: Exception) { toast("글자 인식 실패"); stopSelfSafe() }
+    }
+
+    private fun shareText(ocr: String) {
+        try {
+            val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            val promo = (prefs.getString("share_promo", "") ?: "").trim()
+            // OCR 결과 정리: 빈 줄 제거
+            val cleaned = ocr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+            val brand = "\n\n📻 콜레이더 — 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
+            val text = (if (cleaned.isNotEmpty()) cleaned else "🚕 콜레이더 콜 공유") + brand
+            try {
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("콜레이더", text))
+            } catch (e: Exception) {}
+            val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
+            startActivity(Intent.createChooser(send, "콜레이더 공유").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            toast(if (cleaned.isNotEmpty()) "텍스트 공유" else "글자를 못 읽어 기본 문구로 공유")
+        } catch (e: Exception) { toast("공유 실패") }
     }
 
     private fun cleanup() {

@@ -97,7 +97,7 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
     LaunchedEffect(Unit) {
         try {
             val txt = withContext(Dispatchers.IO) {
-                val conn = (URL("${Config.SERVER_URL}/api/import/rules").openConnection() as HttpURLConnection).apply { connectTimeout = 5000; readTimeout = 5000 }
+                val conn = (URL("${Config.SERVER_URL}/api/import/rules").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000; readTimeout = 5000 }
                 conn.inputStream.bufferedReader().readText()
             }
             rules = rulesFromJson(txt, rules)
@@ -279,7 +279,7 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
                     try {
                         val resp = withContext(Dispatchers.IO) {
                             val json = JSONObject().apply { put("user_id", userId); put("records", JSONArray(payload)) }
-                            val conn = (URL("${Config.SERVER_URL}/api/import/bulk").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 10000; readTimeout = 15000 }
+                            val conn = (URL("${Config.SERVER_URL}/api/import/bulk").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 10000; readTimeout = 15000 }
                             conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                             conn.inputStream.bufferedReader().readText()
                         }

@@ -145,7 +145,7 @@ class MeterFloatingService : Service() {
                 try {
                     val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC")
                     val json = JSONObject().apply { put("user_id", uid); put("platform", "미터기"); put("originName", ""); put("destName", "미터기 운행"); put("fare", f); put("payment_type", "cash"); put("source", "manual"); put("started_at", sdf.format(Date())) }
-                    val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
+                    val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
                     conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
                 } catch (e: Exception) {}
             }

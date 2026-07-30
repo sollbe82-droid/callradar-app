@@ -64,7 +64,7 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
         val regionList = ArrayList<JSONObject>(); val allList = ArrayList<JSONObject>()
         try {
             val json = withContext(Dispatchers.IO) {
-                val conn = (URL("$SERVER_URL/api/events?days=45").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                val conn = (URL("$SERVER_URL/api/events?days=45").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                 conn.inputStream.bufferedReader().use { it.readText() }
             }
             val arr = JSONArray(json)
@@ -145,11 +145,11 @@ private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Co
         val (place, ev) = withContext(Dispatchers.IO) {
             var p = ""; var e = ""
             try {
-                val d = JSONObject((URL("$SERVER_URL/api/demand?hour=$hr").openConnection() as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
+                val d = JSONObject((URL("$SERVER_URL/api/demand?hour=$hr").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
                 val rows = d.optJSONArray("rows"); if (rows != null && rows.length() > 0) p = rows.getJSONObject(0).optString("origin")
             } catch (_: Exception) {}
             try {
-                val arr = JSONArray((URL("$SERVER_URL/api/events?days=2").openConnection() as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
+                val arr = JSONArray((URL("$SERVER_URL/api/events?days=2").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
                 val sel = (briefPrefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }
                 var i = 0
                 while (i < arr.length()) { val o = arr.getJSONObject(i); val a = o.optString("area"); if (sel.isEmpty() || sel.any { a.contains(it) || it.contains(a) }) { val t = o.optString("title"); if (t.isNotBlank()) { e = (if (a.isNotBlank() && a != "null") "$a " else "") + t; break } }; i++ }
@@ -245,7 +245,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
         if (userId.isEmpty()) { isLoading = false; return }
         scope.launch {
             try {
-                val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
+                // [v23] 계정 dayStart 동기화 — 서브폰도 같은 영업일 기준으로 오늘매출 계산되게(today 조회 전에 갱신)
+                try { withContext(Dispatchers.IO) { val s = (URL("$SERVER_URL/api/user-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 6000 }.inputStream.bufferedReader().readText(); val ds = JSONObject(s).optInt("day_start", prefs.getInt("day_start_hour", 0)); prefs.edit().putInt("day_start_hour", ds).apply() } } catch (e: Exception) {}
+                val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
@@ -262,7 +264,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 recentTrips = rList
 
                 try {
-                    val profResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val profResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                     val pJson = JSONObject(profResponse); val lJson = pJson.optJSONObject("level") ?: JSONObject()
                     val badgeArr = pJson.optJSONArray("badges") ?: JSONArray()
                     val bList = mutableListOf<Badge>(); for (i in 0 until badgeArr.length()) { val b = badgeArr.getJSONObject(i); bList.add(Badge(b.optString("emoji", "🏅"), b.optString("name", ""))) }
@@ -277,7 +279,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } catch (e: Exception) { }
 
                 try {
-                    val platResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/platform/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val platResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/platform/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                     val platJson = JSONObject(platResponse)
                     val todayArr = platJson.getJSONArray("today")
                     val platList = mutableListOf<PlatformStat>()
@@ -290,7 +292,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
                 try {
                     val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
-                    val expResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val expResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                     val expJson = JSONObject(expResponse)
                     businessExpense = expJson.optInt("business", 0)
                     personalExpense = expJson.optInt("personal", 0)
@@ -301,7 +303,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 try {
                     val ym2 = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
                     val dsh = prefs.getInt("day_start_hour", 0)
-                    val dailyResp = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym2&dayStart=$dsh").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val dailyResp = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym2&dayStart=$dsh").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
                     val arr = JSONArray(dailyResp)
                     var cnt = 0
                     for (i in 0 until arr.length()) { if (arr.getJSONObject(i).optInt("total_fare", 0) > 0) cnt++ }
@@ -561,8 +563,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 Card(colors = CardDefaults.cardColors(containerColor = if (floatingOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(if (floatingOn) "🟢 운행 자동 기록 켜짐" else "🚕 운행 자동 기록", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Text(if (floatingOn) "화면 위 버튼 → 출발·도착이 자동 기록돼요" else "버튼만 누르면 출발·도착이 자동 기록돼요. 첫 운행부터 켜보세요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                            Text(if (floatingOn) "🟢 운행 기록 버튼 켜짐" else "🚕 운행 기록 버튼", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text(if (floatingOn) "시작 한 번 · 내릴 때 금액 한 번 — 두 번이면 기록 끝" else "시작 버튼 한 번, 내릴 때 금액 한 번이면 기록 끝. 첫 운행부터 켜보세요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                         }
                         Switch(checked = floatingOn, onCheckedChange = { on ->
                             onToggleFloating(on)
@@ -615,6 +617,19 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val distEnabled = prefs.getBoolean("work_dist_enabled", true)
                 val active = workStart > 0L
                 val paused = pauseStart > 0L
+                // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
+                fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
+                    if (userId.isEmpty()) return
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val json = JSONObject().apply { put("user_id", userId); put("work_start", ws); put("paused_total", pt); put("pause_start", ps); put("start_fare", sf) }
+                                val conn = (URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
+                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
                 // [v17][#5] 퇴근 요약 카드
                 var showEndSummary by remember { mutableStateOf(false) }
                 var showEndConfirm by remember { mutableStateOf(false) }   // [v23] 실수 퇴근 방지 확인
@@ -648,12 +663,29 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
                     workStart = 0L; pausedTotal = 0L; pauseStart = 0L
                     prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    pushWorkSession(0L, 0L, 0L, 0)
                     stopMeter()
                     com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
                     showEndSummary = true
                 }
                 LaunchedEffect(active, paused) {
                     while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
+                }
+                // [v2] 투폰 근무세션 pull — 20초마다 서버 세션을 확인해 다른 폰의 출근/일시정지/퇴근을 반영
+                LaunchedEffect(Unit) {
+                    if (userId.isEmpty()) return@LaunchedEffect
+                    while (true) {
+                        try {
+                            val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
+                            val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
+                            if (rws != workStart || rpt != pausedTotal || rps != pauseStart) {
+                                workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
+                                prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
+                                if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
+                            }
+                        } catch (e: Exception) {}
+                        kotlinx.coroutines.delay(20000)
+                    }
                 }
                 // [v23] 퇴근 확인 — 실수로 눌러 세션이 초기화되는 것 방지
                 if (showEndConfirm) {
@@ -669,22 +701,43 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         containerColor = AppTheme.card
                     )
                 }
-                // [v17][#5] 퇴근 요약 다이얼로그
+                // [v17][#5] 퇴근 요약 — [v2] 영수증 스타일 카드 + 공유
                 if (showEndSummary) {
                     val gh = sumGrossMin / 60; val gm = sumGrossMin % 60
                     val nh = sumNetMin / 60; val nm = sumNetMin % 60
+                    val mono = androidx.compose.ui.text.font.FontFamily.Monospace
+                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd (E)", java.util.Locale.KOREA).format(java.util.Date())
+                    val dash = "─".repeat(22)
+                    val receiptText = buildString {
+                        append("📻 콜레이더 · 근무 영수증\n"); append("$dash\n")
+                        append("날짜   $dateStr\n")
+                        append("근무   ${gh}시간 ${gm}분 (순 ${nh}:${String.format("%02d", nm)})\n")
+                        append("거리   ${String.format("%.1f", sumDistKm)} km\n")
+                        append("매출   ${String.format("%,d", sumFare)}원\n")
+                        append("시간당 ${String.format("%,d", sumPerHour)}원\n")
+                        append("$dash\n수고하셨습니다!")
+                    }
                     AlertDialog(
                         onDismissRequest = { showEndSummary = false },
-                        title = { Text("🔴 퇴근 — 근무 요약", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                        text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 근무시간", fontSize = 13.sp, color = muted); Text("${gh}시간 ${gm}분", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("순 근무(정지 제외)", fontSize = 13.sp, color = muted); Text("${nh}시간 ${nm}분", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("이동 거리", fontSize = 13.sp, color = muted); Text(String.format("%.1f km", sumDistKm), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("근무 중 매출", fontSize = 13.sp, color = muted); Text("${String.format("%,d", sumFare)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green) }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("시간당 매출", fontSize = 13.sp, color = muted); Text("${String.format("%,d", sumPerHour)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent) }
-                            Text("근무 기록에 저장됐어요. 수고하셨습니다!", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
-                        } },
+                        title = { Text("🧾 근무 영수증", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text("📻 콜레이더 · 근무 영수증", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text(dateStr, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${gh}시간 ${gm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("순 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${nh}시간 ${nm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("이동 거리", fontSize = 13.sp, fontFamily = mono, color = muted); Text(String.format("%.1f km", sumDistKm), fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("운행 매출", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumFare)}원", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
+                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("시간당", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumPerHour)}원", fontSize = 17.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = accent) }
+                                Text("수고하셨습니다!", fontSize = 11.sp, fontFamily = mono, color = muted, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        },
                         confirmButton = { Button(onClick = { showEndSummary = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("확인", color = Color.Black) } },
+                        dismissButton = { OutlinedButton(onClick = {
+                            try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receiptText) }, "영수증 공유")) } catch (e: Exception) {}
+                        }) { Text("📤 공유") } },
                         containerColor = card
                     )
                 }
@@ -727,13 +780,13 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Spacer(Modifier.height(12.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); com.callradar.app.Telemetry.log(context, "shift_start", "home"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
                                         val t = System.currentTimeMillis()
-                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); if (distEnabled) startMeter() }
-                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); stopMeter() }
+                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
+                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
                                     }, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(10.dp)) { Text(if (paused) "▶ 재개" else "⏸ 일시정지", color = accent, fontWeight = FontWeight.Bold) }
                                     Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
                                 }

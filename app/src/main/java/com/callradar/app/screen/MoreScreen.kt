@@ -273,6 +273,21 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         }
         demandRows = list.take(6)
     }
+    // [v2] 배드타임·배드존 역산 — 공차(다음 운행까지 시간)가 긴 시간대·지역. AI 비서 판단 근거.
+    var badTimes by remember { mutableStateOf<List<Triple<Int, Int, Int>>>(emptyList()) }  // dow, hour, avgGap(분)
+    var badZones by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }       // area, avgGap(분)
+    LaunchedEffect(Unit) {
+        val res = withContext(Dispatchers.IO) {
+            try {
+                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/stats/deadzones/$userId").readText())
+                val bt = o.optJSONArray("badTimes"); val bz = o.optJSONArray("badZones")
+                val times = (0 until (bt?.length() ?: 0)).map { val x = bt!!.getJSONObject(it); Triple(x.optInt("dow"), x.optInt("hour"), x.optInt("avg_gap")) }
+                val zones = (0 until (bz?.length() ?: 0)).map { val x = bz!!.getJSONObject(it); Pair(x.optString("area"), x.optInt("avg_gap")) }
+                Pair(times, zones)
+            } catch (e: Exception) { Pair(emptyList<Triple<Int, Int, Int>>(), emptyList<Pair<String, Int>>()) }
+        }
+        badTimes = res.first; badZones = res.second
+    }
     // [v21] 임박 이벤트 → 브리핑 수요 신호 (기존 /api/events 재사용, 심사 무관)
     var eventLine by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
@@ -312,6 +327,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     var bDemand by remember { mutableStateOf(prefs.getBoolean("brief_demand", true)) }
     var bEvent by remember { mutableStateOf(prefs.getBoolean("brief_event", true)) }
     var bAirport by remember { mutableStateOf(prefs.getBoolean("brief_airport", true)) }
+    var bBad by remember { mutableStateOf(prefs.getBoolean("brief_bad", true)) }   // [v2] 피해야 할 시간·지역 경고
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
         var engine: TextToSpeech? = null
@@ -324,10 +340,17 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         run {
             val today = listOf("일", "월", "화", "수", "목", "금", "토")[Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 1]
             val topPlace = demandRows.firstOrNull()?.first ?: ""
+            // [v2] 지금 시간대(요일×시)가 공차 긴 배드타임인지 판단
+            val nowDow = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 1
+            val nowHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            val badNow = badTimes.firstOrNull { it.first == nowDow && it.second == nowHour }
+            val worstZone = badZones.firstOrNull()
             val brief = buildString {
                 append("오늘은 ${today}요일입니다. ")
                 if (bRhythm && rhythmDay.startsWith(today)) append("평소 매출이 잘 나오는 요일이에요. ")
                 if (bDemand && topPlace.isNotEmpty()) append("지금 시간대엔 ${topPlace} 쪽에서 콜이 자주 잡혔어요. ")
+                if (bBad && badNow != null) append("다만 지금 시간대는 평소 다음 콜까지 약 ${badNow.third}분 비어요 — 공차가 길 수 있으니 수요 있는 쪽으로 미리 이동하세요. ")
+                if (bBad && worstZone != null) append("${worstZone.first} 쪽에 내리면 다음 콜까지 평균 ${worstZone.second}분 걸려요, 참고하세요. ")
                 if (bEvent && eventLine.isNotEmpty()) append(eventLine + " ")
                 if (bAirport && airportPeak.isNotEmpty()) append(airportPeak + ". ")
                 append("안전 운전하세요.")
@@ -359,11 +382,41 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                         FilterChip(selected = bDemand, onClick = { bDemand = !bDemand; prefs.edit().putBoolean("brief_demand", bDemand).apply() }, label = { Text("수요", fontSize = 10.sp) })
                         FilterChip(selected = bEvent, onClick = { bEvent = !bEvent; prefs.edit().putBoolean("brief_event", bEvent).apply() }, label = { Text("이벤트", fontSize = 10.sp) })
                         FilterChip(selected = bAirport, onClick = { bAirport = !bAirport; prefs.edit().putBoolean("brief_airport", bAirport).apply() }, label = { Text("공항", fontSize = 10.sp) })
+                        FilterChip(selected = bBad, onClick = { bBad = !bBad; prefs.edit().putBoolean("brief_bad", bBad).apply() }, label = { Text("위험", fontSize = 10.sp) })
                     }
                     Text("듣고 싶은 것만 켜세요 · 끈 항목은 말하지 않아요", fontSize = 9.sp, color = muted)
                     Button(onClick = { tts?.speak(brief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
                         Text("▶ 브리핑 듣기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
+                }
+            }
+        }
+        // [v2] 피해야 할 시간·지역 (공차 역산) — AI 판단 근거를 눈으로도
+        if (badTimes.isNotEmpty() || badZones.isNotEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("⚠️ 피해야 할 시간·지역", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    Text("내 기록에서 다음 콜까지 오래 걸린(공차 긴) 순", fontSize = 11.sp, color = muted)
+                    if (badTimes.isNotEmpty()) {
+                        val days = listOf("일", "월", "화", "수", "목", "금", "토")
+                        Text("시간대", fontSize = 12.sp, color = muted, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                        badTimes.take(4).forEach { (dw, hr, gap) ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("${days.getOrElse(dw) { "?" }}요일 ${hr}시", fontSize = 13.sp, color = AppTheme.text)
+                                Text("평균 ${gap}분 공차", fontSize = 13.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    if (badZones.isNotEmpty()) {
+                        Text("지역(내린 곳)", fontSize = 12.sp, color = muted, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                        badZones.take(4).forEach { (area, gap) ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(area.take(16), fontSize = 13.sp, color = AppTheme.text, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text("평균 ${gap}분", fontSize = 13.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Text("비서가 브리핑에서 지금 시간대·목적지를 이 기록과 비교해 짚어줘요.", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }
@@ -524,7 +577,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                         put("fare", 0); put("payment_type", "report"); put("source", "report"); put("is_report", true)
                                         if (rawOcr.isNotEmpty()) put("raw_ocr", rawOcr)   // (원본→교정) 학습 말뭉치
                                     }
-                                    val conn = (URL("$SETTINGS_SERVER/api/trips/manual").openConnection() as HttpURLConnection).apply {
+                                    val conn = (URL("$SETTINGS_SERVER/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                                         requestMethod = "POST"; doOutput = true; connectTimeout = 12000; readTimeout = 12000
                                         setRequestProperty("Content-Type", "application/json")
                                     }
@@ -558,6 +611,8 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
 
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
     var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+    var shareMode by remember { mutableStateOf(prefs.getString("share_mode", "screenshot") ?: "screenshot") }   // [v2] 꾹 눌러 공유: screenshot/text/off
+    var floatingPulse by remember { mutableStateOf(prefs.getBoolean("floating_pulse", true)) }   // [v2] 운행중 버튼 펄스
     var telemetryOn by remember { mutableStateOf(prefs.getBoolean("telemetry_on", true)) }
     var isDark by remember { mutableStateOf(AppTheme.isDark) }
     var nickname by remember { mutableStateOf(prefs.getString("nickname", "") ?: "") }
@@ -595,6 +650,20 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 val act = context as? MainActivity
                 if (floatingOn) { act?.stopFloatingButton(); floatingOn = false }
                 else { act?.startFloatingButton(); floatingOn = prefs.getBoolean("floating_on", false) }
+            },
+            run {
+                val modeLabel = when (shareMode) { "screenshot" -> "📷 사진"; "text" -> "📝 텍스트"; else -> "끄기" }
+                MoreEntry("🔁", "꾹 눌러 공유 방식", "운행 버튼 길게 누르면 보낼 것",
+                    right = modeLabel, rightKind = if (shareMode == "off") 2 else 1,
+                    badge = modeLabel, badgeKind = if (shareMode == "off") 2 else 1) {
+                    val next = when (shareMode) { "screenshot" -> "text"; "text" -> "off"; else -> "screenshot" }
+                    shareMode = next; prefs.edit().putString("share_mode", next).apply()
+                }
+            },
+            MoreEntry("✨", "운행중 버튼 깜빡임", "운행중일 때 버튼이 은은하게 호흡",
+                right = if (floatingPulse) "켜짐" else "꺼짐", rightKind = if (floatingPulse) 1 else 2,
+                badge = if (floatingPulse) "켜짐" else "꺼짐", badgeKind = if (floatingPulse) 1 else 2) {
+                floatingPulse = !floatingPulse; prefs.edit().putBoolean("floating_pulse", floatingPulse).apply()
             },
             MoreEntry("📸", "화면 스샷 공유", "지금 화면을 캡처해 워터마크 붙여 공유", right = "공유") { showCaptureConsent = true },
             MoreEntry("🚕", "요금 미터기", "GPS 추정 요금(재미로) · 배터리 소모 큼", right = "추정") {
@@ -639,7 +708,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         try {
                             val resp = withContext(Dispatchers.IO) {
                                 val json = JSONObject().apply { put("user_id", userId) }
-                                val conn = (URL("$SETTINGS_SERVER/api/pair/create").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                                val conn = (URL("$SETTINGS_SERVER/api/pair/create").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                                 conn.outputStream.write(json.toString().toByteArray())
                                 conn.inputStream.bufferedReader().readText()
                             }
@@ -711,7 +780,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 val nn = nameInput.trim()
                 if (nn.isNotEmpty()) {
                     nickname = nn; prefs.edit().putString("nickname", nn).apply()
-                    scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("nickname", nn) }; val conn = (URL("$SETTINGS_SERVER/api/users/$userId").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode } } catch (e: Exception) { } }
+                    scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("nickname", nn) }; val conn = (URL("$SETTINGS_SERVER/api/users/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode } } catch (e: Exception) { } }
                 }
                 showNameDialog = false
             }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
@@ -738,7 +807,11 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                     }
                 }
             } },
-            confirmButton = { Button(onClick = { prefs.edit().putInt("day_start_hour", dayStartHour).apply(); showDayStartDlg = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            confirmButton = { Button(onClick = {
+                prefs.edit().putInt("day_start_hour", dayStartHour).apply(); showDayStartDlg = false
+                // [v23] 계정에도 저장 → 서브폰(2·3폰)도 같은 영업일 기준 사용
+                Thread { try { val conn = (java.net.URL("${Config.SERVER_URL}/api/user-settings").openConnection() as java.net.HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 6000 }; conn.outputStream.use { it.write(org.json.JSONObject().apply { put("user_id", userId.toIntOrNull() ?: userId); put("day_start", dayStartHour) }.toString().toByteArray()) }; conn.responseCode } catch (e: Exception) {} }.start()
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showDayStartDlg = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -828,7 +901,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                         val resp = withContext(Dispatchers.IO) {
                             val json = JSONObject().apply { put("code", mergeCode); put("secondary_user_id", userId); put("device_id", deviceId) }
-                            val conn = (URL("$SETTINGS_SERVER/api/pair/merge").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                            val conn = (URL("$SETTINGS_SERVER/api/pair/merge").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                             conn.outputStream.write(json.toString().toByteArray())
                             val rc = conn.responseCode
                             val body = (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
@@ -837,6 +910,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         val j = try { JSONObject(resp.second) } catch (e: Exception) { JSONObject() }
                         if (resp.first in 200..299 && j.optString("primary_user_id", "").isNotEmpty()) {
                             prefs.edit().putString("user_id", j.optString("primary_user_id", "")).putString("nickname", j.optString("nickname", "기사님")).apply()
+                            com.callradar.app.Auth.clear(prefs)  // [보안 v24] 계정 통합 → 토큰 초기화(재생성 시 자가치유로 재발급)
                             mergeBusy = false; showMergeDlg = false
                             (context as? android.app.Activity)?.recreate()
                         } else { mergeBusy = false; mergeMsg = j.optString("error", "합치기 실패 — 코드를 확인하세요") }
@@ -866,7 +940,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                         withContext(Dispatchers.IO) {
                             val json = JSONObject().apply { put("user_id", userId); put("device_id", deviceId); put("platforms", org.json.JSONArray(platSel.toList())); put("label", "내 폰") }
-                            val conn = (URL("$SETTINGS_SERVER/api/devices/register").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                            val conn = (URL("$SETTINGS_SERVER/api/devices/register").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                             conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                         }
                         prefs.edit().putString("my_platforms", platSel.joinToString(",")).apply()
@@ -1072,7 +1146,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                         put("profit_share", profitShare); put("lpg_refund_rate", lpgRefundRate)
                         put("annual_leave", annualLeave); put("gas_price", prefs.getInt("lpg_price", 0))
                     }
-                    val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                    val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
                     conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 }
             } catch (e: Exception) { }
@@ -1081,7 +1155,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
 
     LaunchedEffect(Unit) {
         try {
-            val resp = withContext(Dispatchers.IO) { val conn = (URL("$SETTINGS_SERVER/api/driver-settings/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+            val resp = withContext(Dispatchers.IO) { val conn = (URL("$SETTINGS_SERVER/api/driver-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
             val j = JSONObject(resp)
             // [v17][#1] 로컬 우선·서버 병합: 서버에 '실제로 존재하는' 값만 반영한다.
             // (예전엔 서버에 없는 항목까지 기본값으로 덮어써서, 앱 업데이트/재로드 때 로컬 설정이 초기화되던 버그)
@@ -1487,7 +1561,7 @@ private fun BookingsView(userId: String, context: Context, accent: Color, muted:
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val conn = (URL("$SETTINGS_SERVER/api/bookings/$id/status").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
+                    val conn = (URL("$SETTINGS_SERVER/api/bookings/$id/status").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
                     conn.outputStream.use { it.write("{\"status\":\"$status\"}".toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
                 }
             } catch (e: Exception) { }
@@ -1499,7 +1573,7 @@ private fun BookingsView(userId: String, context: Context, accent: Color, muted:
         val list = ArrayList<JSONObject>()
         try {
             val json = withContext(Dispatchers.IO) {
-                val conn = (URL("$SETTINGS_SERVER/api/bookings/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                val conn = (URL("$SETTINGS_SERVER/api/bookings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                 conn.inputStream.bufferedReader().use { it.readText() }
             }
             val arr = org.json.JSONArray(json)
@@ -1565,7 +1639,7 @@ private fun EventsView(context: Context, accent: Color, muted: Color, card: Colo
             val list = ArrayList<JSONObject>()
             try {
                 val json = withContext(Dispatchers.IO) {
-                    val conn = (URL("$SETTINGS_SERVER/api/events?days=90").openConnection() as HttpURLConnection).apply { requestMethod = "GET"; connectTimeout = 8000; readTimeout = 8000 }
+                    val conn = (URL("$SETTINGS_SERVER/api/events?days=90").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "GET"; connectTimeout = 8000; readTimeout = 8000 }
                     conn.inputStream.bufferedReader().use { it.readText() }
                 }
                 val arr = org.json.JSONArray(json)

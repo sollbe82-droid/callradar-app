@@ -176,7 +176,7 @@ private fun MeterScreen(userId: String, onClose: () -> Unit) {
                         put("user_id", userId); put("platform", "미터기"); put("originName", ""); put("destName", "미터기 운행"); put("fare", fare)
                         put("payment_type", "cash"); put("source", "manual"); put("started_at", sdf.format(Date()))
                     }
-                    val conn = (URL("${Config.SERVER_URL}/api/trips/manual").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
+                    val conn = (URL("${Config.SERVER_URL}/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
                     conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
                 }
                 saved = true

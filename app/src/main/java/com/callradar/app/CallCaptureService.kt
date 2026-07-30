@@ -72,7 +72,7 @@ class CallCaptureService : NotificationListenerService() {
                     put("body", (text + " " + big).trim().take(500))
                     if (amount != null) put("amount", amount)
                 }
-                val conn = (URL("${Config.SERVER_URL}/api/notif-capture").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("${Config.SERVER_URL}/api/notif-capture").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true; connectTimeout = 6000; readTimeout = 6000
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 }

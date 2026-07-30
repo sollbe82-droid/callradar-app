@@ -90,7 +90,7 @@ class TmoneyNotificationService : NotificationListenerService() {
                         put("user_id", userId)
                         put("fare", fare)
                     }
-                    val updateConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection() as HttpURLConnection).apply {
+                    val updateConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                         requestMethod = "PUT"
                         setRequestProperty("Content-Type", "application/json")
                         doOutput = true; connectTimeout = 10000; readTimeout = 10000
@@ -137,7 +137,7 @@ class TmoneyNotificationService : NotificationListenerService() {
                 put("payment_type", "card")
                 put("started_at", nowIso)
             }
-            val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply {
+            val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true; connectTimeout = 10000; readTimeout = 10000
@@ -155,7 +155,7 @@ class TmoneyNotificationService : NotificationListenerService() {
     private fun reverseGeocode(lat: Double, lng: Double): String? {
         return try {
             val url = URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&accept-language=ko")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
+            val conn = (url.openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                 setRequestProperty("User-Agent", "CallRadar/1.0")
                 connectTimeout = 8000; readTimeout = 8000
             }
@@ -179,7 +179,7 @@ class TmoneyNotificationService : NotificationListenerService() {
                 val json = JSONObject().apply {
                     put("user_id", userId); put("event", event); put("detail", detail)
                 }
-                val conn = (URL("$SERVER_URL/api/debug/log").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/debug/log").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"; setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 8000
                 }

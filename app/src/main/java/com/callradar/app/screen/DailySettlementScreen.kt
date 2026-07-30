@@ -141,7 +141,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
         matchLoading = true; matchDone = false
         scope.launch {
             try {
-                val raw = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$selectedDate&limit=100").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
+                val raw = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$selectedDate&limit=100").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
                 val arr = org.json.JSONArray(raw)
                 val list = mutableListOf<Triple<Int, String, String>>()
                 for (i in 0 until arr.length()) {
@@ -174,7 +174,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                     if (amt <= 0) continue
                     try {
                         val json = org.json.JSONObject().apply { put("fare", amt) }
-                        val conn = (URL("$SERVER_URL/api/trips/$id/fare").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000; readTimeout = 10000 }
+                        val conn = (URL("$SERVER_URL/api/trips/$id/fare").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000; readTimeout = 10000 }
                         conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                         if (conn.responseCode in 200..299) ok++
                     } catch (e: Exception) { }
@@ -210,7 +210,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                             put("started_at", startedAt)
                             put("source", "전표")
                         }
-                        val conn = (URL("$SERVER_URL/api/trips/manual").openConnection() as HttpURLConnection).apply {
+                        val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                             requestMethod = "POST"
                             setRequestProperty("Content-Type", "application/json; charset=utf-8")
                             doOutput = true; connectTimeout = 10000; readTimeout = 10000
@@ -247,7 +247,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                         put("verified", verified)
                         put("sent_to_company", true)
                     }
-                    val conn = (URL("$SERVER_URL/api/daily-settlement").openConnection() as HttpURLConnection).apply {
+                    val conn = (URL("$SERVER_URL/api/daily-settlement").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json; charset=utf-8")
                         doOutput = true; connectTimeout = 10000; readTimeout = 10000
@@ -264,7 +264,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                                     put(JSONObject().apply { put("date", selectedDate); put("income", rev); put("memo", "일일마감 매출") })
                                 })
                             }
-                            val c2 = (URL("$SERVER_URL/api/import/bulk").openConnection() as HttpURLConnection).apply {
+                            val c2 = (URL("$SERVER_URL/api/import/bulk").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                                 requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8")
                                 doOutput = true; connectTimeout = 10000; readTimeout = 10000
                             }

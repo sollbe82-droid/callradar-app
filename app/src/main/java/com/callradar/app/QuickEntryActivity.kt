@@ -127,7 +127,7 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () ->
                             try {
                                 withContext(Dispatchers.IO) {
                                     val json = JSONObject().apply { put("user_id", userId); if (f > 0) put("fare", f); if (t > 0) put("tip", t); if (pr > 0) { put("promo", pr); put("promo_type", promoType) }; if (platform.isNotEmpty()) put("platform", platform); put("payment_type", payType) }
-                                    val conn = (URL("${Config.SERVER_URL}/api/trips/$tripId").openConnection() as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
+                                    val conn = (URL("${Config.SERVER_URL}/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
                                     conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                                     conn.responseCode
                                 }

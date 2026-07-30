@@ -139,7 +139,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     put("event", event)
                     put("detail", detail)
                 }
-                val conn = (URL("$SERVER_URL/api/debug/log").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/debug/log").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 5000; readTimeout = 5000
@@ -453,7 +453,7 @@ class NaviIntentReceiver : AccessibilityService() {
                         put("date", SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(now))
                         put("timestamp", tripStartedAt)
                     }
-                    val conn = (URL("$SERVER_URL/api/trips").openConnection() as HttpURLConnection).apply {
+                    val conn = (URL("$SERVER_URL/api/trips").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                         requestMethod = "POST"; setRequestProperty("Content-Type", "application/json")
                         doOutput = true; connectTimeout = 30000; readTimeout = 30000
                     }
@@ -495,7 +495,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     put("user_id", userId); put("destination", destName)
                     put("dest_lat", lat); put("dest_lng", lng)
                 }
-                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 30000; readTimeout = 30000
                 }
@@ -523,7 +523,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null)
                 val json = JSONObject().apply { put("user_id", userId) }
-                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 10000; readTimeout = 10000
                 }
@@ -564,7 +564,7 @@ class NaviIntentReceiver : AccessibilityService() {
                         }
                     }
                 }
-                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection() as HttpURLConnection).apply {
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
                     doOutput = true; connectTimeout = 30000; readTimeout = 30000
                 }
@@ -591,7 +591,7 @@ class NaviIntentReceiver : AccessibilityService() {
     // [v3.1 수정] Nominatim 직접 호출 (서버 경유 제거)
     private fun reverseGeocode(lat: Double, lng: Double): String? {
         return try {
-            val conn = (URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&addressdetails=1&accept-language=ko").openConnection() as HttpURLConnection).apply {
+            val conn = (URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&addressdetails=1&accept-language=ko").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                 connectTimeout = 10000; readTimeout = 10000
                 setRequestProperty("User-Agent", "CallRadar/1.0")
             }

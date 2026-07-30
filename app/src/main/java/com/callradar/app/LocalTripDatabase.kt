@@ -137,7 +137,7 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
                         put("destLng", trip["dest_lng"] ?: 0.0)
                         put("fare", trip["fare"] ?: 0)
                     }
-                    val conn = (URL("$SERVER_URL/api/trips").openConnection() as HttpURLConnection).apply {
+                    val conn = (URL("$SERVER_URL/api/trips").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json")
                         doOutput = true

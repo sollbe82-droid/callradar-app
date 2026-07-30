@@ -156,7 +156,7 @@ private fun loadMyHeatmap(
     scope.launch {
         try {
             val resp = withContext(Dispatchers.IO) {
-                val conn = (URL("$MAP_SERVER/api/trips/$userId?limit=2000").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                val conn = (URL("$MAP_SERVER/api/trips/$userId?limit=2000").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                 conn.inputStream.bufferedReader().readText()
             }
             val arr = JSONArray(resp)

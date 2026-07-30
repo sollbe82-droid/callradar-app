@@ -55,7 +55,7 @@ fun KnowHowScreen(userId: String, onBack: () -> Unit) {
     fun load() {
         scope.launch {
             try {
-                val resp = withContext(Dispatchers.IO) { (URL("$server/api/knowhow/$userId").openConnection() as HttpURLConnection).apply { connectTimeout = 8000 }.inputStream.bufferedReader().readText() }
+                val resp = withContext(Dispatchers.IO) { (URL("$server/api/knowhow/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000 }.inputStream.bufferedReader().readText() }
                 val arr = JSONArray(resp)
                 notes = (0 until arr.length()).map { i -> val o = arr.getJSONObject(i); KnowHow(o.optInt("id"), o.optString("area"), o.optString("time_band"), o.optString("pattern"), o.optString("note"), o.optInt("confirmed")) }
             } catch (e: Exception) {}
@@ -89,7 +89,7 @@ fun KnowHowScreen(userId: String, onBack: () -> Unit) {
             try {
                 withContext(Dispatchers.IO) {
                     val json = JSONObject().apply { put("user_id", userId.toIntOrNull() ?: userId); put("area", area); put("time_band", timeBand); put("pattern", pattern); put("note", note) }
-                    val conn = (URL("$server/api/knowhow").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
+                    val conn = (URL("$server/api/knowhow").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
                     conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
                 }
                 area = ""; timeBand = ""; pattern = ""; note = ""
@@ -103,7 +103,7 @@ fun KnowHowScreen(userId: String, onBack: () -> Unit) {
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val conn = (URL("$server/api/knowhow/$id").openConnection() as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                    val conn = (URL("$server/api/knowhow/$id").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
                     conn.outputStream.use { it.write(JSONObject().apply { put("user_id", userId.toIntOrNull() ?: userId) }.toString().toByteArray()) }; conn.responseCode
                 }
                 load()

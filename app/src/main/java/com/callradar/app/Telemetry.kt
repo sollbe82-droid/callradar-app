@@ -29,7 +29,7 @@ object Telemetry {
                 }
                 val url = "${com.callradar.app.screen.Config.SERVER_URL}/api/usage"
                 android.util.Log.d("CRTelemetry", "posting event=$event → $url")
-                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                val conn = (URL(url).openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true; connectTimeout = 6000; readTimeout = 6000
                     setRequestProperty("Content-Type", "application/json")
                 }

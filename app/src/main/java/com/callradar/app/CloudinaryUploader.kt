@@ -59,7 +59,7 @@ object CloudinaryUploader {
     private fun uploadBytes(imageBytes: ByteArray): String? {
         val url = URL("https://api.cloudinary.com/v1_1/$CLOUD_NAME/image/upload")
         val boundary = "----CallRadar${System.currentTimeMillis()}"
-        val conn = (url.openConnection() as HttpURLConnection).apply {
+        val conn = (url.openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
             connectTimeout = 15000
