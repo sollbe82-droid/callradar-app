@@ -15,3 +15,5 @@
 local.properties
 _test/*.png 
 _test/*.xml
+*.jks
+local.properties
