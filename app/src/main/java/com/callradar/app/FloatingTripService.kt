@@ -234,8 +234,13 @@ class FloatingTripService : Service() {
             val fpEnd = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
             if (fpEnd.getBoolean("endfare_on", true)) {
                 try {
-                    fpEnd.edit().putString("capture_purpose", "endfare").remove("pending_fare").apply()
-                    ScreenCapturePermissionActivity.start(this)
+                    fpEnd.edit().remove("pending_fare").apply()
+                    if (ScreenCaptureService.sessionAlive) {
+                        ScreenCaptureService.captureNow(this, "endfare")   // [v24] 세션 유지 → 동의창 없이 자동 캡처
+                    } else {
+                        fpEnd.edit().putString("capture_purpose", "endfare").apply()
+                        ScreenCapturePermissionActivity.start(this)        // 첫 1회만 동의 → 근무세션 동안 유지
+                    }
                 } catch (e: Exception) {}
             }
             // ★완료: 버튼 즉시 "취소?"로 전환 (GPS 안 기다림)
@@ -299,7 +304,8 @@ class FloatingTripService : Service() {
         val mode = prefs.getString("share_mode", "screenshot") ?: "screenshot"
         if (mode == "off") { toast("공유 꺼짐 — 더보기 > 운행 버튼에서 켜기"); return }
         try {
-            ScreenCapturePermissionActivity.start(this)
+            if (ScreenCaptureService.sessionAlive) ScreenCaptureService.captureNow(this, "share")
+            else { prefs.edit().putString("capture_purpose", "share").apply(); ScreenCapturePermissionActivity.start(this) }
         } catch (e: Exception) { toast("공유를 시작할 수 없어요") }
     }
 

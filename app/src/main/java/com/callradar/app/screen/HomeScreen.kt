@@ -699,6 +699,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     pushWorkSession(0L, 0L, 0L, 0)
                     stopMeter()
                     com.callradar.app.WorkAutoEnd.cancel(context)
+                    com.callradar.app.ScreenCaptureService.stopSession(context)   // [v24] 퇴근 시 화면권한 해제
                     com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
                     showEndSummary = true
                 }

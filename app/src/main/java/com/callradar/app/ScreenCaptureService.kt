@@ -44,24 +44,49 @@ class ScreenCaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    companion object {
+        const val ACTION_CAPTURE = "com.callradar.app.CAPTURE"
+        const val ACTION_STOP = "com.callradar.app.STOP_CAP"
+        // [v24] 근무세션 동안 화면권한(projection) 유지 여부. true면 종료마다 '동의창 없이' 캡처.
+        @Volatile var sessionAlive = false
+        // 유지된 projection으로 즉시 캡처(동의 없음). 세션 죽었으면 아무 일 없음(호출부가 동의 경로로).
+        fun captureNow(ctx: Context, purpose: String) {
+            ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().putString("capture_purpose", purpose).apply()
+            val i = Intent(ctx, ScreenCaptureService::class.java).setAction(ACTION_CAPTURE)
+            try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i) else ctx.startService(i) } catch (e: Exception) {}
+        }
+        // 퇴근 시 projection 완전 해제
+        fun stopSession(ctx: Context) {
+            sessionAlive = false
+            val i = Intent(ctx, ScreenCaptureService::class.java).setAction(ACTION_STOP)
+            try { ctx.startService(i) } catch (e: Exception) {}
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startAsForeground()
-        val resultCode = intent?.getIntExtra("resultCode", 0) ?: 0
-        val data = intent?.getParcelableExtra<Intent>("data")
-        if (resultCode == 0 || data == null) { stopSelfSafe(); return START_NOT_STICKY }
-        try {
-            val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            projection = mpm.getMediaProjection(resultCode, data)
-            // API 34+ 필수 콜백
-            projection?.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() { cleanup() }
-            }, handler)
-            captureOneFrame()
-        } catch (e: Exception) {
-            toast("화면 캡처 실패")
-            stopSelfSafe()
+        when (intent?.action) {
+            ACTION_STOP -> { releaseProjection(); stopSelfSafe(); return START_NOT_STICKY }
+            ACTION_CAPTURE -> {
+                // 세션 유지된 projection 재사용 → 동의창 없이 캡처
+                if (projection != null) captureOneFrame() else { sessionAlive = false; stopSelfSafe() }
+                return START_STICKY
+            }
+            else -> {
+                val resultCode = intent?.getIntExtra("resultCode", 0) ?: 0
+                val data = intent?.getParcelableExtra<Intent>("data")
+                if (resultCode == 0 || data == null) { stopSelfSafe(); return START_NOT_STICKY }
+                try {
+                    val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    projection = mpm.getMediaProjection(resultCode, data)
+                    projection?.registerCallback(object : MediaProjection.Callback() {
+                        override fun onStop() { releaseProjection() }
+                    }, handler)
+                    captureOneFrame()   // finishCapture()가 근무중이면 projection 유지
+                } catch (e: Exception) { toast("화면 캡처 실패"); stopSelfSafe() }
+                return START_STICKY
+            }
         }
-        return START_NOT_STICKY
     }
 
     private fun captureOneFrame() {
@@ -98,7 +123,7 @@ class ScreenCaptureService : Service() {
                 if (purpose0 == "endfare") {
                     getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
                     val full = bmp.copy(Bitmap.Config.ARGB_8888, false)
-                    image.close(); cleanup()
+                    image.close(); releaseDisplay()
                     parseFareAndStore(full)
                     return@setOnImageAvailableListener
                 }
@@ -108,18 +133,18 @@ class ScreenCaptureService : Service() {
                 cropped = cropForShare(bmp)   // 폴백용 크롭(독립 복사본)
             } catch (e: Exception) {
                 toast("이미지 처리 실패")
-                image.close(); cleanup(); stopSelfSafe()
+                image.close(); finishCapture()
                 return@setOnImageAvailableListener
             }
             image.close()
-            cleanup()   // projection/display 해제 (cropped는 독립 복사본)
+            releaseDisplay()   // display만 해제(projection 세션 유지, cropped는 독립 복사본)
             val mode = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("share_mode", "screenshot") ?: "screenshot"
             if (mode == "text") {
                 ocrAndShare(fullForDetect ?: cropped)   // [v24] 전체 프레임 OCR → 출발/목적지 추출
             } else {
                 val full = fullForDetect
                 if (full != null) detectCropShare(full)   // [v24] 플랫폼 자동판별 → 크롭 → 공유
-                else { shareImage(watermark(cropped)); stopSelfSafe() }
+                else { shareImage(watermark(cropped)); finishCapture() }
             }
         }, handler)
     }
@@ -177,10 +202,10 @@ class ScreenCaptureService : Service() {
                 .addOnSuccessListener { vt ->
                     val plat = detectPlatform(vt.text)
                     shareImage(watermark(cropForShareWith(full, plat)))
-                    stopSelfSafe()
+                    finishCapture()
                 }
-                .addOnFailureListener { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
-        } catch (e: Exception) { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
+                .addOnFailureListener { shareImage(watermark(cropForShare(full))); finishCapture() }
+        } catch (e: Exception) { shareImage(watermark(cropForShare(full))); finishCapture() }
     }
 
     // [v24] OCR 텍스트에서 출발지/목적지 추출 — 자동화 인식 엔진의 시작(시작=출발/목적지, 종료=금액).
@@ -261,9 +286,9 @@ class ScreenCaptureService : Service() {
                 com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions.Builder().build())
             val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bmp, 0)
             recognizer.process(image)
-                .addOnSuccessListener { vt -> shareText(vt.text); stopSelfSafe() }
-                .addOnFailureListener { shareText(""); stopSelfSafe() }
-        } catch (e: Exception) { toast("글자 인식 실패"); stopSelfSafe() }
+                .addOnSuccessListener { vt -> shareText(vt.text); finishCapture() }
+                .addOnFailureListener { shareText(""); finishCapture() }
+        } catch (e: Exception) { toast("글자 인식 실패"); finishCapture() }
     }
 
     private fun shareText(ocr: String) {
@@ -286,12 +311,29 @@ class ScreenCaptureService : Service() {
         } catch (e: Exception) { toast("공유 실패") }
     }
 
-    private fun cleanup() {
+    // VirtualDisplay/Reader만 해제(projection은 세션 유지) — 다음 캡처를 위해
+    private fun releaseDisplay() {
         try { vDisplay?.release() } catch (e: Exception) {}
         try { reader?.close() } catch (e: Exception) {}
-        try { projection?.stop() } catch (e: Exception) {}
-        vDisplay = null; reader = null; projection = null
+        vDisplay = null; reader = null
     }
+    // projection까지 완전 해제 (세션 종료)
+    private fun releaseProjection() {
+        releaseDisplay()
+        try { projection?.stop() } catch (e: Exception) {}
+        projection = null; sessionAlive = false
+    }
+    // 1회 캡처 마무리 — 근무 중이면 projection 유지(다음 종료 때 동의 없이 재사용), 아니면 완전 종료
+    private fun finishCapture() {
+        releaseDisplay()
+        val inShift = try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getLong("work_start", 0L) > 0L } catch (e: Exception) { false }
+        if (inShift && projection != null) {
+            sessionAlive = true   // 근무 중 → 유지, 서비스 계속(다음 캡처 대기)
+        } else {
+            releaseProjection(); stopSelfSafe()
+        }
+    }
+    private fun cleanup() { releaseProjection() }
 
     private fun stopSelfSafe() {
         try {
@@ -347,10 +389,10 @@ class ScreenCaptureService : Service() {
                     } catch (e: Exception) {}
                     if (fare > 0) toast("금액 인식: ${"%,d".format(fare)}원 — 기록에 자동 입력")
                     else toast("금액을 못 읽었어요 — 기록에서 직접 입력하세요")
-                    stopSelfSafe()
+                    finishCapture()
                 }
-                .addOnFailureListener { toast("금액 인식 실패"); stopSelfSafe() }
-        } catch (e: Exception) { toast("금액 인식 실패"); stopSelfSafe() }
+                .addOnFailureListener { toast("금액 인식 실패"); finishCapture() }
+        } catch (e: Exception) { toast("금액 인식 실패"); finishCapture() }
     }
 
     /** OCR 텍스트에서 택시 요금 추출 — 키워드(합계/요금/결제…) 라인 우선, 없으면 최댓값 */
