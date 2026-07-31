@@ -68,8 +68,10 @@ class ScreenCaptureService : Service() {
         when (intent?.action) {
             ACTION_STOP -> { releaseProjection(); stopSelfSafe(); return START_NOT_STICKY }
             ACTION_CAPTURE -> {
-                // 세션 유지된 projection 재사용 → 동의창 없이 캡처
-                if (projection != null) captureOneFrame() else { sessionAlive = false; stopSelfSafe() }
+                // 세션 유지된 projection 재사용 → 동의창 없이 캡처. 재사용 불가(기기 제약) 시 안전 폴백(다음엔 동의 경로).
+                if (projection != null) {
+                    try { captureOneFrame() } catch (e: Exception) { releaseProjection(); stopSelfSafe() }
+                } else { sessionAlive = false; stopSelfSafe() }
                 return START_STICKY
             }
             else -> {

@@ -45,20 +45,30 @@ private const val SERVER_URL = Config.SERVER_URL
 private fun getWithSelfHeal(prefs: android.content.SharedPreferences, urlStr: String): String {
     fun open(withToken: Boolean): java.net.HttpURLConnection {
         val c = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
-        c.connectTimeout = 8000; c.readTimeout = 15000
+        c.connectTimeout = 10000; c.readTimeout = 40000   // [v25] 콜드스타트(서버 깨어남) 대비 넉넉히
         if (withToken) com.callradar.app.Auth.tok?.let { if (it.isNotBlank()) c.setRequestProperty("Authorization", "Bearer $it") }
         return c
     }
-    var conn = open(true)
-    var code = conn.responseCode
-    if ((code == 401 || code == 403) && !com.callradar.app.Auth.tok.isNullOrBlank()) {
-        try { conn.disconnect() } catch (e: Exception) {}
-        com.callradar.app.Auth.clear(prefs)   // 불일치 토큰 제거 → 무토큰 재시도(phase-1 통과)
-        conn = open(false)
-        code = conn.responseCode
+    var lastErr: Exception? = null
+    repeat(3) { attempt ->   // [v25] 콜드스타트/일시장애 자동 재시도
+        try {
+            var conn = open(true)
+            var code = conn.responseCode
+            if ((code == 401 || code == 403) && !com.callradar.app.Auth.tok.isNullOrBlank()) {
+                try { conn.disconnect() } catch (e: Exception) {}
+                com.callradar.app.Auth.clear(prefs)   // stale/불일치 토큰 제거 → 무토큰 재시도(phase-1 통과)
+                conn = open(false); code = conn.responseCode
+            }
+            if (code in 200..299) return conn.inputStream.bufferedReader().readText()
+            throw java.io.IOException("HTTP $code")
+        } catch (e: Exception) {
+            lastErr = e
+            // SSL(폰 시계)·DNS는 재시도해도 소용없음 → 즉시 던져 정확히 안내
+            if (e is javax.net.ssl.SSLException || e is java.net.UnknownHostException) throw e
+            if (attempt < 2) try { Thread.sleep(1500L * (attempt + 1)) } catch (ie: InterruptedException) {}
+        }
     }
-    return if (code in 200..299) conn.inputStream.bufferedReader().readText()
-           else throw java.io.IOException("HTTP $code")
+    throw lastErr ?: java.io.IOException("unknown")
 }
 
 data class Badge(val emoji: String, val name: String)
@@ -333,7 +343,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
                 errorMessage = null
                 isLoading = false; homeLoaded = true
-            } catch (e: Exception) { errorMessage = "서버 연결 실패"; isLoading = false; homeLoaded = true }
+            } catch (e: Exception) {
+                errorMessage = when {
+                    e is javax.net.ssl.SSLException || (e.message?.contains("SSL", true) == true) || (e.message?.contains("cert", true) == true) || (e.message?.contains("trust", true) == true) ->
+                        "📅 폰 날짜·시간이 틀린 것 같아요. 설정 > 날짜·시간 > '자동'을 켜주세요. (인증서 오류)"
+                    e is java.net.UnknownHostException -> "📶 인터넷 연결을 확인해 주세요."
+                    else -> "서버 연결 실패 · ${e.javaClass.simpleName} — 잠시 후 다시 시도돼요"
+                }
+                isLoading = false; homeLoaded = true
+            }
         }
     }
 
