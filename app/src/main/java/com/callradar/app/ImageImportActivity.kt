@@ -72,6 +72,8 @@ private data class ImportRules(
     val receiptKeywords: List<String> = listOf("총합계", "총압게", "총압계", "총수입", "총매출", "순수익", "카카오", "신용카드", "교통카드", "거래금액", "거래시간", "마감"),
     val incomeKeywords: List<String> = listOf("총합계", "총압게", "총압계", "총수입", "총매출", "총액", "순수익", "합계"),
     val expenseKeywords: List<String> = listOf("총지출", "지출"),
+    // [v24] 연료·충전 영수증(가스/LPG/전기차 충전 등) — 매치되면 '합계'가 있어도 지출로 분류
+    val fuelExpenseKeywords: List<String> = listOf("LPG", "엘피지", "가스충전", "충전소", "주유", "리터", "kWh", "전기차", "급속충전", "완속충전", "오일뱅크", "칼텍스", "에너지", "알뜰", "충전요금"),
     val calendarRegex: String = "일.{0,3}월.{0,3}화.{0,3}수.{0,3}목.{0,3}금.{0,3}토"
 )
 
@@ -82,7 +84,7 @@ private fun rulesFromJson(txt: String, fallback: ImportRules): ImportRules {
             val a = j.optJSONArray(k) ?: return def
             return (0 until a.length()).map { a.getString(it) }
         }
-        ImportRules(arr("receiptKeywords", fallback.receiptKeywords), arr("incomeKeywords", fallback.incomeKeywords), arr("expenseKeywords", fallback.expenseKeywords), j.optString("calendarRegex", fallback.calendarRegex))
+        ImportRules(arr("receiptKeywords", fallback.receiptKeywords), arr("incomeKeywords", fallback.incomeKeywords), arr("expenseKeywords", fallback.expenseKeywords), arr("fuelExpenseKeywords", fallback.fuelExpenseKeywords), j.optString("calendarRegex", fallback.calendarRegex))
     } catch (e: Exception) { fallback }
 }
 
@@ -336,12 +338,15 @@ private fun parseReceipt(raw: String, month: Int, rules: ImportRules = ImportRul
         val n = norm(line)
         if (rules.expenseKeywords.any { n.contains(norm(it)) } && !n.contains("수입")) amtRe.findAll(line).forEach { val v = toInt(it.value); if (v in 1000..99999999 && v > expense) expense = v }
     }
-    // 날짜: 전체날짜(YYYY/MM/DD 또는 'YYYY년 M월 D일') 우선 → 월 일치 일자, 없으면 M/D(월 일치)
+    // [v24] 연료·충전 영수증이면 '합계'가 있어도 지출로 분류(수입 아님)
+    val isFuel = rules.fuelExpenseKeywords.any { kw -> raw.contains(kw, ignoreCase = true) }
+    if (isFuel && expense == 0 && income > 0) { expense = income; income = 0 }
+    // 날짜: 전체날짜(YYYY-MM-DD / YYYY.MM.DD / 'YYYY년 M월 D일') 우선 → 월 일치 일자, 없으면 M/D(월 일치)
     var day = 0
-    val full = Regex("(\\d{4})[./년]\\s*(\\d{1,2})[./월]\\s*(\\d{1,2})")
+    val full = Regex("(\\d{4})[./년\\-]\\s*(\\d{1,2})[./월\\-]\\s*(\\d{1,2})")
     for (m in full.findAll(raw)) { val mm = m.groupValues[2].toIntOrNull(); val dd = m.groupValues[3].toIntOrNull(); if (mm == month && dd != null && dd in 1..31) { day = dd; break } }
     if (day == 0) for (m in full.findAll(raw)) { val dd = m.groupValues[3].toIntOrNull(); if (dd != null && dd in 1..31) { day = dd; break } }
-    if (day == 0) { val md = Regex("(?<![0-9])(\\d{1,2})[./](\\d{1,2})(?![0-9])"); for (m in md.findAll(raw)) { val mm = m.groupValues[1].toIntOrNull(); val dd = m.groupValues[2].toIntOrNull(); if (mm == month && dd != null && dd in 1..31) { day = dd; break } } }
+    if (day == 0) { val md = Regex("(?<![0-9])(\\d{1,2})[./\\-](\\d{1,2})(?![0-9])"); for (m in md.findAll(raw)) { val mm = m.groupValues[1].toIntOrNull(); val dd = m.groupValues[2].toIntOrNull(); if (mm == month && dd != null && dd in 1..31) { day = dd; break } } }
     return ImpRow(day, income.toString(), if (expense > 0) expense.toString() else "")
 }
 
