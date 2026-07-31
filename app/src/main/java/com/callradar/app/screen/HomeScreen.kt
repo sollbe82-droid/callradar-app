@@ -40,6 +40,27 @@ import java.util.*
 
 private const val SERVER_URL = Config.SERVER_URL
 
+// [v24] 자가치유 GET — 토큰이 stale/불일치라 403/401 나면 토큰 비우고 무토큰으로 1회 재시도.
+//  (특정 유저가 '서버 연결 실패' 지속되던 문제: 페어링/계정전환 후 남은 토큰↔user_id 불일치 → 403)
+private fun getWithSelfHeal(prefs: android.content.SharedPreferences, urlStr: String): String {
+    fun open(withToken: Boolean): java.net.HttpURLConnection {
+        val c = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 8000; c.readTimeout = 15000
+        if (withToken) com.callradar.app.Auth.tok?.let { if (it.isNotBlank()) c.setRequestProperty("Authorization", "Bearer $it") }
+        return c
+    }
+    var conn = open(true)
+    var code = conn.responseCode
+    if ((code == 401 || code == 403) && !com.callradar.app.Auth.tok.isNullOrBlank()) {
+        try { conn.disconnect() } catch (e: Exception) {}
+        com.callradar.app.Auth.clear(prefs)   // 불일치 토큰 제거 → 무토큰 재시도(phase-1 통과)
+        conn = open(false)
+        code = conn.responseCode
+    }
+    return if (code in 200..299) conn.inputStream.bufferedReader().readText()
+           else throw java.io.IOException("HTTP $code")
+}
+
 data class Badge(val emoji: String, val name: String)
 data class LevelInfo(val level: Int, val title: String, val next: Int)
 data class HomeProfile(
@@ -247,7 +268,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             try {
                 // [v23] 계정 dayStart 동기화 — 서브폰도 같은 영업일 기준으로 오늘매출 계산되게(today 조회 전에 갱신)
                 try { withContext(Dispatchers.IO) { val s = (URL("$SERVER_URL/api/user-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 6000 }.inputStream.bufferedReader().readText(); val ds = JSONObject(s).optInt("day_start", prefs.getInt("day_start_hour", 0)); prefs.edit().putInt("day_start_hour", ds).apply() } } catch (e: Exception) {}
-                val todayResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000 }; conn.inputStream.bufferedReader().readText() }
+                val todayResponse = withContext(Dispatchers.IO) { getWithSelfHeal(prefs, "$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}") }
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
@@ -338,7 +359,12 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
         // 헤더
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Text("콜레이더", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent); Text("β", fontSize = 11.sp, color = muted) }
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("콜레이더", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent)
+                    Text("β", fontSize = 11.sp, color = muted)
+                    val verLabel = remember { try { val pi = context.packageManager.getPackageInfo(context.packageName, 0); val vc = if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt() else @Suppress("DEPRECATION") pi.versionCode; "v${pi.versionName}·$vc" } catch (e: Exception) { "" } }
+                    if (verLabel.isNotBlank()) Text(verLabel, fontSize = 10.sp, color = muted)
+                }
                 profile?.let { p ->
                     Text(buildString { append(p.nickname); if (p.carNumber.isNotEmpty()) append(" · ${p.carNumber}") }, fontSize = 12.sp, color = muted)
                 } ?: Text("${nickname}님", fontSize = 12.sp, color = muted)

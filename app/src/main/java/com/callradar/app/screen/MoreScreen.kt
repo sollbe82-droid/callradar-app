@@ -1134,6 +1134,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
     var lpgPrice by remember { mutableStateOf(prefs.getInt("lpg_price", 1050)) }
     var lpgDaily by remember { mutableStateOf(prefs.getInt("lpg_daily", 40)) }
     var gasReduction by remember { mutableStateOf(prefs.getFloat("gas_reduction_f", prefs.getInt("gas_reduction", 9).toFloat())) }  // [v23] 소수점 지원(Float)
+    var fuelType by remember { mutableStateOf(prefs.getString("fuel_type", "lpg") ?: "lpg") }  // [v24] lpg | ev(전기차 충전)
     var showLpgDialog by remember { mutableStateOf(false) }
 
     fun saveSettingsToServer() {
@@ -1298,10 +1299,17 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
         var gasMethod by remember { mutableStateOf(prefs.getString("gas_method", "rate") ?: "rate") }   // [v5] 법인: rate(경감률) | fixed(고정단가)
         var fixedInput by remember { mutableStateOf(prefs.getInt("gas_fixed", 0).toString()) }          // [v5] 법인 고정 차감단가(원/L)
         AlertDialog(onDismissRequest = { showLpgDialog = false },
-            title = { Text("LPG 정산 설정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            title = { Text(if (fuelType == "ev") "전기차 충전 정산 설정" else "LPG 정산 설정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = priceInput, onValueChange = { priceInput = it.filter { c -> c.isDigit() } }, label = { Text("LPG 단가 (원/L)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
-                OutlinedTextField(value = dailyLInput, onValueChange = { dailyLInput = it.filter { c -> c.isDigit() } }, label = { Text("일 평균 사용량 (L)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                // [v24] 연료 유형 — LPG / 전기차 충전
+                Text("연료 유형", fontSize = 12.sp, color = muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("lpg" to "LPG", "ev" to "⚡ 전기차").forEach { (v, lbl) ->
+                        FilterChip(selected = fuelType == v, onClick = { fuelType = v }, label = { Text(lbl, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+                    }
+                }
+                OutlinedTextField(value = priceInput, onValueChange = { priceInput = it.filter { c -> c.isDigit() } }, label = { Text(if (fuelType == "ev") "충전 단가 (원/kWh)" else "LPG 단가 (원/L)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = dailyLInput, onValueChange = { dailyLInput = it.filter { c -> c.isDigit() } }, label = { Text(if (fuelType == "ev") "일 충전량 (kWh)" else "일 평균 사용량 (L)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 val price = priceInput.toIntOrNull() ?: 0
                 val liters = dailyLInput.toIntOrNull() ?: 0
                 if (driverType == "corporate") {
@@ -1340,6 +1348,16 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                             }
                         }
                     }
+                } else if (fuelType == "ev") {
+                    val cost = price * liters
+                    if (cost > 0) {
+                        Card(colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(8.dp)) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("일 충전비: ${String.format("%,d", cost)}원 (${price}원/kWh × ${liters}kWh)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent)
+                                Text("💡 전기차는 유가보조금이 없어요. 월 충전비 = 일 충전비 × 근무일", fontSize = 10.sp, color = muted)
+                            }
+                        }
+                    }
                 } else {
                     OutlinedTextField(value = subsidyInput, onValueChange = { subsidyInput = it.filter { c -> c.isDigit() } }, label = { Text("유가보조금 (원/L)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0, 197, 221, 250).forEach { amount -> OutlinedButton(onClick = { subsidyInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text(if (amount == 0) "없음" else "${amount}원", fontSize = 12.sp) } } }
@@ -1369,10 +1387,12 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                 val dailyCost = if (driverType == "corporate") {
                     if (gasMethod == "fixed") fixedV * lpgDaily
                     else (lpgPrice.toDouble() * lpgDaily * (100 - gasReduction) / 100.0).toInt()
+                } else if (fuelType == "ev") {
+                    (lpgPrice * lpgDaily).coerceAtLeast(0)   // [v24] 전기차: 충전단가 × 충전량 (보조금 없음)
                 } else {
                     ((lpgPrice - sub) * lpgDaily).coerceAtLeast(0)
                 }
-                prefs.edit().putInt("lpg_price", lpgPrice).putInt("lpg_daily", lpgDaily).putFloat("gas_reduction_f", gasReduction).putInt("gas_reduction", gasReduction.toInt()).putInt("lpg_subsidy", sub).putString("gas_method", gasMethod).putInt("gas_fixed", fixedV).putInt("lpg_daily_cost", dailyCost).apply()
+                prefs.edit().putString("fuel_type", fuelType).putInt("lpg_price", lpgPrice).putInt("lpg_daily", lpgDaily).putFloat("gas_reduction_f", gasReduction).putInt("gas_reduction", gasReduction.toInt()).putInt("lpg_subsidy", sub).putString("gas_method", gasMethod).putInt("gas_fixed", fixedV).putInt("lpg_daily_cost", dailyCost).apply()
                 showLpgDialog = false
             }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showLpgDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
@@ -1478,8 +1498,8 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
         }
         Card(modifier = Modifier.fillMaxWidth().clickable { showLpgDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("LPG 정산", fontSize = 14.sp, color = AppTheme.text); Text("단가·사용량·유가보조금", fontSize = 11.sp, color = muted) }
-                Text(if (lpgPrice > 0) "${lpgPrice}원/L · ${lpgDaily}L" else "미설정", fontSize = 11.sp, color = accent)
+                Column { Text(if (fuelType == "ev") "⚡ 전기차 충전 정산" else "LPG 정산", fontSize = 14.sp, color = AppTheme.text); Text(if (fuelType == "ev") "충전단가·충전량" else "단가·사용량·유가보조금", fontSize = 11.sp, color = muted) }
+                Text(if (lpgPrice > 0) "${lpgPrice}원/${if (fuelType == "ev") "kWh" else "L"} · ${lpgDaily}${if (fuelType == "ev") "kWh" else "L"}" else "미설정", fontSize = 11.sp, color = accent)
             }
         }
         // [v17] '일 고정 지출' 항목 제거 — 잡지출/영수증(기록 탭)과 중복이라 일원화

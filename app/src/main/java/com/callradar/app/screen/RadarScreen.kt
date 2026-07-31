@@ -70,6 +70,20 @@ fun RadarScreen(userId: String) {
     var pDests by remember { mutableStateOf<List<Triple<String, Int, Int>>>(emptyList()) }
     var pPersonalized by remember { mutableStateOf(false) }
 
+    // [v24] 레이더 AI 음성비서 — 개인 레이더 요약을 음성으로 안내(TTS)
+    var ttsReady by remember { mutableStateOf(false) }
+    val radarTts = remember { android.speech.tts.TextToSpeech(ctx) { s -> ttsReady = (s == android.speech.tts.TextToSpeech.SUCCESS) } }
+    LaunchedEffect(ttsReady) { if (ttsReady) try { radarTts.language = java.util.Locale.KOREAN } catch (e: Exception) {} }
+    DisposableEffect(Unit) { onDispose { try { radarTts.stop(); radarTts.shutdown() } catch (e: Exception) {} } }
+    val speakGuide: () -> Unit = {
+        val sb = StringBuilder()
+        if (pOrigins.isNotEmpty()) sb.append("지금 시간대엔 ${pOrigins.first().first}에서 콜이 잘 잡혔어요. ")
+        if (pHours.isNotEmpty()) sb.append("제일 잘 버는 시간은 ${pHours.first().first}시예요. ")
+        if (pDests.isNotEmpty()) sb.append("돈 되는 목적지는 ${pDests.first().first}입니다.")
+        val msg = if (sb.isEmpty()) "아직 데이터가 부족해요. 운행이 쌓이면 맞춤 안내를 해드릴게요." else sb.toString()
+        try { radarTts.speak(msg, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "radar") } catch (e: Exception) {}
+    }
+
     fun loadHotspots() {
         hsLoading = true; hsError = false
         scope.launch {
@@ -219,6 +233,7 @@ fun RadarScreen(userId: String) {
 
             // 좌측 세로 플로팅 버튼
             Column(Modifier.align(Alignment.CenterStart).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                RadarFab("🔊", false) { speakGuide() }   // [v24] AI 음성 안내
                 if (pPersonalized) RadarFab("🎯", openPanel == "personal") { openPanel = if (openPanel == "personal") "" else "personal" }
                 RadarFab("🤖", openPanel == "now") { openPanel = if (openPanel == "now") "" else "now" }
                 RadarFab("🍜", openPanel == "spots") { openPanel = if (openPanel == "spots") "" else "spots" }
