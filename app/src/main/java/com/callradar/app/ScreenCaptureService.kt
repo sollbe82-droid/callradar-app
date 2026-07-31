@@ -83,6 +83,7 @@ class ScreenCaptureService : Service() {
         reader?.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             val cropped: Bitmap
+            var fullForDetect: Bitmap? = null
             try {
                 val planes = image.planes
                 val buffer = planes[0].buffer
@@ -103,7 +104,8 @@ class ScreenCaptureService : Service() {
                 }
                 // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
                 try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
-                cropped = cropForShare(bmp)   // 독립 비트맵 복사본 → 아래서 projection 해제해도 유지
+                fullForDetect = bmp.copy(Bitmap.Config.ARGB_8888, false)   // [v24] 자동판별용 전체 프레임(독립 복사)
+                cropped = cropForShare(bmp)   // 폴백용 크롭(독립 복사본)
             } catch (e: Exception) {
                 toast("이미지 처리 실패")
                 image.close(); cleanup(); stopSelfSafe()
@@ -115,8 +117,9 @@ class ScreenCaptureService : Service() {
             if (mode == "text") {
                 ocrAndShare(cropped)   // 한글 OCR 비동기 → 콜백에서 종료
             } else {
-                shareImage(watermark(cropped))
-                stopSelfSafe()
+                val full = fullForDetect
+                if (full != null) detectCropShare(full)   // [v24] 플랫폼 자동판별 → 크롭 → 공유
+                else { shareImage(watermark(cropped)); stopSelfSafe() }
             }
         }, handler)
     }
@@ -126,22 +129,65 @@ class ScreenCaptureService : Service() {
      * 프리셋(높이 프랙션)으로 저장·조정: shot_crop_top / shot_crop_bottom (기본 카카오T용).
      * 플랫폼마다 위치가 달라 프리셋을 바꿔 대응(추후 앱별 자동선택). shot_crop_on=false면 전체 화면.
      */
+    // [v24] 플랫폼별 콜 화면 기본 크롭(실제 콜 화면 기준). 카카오=상단 카드, 티머니=중간 카드, 우버=중상단.
+    //  유저가 설정에서 조절 안 해도 자동으로 맞게. (설정값 있으면 그게 우선)
+    private fun defaultCrop(plat: String): Pair<Float, Float> = when {
+        plat.contains("카카오") || plat.contains("kakao", true) -> 0.07f to 0.45f
+        plat.contains("티머니") || plat.contains("tmoney", true) || plat.contains("온다") -> 0.40f to 0.80f
+        plat.contains("우버") || plat.contains("uber", true) -> 0.08f to 0.55f
+        else -> 0.05f to 0.52f
+    }
+
     private fun cropForShare(src: Bitmap): Bitmap {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+        // 플랫폼 자동선택: 설정된 값 > 마지막 쓴 플랫폼 > 카카오T
+        val plat = prefs.getString("shot_platform", null) ?: prefs.getString("last_platform", "카카오T") ?: "카카오T"
+        return cropForShareWith(src, plat)
+    }
+
+    // 지정 플랫폼 기준 크롭 (OCR 자동판별 결과에 사용)
+    private fun cropForShareWith(src: Bitmap, plat: String): Bitmap {
+        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("shot_crop_on", true)) return src
-        val plat = prefs.getString("shot_platform", "카카오T") ?: "카카오T"
-        val topF = prefs.getFloat("shot_crop_top_$plat", 0.04f).coerceIn(0f, 0.9f)
-        val botF = prefs.getFloat("shot_crop_bottom_$plat", 0.52f).coerceIn(topF + 0.05f, 1f)
+        val (defTop, defBot) = defaultCrop(plat)
+        val topF = prefs.getFloat("shot_crop_top_$plat", defTop).coerceIn(0f, 0.9f)
+        val botF = prefs.getFloat("shot_crop_bottom_$plat", defBot).coerceIn(topF + 0.05f, 1f)
         val top = (src.height * topF).toInt().coerceIn(0, src.height - 1)
         val bottom = (src.height * botF).toInt().coerceIn(top + 1, src.height)
         return try { Bitmap.createBitmap(src, 0, top, src.width, bottom - top) } catch (e: Exception) { src }
+    }
+
+    // [v24] OCR 텍스트로 플랫폼 자동판별 (콜 화면에 앱 이름/특징 텍스트가 있음)
+    private fun detectPlatform(text: String): String {
+        val t = text.lowercase()
+        return when {
+            text.contains("티머니") || t.contains("tmoney") -> "티머니GO"
+            text.contains("카카오") || t.contains("kakao") -> "카카오T"
+            text.contains("우버") || t.contains("uber") -> "우버"
+            else -> getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("last_platform", "카카오T") ?: "카카오T"
+        }
+    }
+
+    // [v24] 스샷 공유: 전체 프레임 OCR → 플랫폼 자동판별 → 맞는 크롭 → 워터마크 → 공유
+    private fun detectCropShare(full: Bitmap) {
+        try {
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+                com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions.Builder().build())
+            recognizer.process(com.google.mlkit.vision.common.InputImage.fromBitmap(full, 0))
+                .addOnSuccessListener { vt ->
+                    val plat = detectPlatform(vt.text)
+                    shareImage(watermark(cropForShareWith(full, plat)))
+                    stopSelfSafe()
+                }
+                .addOnFailureListener { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
+        } catch (e: Exception) { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
     }
 
     /** 콜레이더 브랜드 워터마크 (하단 반투명 바) — 어디에 공유되든 우리 이름이 박힘 */
     private fun watermark(src: Bitmap): Bitmap {
         val out = src.copy(Bitmap.Config.ARGB_8888, true)
         val c = Canvas(out)
-        val barH = (out.height * 0.06f).coerceAtLeast(70f)
+        val barH = (out.height * 0.09f).coerceAtLeast(96f)   // [v24] 크롭 정확해진 만큼 워터마크 더 크게
         val bg = Paint().apply { color = Color.argb(180, 10, 14, 26) }
         c.drawRect(0f, out.height - barH, out.width.toFloat(), out.height.toFloat(), bg)
         val tp = Paint().apply {
