@@ -887,15 +887,21 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             TextButton(onClick = { blockEdit = !blockEdit }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(if (blockEdit) "완료" else "✏️ 편집", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold) }
                         }
                         if (!blockEdit) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                order.forEach { id ->
-                                    val r = registry.first { it.first == id }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { runBlock(id) }.padding(horizontal = 4.dp, vertical = 4.dp)) {
-                                        Box(Modifier.size(46.dp).background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text(r.second, fontSize = 20.sp) }
-                                        Spacer(Modifier.height(4.dp)); Text(r.third, fontSize = 10.sp, color = AppTheme.text)
+                            if (order.isEmpty()) {
+                                Text("편집에서 바로가기를 추가하세요", fontSize = 11.sp, color = muted)
+                            } else {
+                                // [v23] 여러 개 켜도 안 짤리게 5개씩 줄바꿈(기존 단일 Row는 많이 켜면 화면 밖으로 넘쳐 안 보였음)
+                                order.chunked(5).forEach { rowIds ->
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                        rowIds.forEach { id ->
+                                            val r = registry.first { it.first == id }
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { runBlock(id) }.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                                                Box(Modifier.size(46.dp).background(accent.copy(alpha = 0.14f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text(r.second, fontSize = 20.sp) }
+                                                Spacer(Modifier.height(4.dp)); Text(r.third, fontSize = 10.sp, color = AppTheme.text)
+                                            }
+                                        }
                                     }
                                 }
-                                if (order.isEmpty()) Text("편집에서 바로가기를 추가하세요", fontSize = 11.sp, color = muted)
                             }
                         } else {
                             registry.forEach { (id, icon, label) ->

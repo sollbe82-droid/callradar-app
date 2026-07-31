@@ -1133,7 +1133,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
     var tmoneyFee by remember { mutableStateOf(feeRateFloat(prefs, "fee_tmoney")) }
     var lpgPrice by remember { mutableStateOf(prefs.getInt("lpg_price", 1050)) }
     var lpgDaily by remember { mutableStateOf(prefs.getInt("lpg_daily", 40)) }
-    var gasReduction by remember { mutableStateOf(prefs.getInt("gas_reduction", 9)) }
+    var gasReduction by remember { mutableStateOf(prefs.getFloat("gas_reduction_f", prefs.getInt("gas_reduction", 9).toFloat())) }  // [v23] 소수점 지원(Float)
     var showLpgDialog by remember { mutableStateOf(false) }
 
     fun saveSettingsToServer() {
@@ -1293,7 +1293,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
     if (showLpgDialog) {
         var priceInput by remember { mutableStateOf(lpgPrice.toString()) }
         var dailyLInput by remember { mutableStateOf(lpgDaily.toString()) }
-        var reductionInput by remember { mutableStateOf(gasReduction.toString()) }
+        var reductionInput by remember { mutableStateOf(if (gasReduction % 1f == 0f) gasReduction.toInt().toString() else gasReduction.toString()) }
         var subsidyInput by remember { mutableStateOf(prefs.getInt("lpg_subsidy", 221).toString()) }   // [v5] 개인 유가보조금(원/L) 편집
         var gasMethod by remember { mutableStateOf(prefs.getString("gas_method", "rate") ?: "rate") }   // [v5] 법인: rate(경감률) | fixed(고정단가)
         var fixedInput by remember { mutableStateOf(prefs.getInt("gas_fixed", 0).toString()) }          // [v5] 법인 고정 차감단가(원/L)
@@ -1312,15 +1312,15 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                         }
                     }
                     if (gasMethod == "rate") {
-                        OutlinedTextField(value = reductionInput, onValueChange = { v -> val f = v.filter { it.isDigit() }.take(3); if (f.isEmpty() || (f.toIntOrNull() ?: 0) <= 100) reductionInput = f }, label = { Text("가스 경감률 (%) — 회사 부가세 경감", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
-                        val redRate = reductionInput.toIntOrNull() ?: 0
+                        OutlinedTextField(value = reductionInput, onValueChange = { v -> val f = v.replace(",", ".").filter { it.isDigit() || it == '.' }; val ok = f.count { it == '.' } <= 1 && (f.toFloatOrNull() ?: 0f) <= 100f; if (f.isEmpty() || f == "." || ok) reductionInput = f }, label = { Text("가스 경감률 (%) — 소수점 가능 (예: 8.5)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                        val redRate = reductionInput.toFloatOrNull() ?: 0f
                         val gross = price * liters
                         val net = (gross * (100 - redRate) / 100.0).toInt()
                         if (gross > 0) {
                             Card(colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(8.dp)) {
                                 Column(modifier = Modifier.padding(10.dp)) {
                                     Text("일 가스총액: ${String.format("%,d", gross)}원 (${price}×${liters}L)", fontSize = 12.sp, color = AppTheme.text)
-                                    Text("경감 ${redRate}% 적용", fontSize = 12.sp, color = green)
+                                    Text("경감 ${if (redRate % 1f == 0f) redRate.toInt().toString() else redRate.toString()}% 적용", fontSize = 12.sp, color = green)
                                     Text("일 실부담(차감액): ${String.format("%,d", net)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent)
                                     Text("💡 월 차감 = 실부담 × 근무일", fontSize = 10.sp, color = muted)
                                 }
@@ -1362,17 +1362,17 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
             confirmButton = { Button(onClick = {
                 lpgPrice = priceInput.toIntOrNull() ?: 1050
                 lpgDaily = dailyLInput.toIntOrNull() ?: 40
-                gasReduction = reductionInput.toIntOrNull() ?: 9
+                gasReduction = reductionInput.toFloatOrNull() ?: 9f
                 val sub = subsidyInput.toIntOrNull() ?: 221
                 val fixedV = fixedInput.toIntOrNull() ?: 0
                 // [v16] 일 가스 실부담(원) 계산 → 홈 순수익이 읽는 단일 소스
                 val dailyCost = if (driverType == "corporate") {
                     if (gasMethod == "fixed") fixedV * lpgDaily
-                    else (lpgPrice.toLong() * lpgDaily * (100 - gasReduction) / 100).toInt()
+                    else (lpgPrice.toDouble() * lpgDaily * (100 - gasReduction) / 100.0).toInt()
                 } else {
                     ((lpgPrice - sub) * lpgDaily).coerceAtLeast(0)
                 }
-                prefs.edit().putInt("lpg_price", lpgPrice).putInt("lpg_daily", lpgDaily).putInt("gas_reduction", gasReduction).putInt("lpg_subsidy", sub).putString("gas_method", gasMethod).putInt("gas_fixed", fixedV).putInt("lpg_daily_cost", dailyCost).apply()
+                prefs.edit().putInt("lpg_price", lpgPrice).putInt("lpg_daily", lpgDaily).putFloat("gas_reduction_f", gasReduction).putInt("gas_reduction", gasReduction.toInt()).putInt("lpg_subsidy", sub).putString("gas_method", gasMethod).putInt("gas_fixed", fixedV).putInt("lpg_daily_cost", dailyCost).apply()
                 showLpgDialog = false
             }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showLpgDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
