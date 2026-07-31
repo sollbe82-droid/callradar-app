@@ -117,7 +117,7 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
 
     // 이미지 1장 OCR → 표 채우기 (갤러리·카메라 공용). [v19] 회전 사진 자동 보정.
-    fun handleOcrText(best: String) {
+    fun handleOcrText(best: String, accumulate: Boolean = false, onComplete: () -> Unit = {}) {
         rawText = best
         val flat = best.replace("\n", " ")
         // 달력형(카페 가계부·월별): 요일 행이 있으면 여러 날 표로 파싱 (규칙은 서버에서 갱신 가능)
@@ -130,13 +130,28 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
             looksReceipt -> { parseReceipt(best, month, rules)?.let { parsed = listOf(it) }; if (parsed.isEmpty()) parsed = parseCalendar(best) }
             else -> { parsed = parseCalendar(best); if (parsed.isEmpty()) parseReceipt(best, month, rules)?.let { parsed = listOf(it) } }
         }
-        rows = parsed
+        rows = if (accumulate) {
+            // [v24] 여러 장 누적 — 같은 날은 합산, 없으면 추가
+            val merged = rows.toMutableList()
+            parsed.forEach { p ->
+                val idx = if (p.day > 0) merged.indexOfFirst { it.day == p.day } else -1
+                if (idx >= 0) {
+                    val ex = merged[idx]
+                    merged[idx] = ex.copy(
+                        income = ((ex.income.toIntOrNull() ?: 0) + (p.income.toIntOrNull() ?: 0)).let { if (it > 0) it.toString() else "" },
+                        expense = ((ex.expense.toIntOrNull() ?: 0) + (p.expense.toIntOrNull() ?: 0)).let { if (it > 0) it.toString() else "" }
+                    )
+                } else merged.add(p)
+            }
+            merged
+        } else parsed
         busy = false
         status = when {
             rows.isEmpty() -> "자동 인식이 안 됐어요. 아래 '직접 추가'로 넣거나 더 밝고 반듯하게 다시 찍어 주세요."
-            rows.size == 1 -> "영수증 인식됨: ${month}월 ${if (rows[0].day > 0) "${rows[0].day}일 " else ""}수입 ${rows[0].income}원 — 확인 후 가져오기."
-            else -> "${rows.size}일 인식됨 — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
+            rows.size == 1 -> "인식됨: ${month}월 ${if (rows[0].day > 0) "${rows[0].day}일 " else ""}— 확인 후 가져오기."
+            else -> "${rows.size}건 인식됨 — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
         }
+        onComplete()
     }
     // OCR 텍스트 품질 점수(회전 방향 자동 선택용): 그룹금액·키워드·한글 밀도가 높을수록 올바른 방향.
     fun scoreText(t: String): Int {
@@ -145,7 +160,7 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
         val hangul = t.count { it.code in 0xAC00..0xD7A3 }
         return amts * 4 + kw * 2 + hangul / 15
     }
-    fun runOcr(uri: Uri) {
+    fun runOcr(uri: Uri, accumulate: Boolean = false, onComplete: () -> Unit = {}) {
         busy = true; status = "글자를 읽는 중…"
         try {
             val recognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
@@ -160,25 +175,38 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
             } catch (e: Exception) { null }
             if (bitmap == null) {
                 recognizer.process(InputImage.fromFilePath(ctx, uri))
-                    .addOnSuccessListener { handleOcrText(it.text) }
-                    .addOnFailureListener { busy = false; status = "읽기 실패: ${it.message}" }
+                    .addOnSuccessListener { handleOcrText(it.text, accumulate, onComplete) }
+                    .addOnFailureListener { busy = false; status = "읽기 실패: ${it.message}"; onComplete() }
                 return
             }
             // 0/90/270/180 네 방향 OCR → 품질 점수 최고 방향 채택 (옆으로 찍힌 영수증 자동 인식)
             val rots = intArrayOf(0, 90, 270, 180)
             val texts = arrayOfNulls<String>(rots.size)
             fun tryRot(i: Int) {
-                if (i >= rots.size) { handleOcrText(texts.filterNotNull().maxByOrNull { scoreText(it) } ?: ""); return }
+                if (i >= rots.size) { handleOcrText(texts.filterNotNull().maxByOrNull { scoreText(it) } ?: "", accumulate, onComplete); return }
                 status = "글자를 읽는 중… (${i + 1}/${rots.size})"
                 recognizer.process(InputImage.fromBitmap(bitmap, rots[i]))
                     .addOnSuccessListener { texts[i] = it.text; tryRot(i + 1) }
                     .addOnFailureListener { texts[i] = ""; tryRot(i + 1) }
             }
             tryRot(0)
-        } catch (e: Exception) { busy = false; status = "오류: ${e.message}" }
+        } catch (e: Exception) { busy = false; status = "오류: ${e.message}"; onComplete() }
     }
-    // 🖼 갤러리
+    // 🖼 갤러리 (1장)
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> if (uri != null) runOcr(uri) }
+    // [v24] 🖼 여러 장 한 번에 — 순차 OCR + 누적(같은 날 합산)
+    val multiPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            rows = emptyList()
+            var i = 0
+            fun next() {
+                if (i >= uris.size) { busy = false; status = "${rows.size}건 인식 완료 — 확인 후 가져오기를 누르세요."; return }
+                status = "여러 장 읽는 중… (${i + 1}/${uris.size})"
+                runOcr(uris[i], accumulate = true) { i++; next() }
+            }
+            next()
+        }
+    }
     // 📷 카메라 (촬영 → 임시파일 → OCR)
     var camUri by remember { mutableStateOf<Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) camUri?.let { runOcr(it) } }
@@ -229,7 +257,7 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { onCameraClick() }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("📷 카메라", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            Button(onClick = { picker.launch("image/*") }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("🖼 갤러리", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+            Button(onClick = { multiPicker.launch("image/*") }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(12.dp)) { Text("🖼 갤러리(여러장)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             Button(onClick = { filePicker.launch("*/*") }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(12.dp)) { Text("📄 파일", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
         }
 
