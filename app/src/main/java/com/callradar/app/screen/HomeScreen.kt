@@ -937,6 +937,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var accPct by remember { mutableStateOf(-1) }
                 var accScored by remember { mutableStateOf(0) }
                 LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(2500)   // [v24] 홈 핵심(매출 등) 먼저 로드되게 플라이휠은 뒤로 미룸
                     try {
                         val resp = withContext(Dispatchers.IO) { (URL("$SERVER_URL/api/feedback/accuracy").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText() }
                         val rows = org.json.JSONObject(resp).optJSONArray("rows")

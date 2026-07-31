@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -210,103 +211,96 @@ fun RadarScreen(userId: String) {
             }
         }
 
-        // [v24 진화①] 개인 레이더 카드 — 본인 기록 충분할 때만
-        if (pPersonalized && (pOrigins.isNotEmpty() || pHours.isNotEmpty() || pDests.isNotEmpty())) {
-            Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("🎯 내 데이터 레이더 (내 기록 기반)", color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    if (pOrigins.isNotEmpty()) {
-                        Text("이 시간대 내가 콜 잘 잡은 곳", color = muted, fontSize = 11.sp)
-                        pOrigins.take(3).forEach { (name, cnt, avg) ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("· $name", color = AppTheme.text, fontSize = 13.sp)
-                                Text("${cnt}콜" + (if (avg > 0) " · 평균 ${String.format("%,d", avg)}원" else ""), color = green, fontSize = 12.sp)
-                            }
+        // [v24] 지도 = 메인(전체). 좌측 플로팅 버튼을 누르면 정보가 오버레이로 뜸(접이식 X).
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            DriverMapScreen(userId = userId, onBack = {}, embedded = true)   // 배경 = 지도(히트맵)
+
+            var openPanel by remember { mutableStateOf("") }  // ""=닫힘 | personal | now | spots | crowd
+
+            // 좌측 세로 플로팅 버튼
+            Column(Modifier.align(Alignment.CenterStart).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (pPersonalized) RadarFab("🎯", openPanel == "personal") { openPanel = if (openPanel == "personal") "" else "personal" }
+                RadarFab("🤖", openPanel == "now") { openPanel = if (openPanel == "now") "" else "now" }
+                RadarFab("🍜", openPanel == "spots") { openPanel = if (openPanel == "spots") "" else "spots" }
+                if (crowd.isNotEmpty()) RadarFab("🌐", openPanel == "crowd") { openPanel = if (openPanel == "crowd") "" else "crowd" }
+            }
+
+            // 선택된 버튼 정보 — 지도 위 오버레이 패널
+            if (openPanel.isNotEmpty()) {
+                Card(Modifier.align(Alignment.CenterStart).padding(start = 64.dp, end = 12.dp).widthIn(max = 460.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.padding(14.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(when (openPanel) { "personal" -> "🎯 내 데이터 레이더"; "now" -> "🤖 지금 시간대"; "spots" -> "🍜 내 맛집"; else -> "🌐 다른 기사 자리" }, color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("✕", color = muted, fontSize = 16.sp, modifier = Modifier.clickable { openPanel = "" })
                         }
-                    }
-                    if (pHours.isNotEmpty()) {
-                        val top = pHours.first()
-                        Text("내가 제일 잘 버는 시간: ${top.first}시" + (if (top.second > 0) " (평균 ${String.format("%,d", top.second)}원)" else ""), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    if (pDests.isNotEmpty()) {
-                        val d = pDests.first()
-                        Text("돈 되는 목적지: ${d.first}" + (if (d.third > 0) " (평균 ${String.format("%,d", d.third)}원)" else ""), color = muted, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-
-        // 지금 시간대 스트립 (돈되는곳/피할곳)
-        Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🤖", fontSize = 16.sp); Spacer(Modifier.width(6.dp))
-                    val head = when {
-                        incomeRank >= 0.66f -> "지금은 벌이 좋은 시간대예요"
-                        nowGap in 1..999 && nowGap >= 60 -> "지금은 공차가 길 수 있어요"
-                        nowIncome >= 0 -> "지금 시간대 흐름이에요"
-                        else -> "데이터를 불러오는 중…"
-                    }
-                    Text(head, color = AppTheme.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                if (nowIncome > 0) Text("이 시간대 누적 수입 ${String.format("%,d", nowIncome)}원" + (if (nowGap in 1..999) " · 평균 공차 ${nowGap}분" else ""), color = muted, fontSize = 12.sp)
-                if (worstZone.isNotBlank()) Text("⚠️ ${worstZone} 쪽에 내리면 다음 콜까지 오래 걸려요", color = red.copy(alpha = 0.85f), fontSize = 11.sp)
-            }
-        }
-
-        // 내 맛집 (유저 좋은자리)
-        Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("🍜 내 맛집 (좋은 자리)", color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Button(onClick = { captureLoc(); showAdd = true }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(9.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("➕ 여기 등록", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                }
-                if (hotspots.isEmpty() && hsLoading) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(color = accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("불러오는 중…", fontSize = 12.sp, color = muted) }
-                } else if (hotspots.isEmpty() && hsError) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("불러오지 못했어요 (서버 깨우는 중일 수 있어요)", fontSize = 12.sp, color = red.copy(alpha = 0.85f), modifier = Modifier.weight(1f))
-                        TextButton(onClick = { loadHotspots() }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("다시 시도", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                    }
-                } else if (hotspots.isEmpty()) {
-                    Text("몸으로 아는 좋은 자리를 등록해두면, 그 근처에 오면 레이더가 알려줘요. '여기 등록'을 눌러 지금 자리부터 담아보세요.", fontSize = 12.sp, color = muted)
-                } else {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        hotspots.forEach { h ->
-                            Box(Modifier.background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable { delHotspot(h.id) }.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                                Column {
-                                    Text((if (h.hasLoc) "📍 " else "") + h.name, color = AppTheme.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    val sub = listOfNotNull(h.timeBand.ifBlank { null }, h.note.ifBlank { null }).joinToString(" · ")
-                                    if (sub.isNotBlank()) Text(sub, color = muted, fontSize = 10.sp)
-                                    if (h.confirmed > 0) Text("✓ 데이터 ${h.confirmed}회", color = green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        when (openPanel) {
+                            "personal" -> {
+                                if (pOrigins.isNotEmpty()) {
+                                    Text("이 시간대 내가 콜 잘 잡은 곳", color = muted, fontSize = 11.sp)
+                                    pOrigins.take(4).forEach { (name, cnt, avg) ->
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("· $name", color = AppTheme.text, fontSize = 13.sp)
+                                            Text("${cnt}콜" + (if (avg > 0) " · 평균 ${String.format("%,d", avg)}원" else ""), color = green, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                                if (pHours.isNotEmpty()) { val top = pHours.first(); Text("내가 제일 잘 버는 시간: ${top.first}시" + (if (top.second > 0) " (평균 ${String.format("%,d", top.second)}원)" else ""), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                                if (pDests.isNotEmpty()) { val d = pDests.first(); Text("돈 되는 목적지: ${d.first}" + (if (d.third > 0) " (평균 ${String.format("%,d", d.third)}원)" else ""), color = muted, fontSize = 12.sp) }
+                            }
+                            "now" -> {
+                                val head = when {
+                                    incomeRank >= 0.66f -> "지금은 벌이 좋은 시간대예요"
+                                    nowGap in 1..999 && nowGap >= 60 -> "지금은 공차가 길 수 있어요"
+                                    nowIncome >= 0 -> "지금 시간대 흐름이에요"
+                                    else -> "데이터를 불러오는 중…"
+                                }
+                                Text(head, color = AppTheme.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                if (nowIncome > 0) Text("이 시간대 누적 수입 ${String.format("%,d", nowIncome)}원" + (if (nowGap in 1..999) " · 평균 공차 ${nowGap}분" else ""), color = muted, fontSize = 12.sp)
+                                if (worstZone.isNotBlank()) Text("⚠️ ${worstZone} 쪽에 내리면 다음 콜까지 오래 걸려요", color = red.copy(alpha = 0.85f), fontSize = 11.sp)
+                            }
+                            "spots" -> {
+                                Button(onClick = { captureLoc(); showAdd = true }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(9.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("➕ 지금 자리 등록", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                                if (hotspots.isEmpty() && hsLoading) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(color = accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("불러오는 중…", fontSize = 12.sp, color = muted) }
+                                } else if (hotspots.isEmpty() && hsError) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) { Text("불러오지 못했어요", fontSize = 12.sp, color = red.copy(alpha = 0.85f), modifier = Modifier.weight(1f)); TextButton(onClick = { loadHotspots() }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("다시 시도", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold) } }
+                                } else if (hotspots.isEmpty()) {
+                                    Text("몸으로 아는 좋은 자리를 등록해두면, 그 근처에 오면 알려줘요.", fontSize = 12.sp, color = muted)
+                                } else {
+                                    hotspots.forEach { h ->
+                                        Box(Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable { delHotspot(h.id) }.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                            Column {
+                                                Text((if (h.hasLoc) "📍 " else "") + h.name, color = AppTheme.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                val sub = listOfNotNull(h.timeBand.ifBlank { null }, h.note.ifBlank { null }).joinToString(" · ")
+                                                if (sub.isNotBlank()) Text(sub, color = muted, fontSize = 10.sp)
+                                                if (h.confirmed > 0) Text("✓ 데이터 ${h.confirmed}회", color = green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                    Text("칩을 누르면 삭제돼요", fontSize = 9.sp, color = muted)
+                                }
+                            }
+                            else -> {
+                                crowd.forEach { (name, drivers) ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(name, color = AppTheme.text, fontSize = 13.sp, fontWeight = FontWeight.Bold); Text("${drivers}명 등록", color = green, fontSize = 12.sp) }
                                 }
                             }
                         }
                     }
-                    Text("칩을 누르면 삭제돼요", fontSize = 9.sp, color = muted)
                 }
             }
-        }
-
-        // [v2] 크라우드 맛집 — 여러 기사가 등록한 자리 (익명)
-        if (crowd.isNotEmpty()) {
-            Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("🌐 다른 기사들이 많이 등록한 자리", color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        crowd.forEach { (name, drivers) ->
-                            Box(Modifier.background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 8.dp)) {
-                                Column { Text(name, color = AppTheme.text, fontSize = 12.sp, fontWeight = FontWeight.Bold); Text("${drivers}명 등록", color = green, fontSize = 10.sp) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 지도 (내 운행 밀도 히트맵) — 탭 임베드 모드
-        Box(Modifier.weight(1f)) {
-            DriverMapScreen(userId = userId, onBack = {}, embedded = true)
         }
     }
+}
+
+// [v24] 지도 위 좌측 플로팅 버튼 (누르면 해당 정보 오버레이)
+@Composable
+private fun RadarFab(icon: String, active: Boolean, onClick: () -> Unit) {
+    val accent = Color(0xFFF5A623)
+    Box(
+        Modifier.size(46.dp)
+            .background(if (active) accent else AppTheme.card, RoundedCornerShape(23.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) { Text(icon, fontSize = 20.sp) }
 }
