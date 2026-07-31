@@ -31,7 +31,16 @@ class ScreenCapturePermissionActivity : Activity() {
         super.onCreate(savedInstanceState)
         try {
             val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            startActivityForResult(mpm.createScreenCaptureIntent(), REQ)
+            // [v24 fix] Android 14+ 는 기본이 '앱 하나 공유'(앱 선택창)라 요금화면 캡처가 꼬임(=금액인식 안 됨).
+            //  전체화면 캡처로 강제 → 앱 선택 단계 제거 + 타앱 요금화면 확실히 캡처(공유 단계도 줄어듦).
+            val captureIntent = if (Build.VERSION.SDK_INT >= 34) {
+                try {
+                    mpm.createScreenCaptureIntent(
+                        android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay()
+                    )
+                } catch (e: Throwable) { mpm.createScreenCaptureIntent() }
+            } else mpm.createScreenCaptureIntent()
+            startActivityForResult(captureIntent, REQ)
         } catch (e: Exception) {
             Toast.makeText(this, "화면 공유를 시작할 수 없어요", Toast.LENGTH_SHORT).show()
             finish()
