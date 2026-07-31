@@ -115,7 +115,7 @@ class ScreenCaptureService : Service() {
             cleanup()   // projection/display 해제 (cropped는 독립 복사본)
             val mode = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("share_mode", "screenshot") ?: "screenshot"
             if (mode == "text") {
-                ocrAndShare(cropped)   // 한글 OCR 비동기 → 콜백에서 종료
+                ocrAndShare(fullForDetect ?: cropped)   // [v24] 전체 프레임 OCR → 출발/목적지 추출
             } else {
                 val full = fullForDetect
                 if (full != null) detectCropShare(full)   // [v24] 플랫폼 자동판별 → 크롭 → 공유
@@ -181,6 +181,26 @@ class ScreenCaptureService : Service() {
                 }
                 .addOnFailureListener { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
         } catch (e: Exception) { shareImage(watermark(cropForShare(full))); stopSelfSafe() }
+    }
+
+    // [v24] OCR 텍스트에서 출발지/목적지 추출 — 자동화 인식 엔진의 시작(시작=출발/목적지, 종료=금액).
+    //  카카오/티머니 콜 화면은 '출발'/'도착'(또는 '목적지') 라벨이 있어 그 뒤/다음 줄을 주소로 잡음.
+    private fun extractRoute(text: String): String {
+        val lines = text.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+        var origin = ""; var dest = ""
+        for (i in lines.indices) {
+            val l = lines[i]
+            if (origin.isBlank() && (l == "출발" || l.startsWith("출발지") || l.startsWith("출발 "))) {
+                origin = l.removePrefix("출발지").removePrefix("출발").trim().ifBlank { lines.getOrElse(i + 1) { "" } }
+            }
+            if (dest.isBlank() && (l == "도착" || l.startsWith("도착") || l.startsWith("목적지"))) {
+                dest = l.removePrefix("목적지").removePrefix("도착").trim().ifBlank { lines.getOrElse(i + 1) { "" } }
+            }
+        }
+        return buildString {
+            if (origin.isNotBlank()) append("🚕 출발: $origin\n")
+            if (dest.isNotBlank()) append("📍 도착: $dest")
+        }.trim()
     }
 
     /** 콜레이더 브랜드 워터마크 (하단 반투명 바) — 어디에 공유되든 우리 이름이 박힘 */
@@ -251,9 +271,11 @@ class ScreenCaptureService : Service() {
             val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
             val promo = (prefs.getString("share_promo", "") ?: "").trim()
             // OCR 결과 정리: 빈 줄 제거
+            val route = extractRoute(ocr)   // [v24] 출발/목적지만 뽑기
             val cleaned = ocr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+            val body = if (route.isNotBlank()) route else if (cleaned.isNotEmpty()) cleaned else "🚕 콜레이더 콜 공유"
             val brand = "\n\n📻 콜레이더 — 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
-            val text = (if (cleaned.isNotEmpty()) cleaned else "🚕 콜레이더 콜 공유") + brand
+            val text = body + brand
             try {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cm.setPrimaryClip(android.content.ClipData.newPlainText("콜레이더", text))
