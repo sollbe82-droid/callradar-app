@@ -476,6 +476,7 @@ class FloatingTripService : Service() {
         val fp = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
         val pFare = fp.getInt("pending_fare", 0)
         val pTs = fp.getLong("pending_fare_ts", 0L)
+        val pRaw = fp.getString("pending_fare_raw", "") ?: ""   // [v24] 학습용 원문(ai 인식 근거)
         val useFare = if (pFare > 0 && System.currentTimeMillis() - pTs < 90000) pFare else 0
         fp.edit().remove("pending_fare").remove("pending_fare_ts").apply()
         thread {
@@ -506,9 +507,12 @@ class FloatingTripService : Service() {
                 if (tripId > 0 && getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getBoolean("quick_entry_enabled", true)) {
                     confirmHandler.post {
                         try {
-                            startActivity(Intent(this, QuickEntryActivity::class.java).apply { putExtra("trip_id", tripId); putExtra("dest", destName); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                            startActivity(Intent(this, QuickEntryActivity::class.java).apply { putExtra("trip_id", tripId); putExtra("dest", destName); putExtra("ocr_fare", useFare); putExtra("ocr_raw", pRaw); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                         } catch (e: Exception) {}
                     }
+                } else if (useFare > 0) {
+                    // [v24 A단계] 빠른입력 팝업이 안 뜨면 OCR 금액이 그대로 확정 → 정답=인식값으로 학습 기록
+                    com.callradar.app.Feedback.send(this@FloatingTripService, "amount", null, pRaw, useFare.toString(), useFare.toString())
                 }
             } catch (e: Exception) {}
         }

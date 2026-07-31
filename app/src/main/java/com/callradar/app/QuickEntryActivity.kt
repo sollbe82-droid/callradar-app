@@ -38,14 +38,16 @@ class QuickEntryActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val tripId = intent.getIntExtra("trip_id", 0)
         val dest = intent.getStringExtra("dest") ?: ""
+        val ocrFare = intent.getIntExtra("ocr_fare", 0)      // [v24] 종료 OCR가 뽑은 금액(ai)
+        val ocrRaw = intent.getStringExtra("ocr_raw") ?: ""  // [v24] 종료 화면 원문(학습용)
         val userId = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
         if (tripId <= 0 || userId.isEmpty()) { finish(); return }
-        setContent { QuickEntry(tripId, dest, userId) { finish() } }
+        setContent { QuickEntry(tripId, dest, userId, ocrFare, ocrRaw) { finish() } }
     }
 }
 
 @Composable
-private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () -> Unit) {
+private fun QuickEntry(tripId: Int, dest: String, userId: String, ocrFare: Int, ocrRaw: String, onClose: () -> Unit) {
     val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -132,6 +134,9 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, onClose: () ->
                                     conn.responseCode
                                 }
                                 com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = true, meta = platform)
+                                // [v24 A단계] OCR 인식값(ai) vs 유저 확정 금액(user) 업로드 → 서버 규칙 자동개선
+                                val userFare = if (f > 0) f else ocrFare
+                                com.callradar.app.Feedback.send(ctx, "amount", platform.ifEmpty { null }, ocrRaw, if (ocrFare > 0) ocrFare.toString() else null, if (userFare > 0) userFare.toString() else null)
                             } catch (e: Exception) { com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = false) }
                             onClose()
                         }

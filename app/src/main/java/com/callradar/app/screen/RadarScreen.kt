@@ -63,6 +63,12 @@ fun RadarScreen(userId: String) {
     var addBusy by remember { mutableStateOf(false) }
     var locMsg by remember { mutableStateOf("") }
 
+    // [v24 진화①] 개인 레이더 — 본인 운행 기록 기반(하드코딩 아님). 데이터 충분(10건+)일 때만 노출.
+    var pOrigins by remember { mutableStateOf<List<Triple<String, Int, Int>>>(emptyList()) }
+    var pHours by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
+    var pDests by remember { mutableStateOf<List<Triple<String, Int, Int>>>(emptyList()) }
+    var pPersonalized by remember { mutableStateOf(false) }
+
     fun loadHotspots() {
         hsLoading = true; hsError = false
         scope.launch {
@@ -77,6 +83,18 @@ fun RadarScreen(userId: String) {
         }
     }
     LaunchedEffect(Unit) { loadHotspots() }
+    // [v24 진화①] 개인 레이더 로드
+    LaunchedEffect(Unit) {
+        try {
+            val hr = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul")).get(java.util.Calendar.HOUR_OF_DAY)
+            val resp = withContext(Dispatchers.IO) { (URL("$server/api/radar/personal/$userId?hour=$hr").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 30000 }.inputStream.bufferedReader().readText() }
+            val o = JSONObject(resp)
+            pPersonalized = o.optBoolean("personalized", false)
+            fun arr3(key: String): List<Triple<String, Int, Int>> { val a = o.optJSONArray(key) ?: return emptyList(); return (0 until a.length()).map { val x = a.getJSONObject(it); Triple(x.optString("name"), x.optInt("cnt"), x.optInt("avg_fare")) }.filter { it.first.isNotBlank() && !it.first.startsWith("TEST") } }
+            pOrigins = arr3("topOrigins"); pDests = arr3("topDestinations")
+            val h = o.optJSONArray("bestHours"); pHours = (0 until (h?.length() ?: 0)).map { val x = h!!.getJSONObject(it); Pair(x.optInt("hour"), x.optInt("avg_fare")) }
+        } catch (e: Exception) {}
+    }
     // [v2] 크라우드 맛집 — 여러 기사가 등록한 자리
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) {
@@ -189,6 +207,32 @@ fun RadarScreen(userId: String) {
             Spacer(Modifier.weight(1f))
             Box(Modifier.background((if (live) green else muted).copy(alpha = 0.18f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
                 Text(if (live) "🟢 근무중 · 코파일럿" else "⚪ 대기 · 작전 지도", color = if (live) green else muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // [v24 진화①] 개인 레이더 카드 — 본인 기록 충분할 때만
+        if (pPersonalized && (pOrigins.isNotEmpty() || pHours.isNotEmpty() || pDests.isNotEmpty())) {
+            Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("🎯 내 데이터 레이더 (내 기록 기반)", color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (pOrigins.isNotEmpty()) {
+                        Text("이 시간대 내가 콜 잘 잡은 곳", color = muted, fontSize = 11.sp)
+                        pOrigins.take(3).forEach { (name, cnt, avg) ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("· $name", color = AppTheme.text, fontSize = 13.sp)
+                                Text("${cnt}콜" + (if (avg > 0) " · 평균 ${String.format("%,d", avg)}원" else ""), color = green, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    if (pHours.isNotEmpty()) {
+                        val top = pHours.first()
+                        Text("내가 제일 잘 버는 시간: ${top.first}시" + (if (top.second > 0) " (평균 ${String.format("%,d", top.second)}원)" else ""), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (pDests.isNotEmpty()) {
+                        val d = pDests.first()
+                        Text("돈 되는 목적지: ${d.first}" + (if (d.third > 0) " (평균 ${String.format("%,d", d.third)}원)" else ""), color = muted, fontSize = 12.sp)
+                    }
+                }
             }
         }
 
