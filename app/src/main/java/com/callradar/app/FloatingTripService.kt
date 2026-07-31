@@ -216,6 +216,7 @@ class FloatingTripService : Service() {
             startPulse()                // [v2] 운행중 은은한 펄스
             startLocationForeground()   // [v18] 운행 내내 포그라운드 유지 → 화면잠금에도 버튼/서비스 유지
             saveRideState()
+            com.callradar.app.TimingLog.send(this, "trip_start")   // [v24 진화⑥] 시작 누른 순간 기록
             toast("시작 — 출발 확인 중 · 버튼 길게 누르면 공유")
             // GPS는 백그라운드에서 따로 잡아 채움 (늦게 와도 됨). 잡히면 출발지 동을 버튼에 표시
             captureLocation { lat, lng, addr ->
@@ -238,6 +239,7 @@ class FloatingTripService : Service() {
                 } catch (e: Exception) {}
             }
             // ★완료: 버튼 즉시 "취소?"로 전환 (GPS 안 기다림)
+            com.callradar.app.TimingLog.send(this, "trip_end")   // [v24 진화⑥] 종료 누른 순간 기록
             stopPulse()                 // [v2] 운행 종료 → 펄스 멈춤
             pendingConfirm = true
             updateButton("취소", "#EF4444")

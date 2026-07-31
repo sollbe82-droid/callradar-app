@@ -639,6 +639,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var sumDistKm by remember { mutableStateOf(0f) }
                 var sumFare by remember { mutableStateOf(0) }
                 var sumPerHour by remember { mutableStateOf(0) }
+                var sumFixedCost by remember { mutableStateOf(0) }   // [v24 진화②] 일 유류비+사납금
+                var sumNetProfit by remember { mutableStateOf(0) }   // [v24 진화②] 교대 예상 순수익
                 fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
@@ -654,6 +656,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f
                     sumFare = sFare
                     sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
+                    // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익
+                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + prefs.getInt("daily_sanap", 0)
+                    sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
+                    com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
                     try {
                         val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
                         log.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
@@ -719,6 +725,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         append("거리   ${String.format("%.1f", sumDistKm)} km\n")
                         append("매출   ${String.format("%,d", sumFare)}원\n")
                         append("시간당 ${String.format("%,d", sumPerHour)}원\n")
+                        if (sumFixedCost > 0) { append("고정비(유류+사납) -${String.format("%,d", sumFixedCost)}원\n"); append("예상 순수익 ${String.format("%,d", sumNetProfit)}원\n") }
                         append("$dash\n수고하셨습니다!")
                     }
                     AlertDialog(
@@ -735,6 +742,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("운행 매출", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumFare)}원", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
                                 Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("시간당", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumPerHour)}원", fontSize = 17.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = accent) }
+                                if (sumFixedCost > 0) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("고정비(유류+사납)", fontSize = 12.sp, fontFamily = mono, color = muted); Text("-${String.format("%,d", sumFixedCost)}원", fontSize = 12.sp, fontFamily = mono, color = red) }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("예상 순수익", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumNetProfit)}원", fontSize = 16.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
+                                }
                                 Text("수고하셨습니다!", fontSize = 11.sp, fontFamily = mono, color = muted, modifier = Modifier.padding(top = 2.dp))
                             }
                         },
@@ -798,7 +809,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Spacer(Modifier.height(10.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
@@ -918,6 +929,34 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             Text("켜기/끄기 · ▲▼로 순서 · 홈에 바로 반영", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
+                }
+            }
+
+            // [v24 진화③] A단계 학습 플라이휠 — 앱이 스스로 금액 인식 개선 중임을 보여줌
+            run {
+                var accPct by remember { mutableStateOf(-1) }
+                var accScored by remember { mutableStateOf(0) }
+                LaunchedEffect(Unit) {
+                    try {
+                        val resp = withContext(Dispatchers.IO) { (URL("$SERVER_URL/api/feedback/accuracy").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText() }
+                        val rows = org.json.JSONObject(resp).optJSONArray("rows")
+                        var sc = 0; var co = 0
+                        for (i in 0 until (rows?.length() ?: 0)) { val o = rows!!.getJSONObject(i); if (o.optString("feature") == "amount") { sc += o.optInt("scored"); co += o.optInt("correct") } }
+                        accScored = sc; if (sc >= 5) accPct = ((co * 100.0) / sc).toInt()
+                    } catch (e: Exception) {}
+                }
+                if (accPct >= 0) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🤖", fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("앱이 스스로 학습 중", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text("금액 인식 정확도 ${accPct}% · 교정 ${accScored}건 반영", fontSize = 12.sp, color = muted)
+                            }
+                            Text("${accPct}%", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = green)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
 
