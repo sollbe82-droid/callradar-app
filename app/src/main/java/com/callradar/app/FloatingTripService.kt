@@ -217,6 +217,10 @@ class FloatingTripService : Service() {
             startLocationForeground()   // [v18] 운행 내내 포그라운드 유지 → 화면잠금에도 버튼/서비스 유지
             saveRideState()
             com.callradar.app.TimingLog.send(this, "trip_start")   // [v24 진화⑥] 시작 누른 순간 기록
+            // [v25] 시작 화면에서 플랫폼(카카오/우버/티머니) 자동판별 — 세션 유지 중일 때만(추가 동의 없음)
+            if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("endfare_on", true) && ScreenCaptureService.sessionAlive) {
+                ScreenCaptureService.captureNow(this, "platform")
+            }
             toast("시작 — 출발 확인 중 · 버튼 길게 누르면 공유")
             // GPS는 백그라운드에서 따로 잡아 채움 (늦게 와도 됨). 잡히면 출발지 동을 버튼에 표시
             captureLocation { lat, lng, addr ->
@@ -486,14 +490,18 @@ class FloatingTripService : Service() {
         val pTs = fp.getLong("pending_fare_ts", 0L)
         val pRaw = fp.getString("pending_fare_raw", "") ?: ""   // [v24] 학습용 원문(ai 인식 근거)
         val useFare = if (pFare > 0 && System.currentTimeMillis() - pTs < 90000) pFare else 0
-        fp.edit().remove("pending_fare").remove("pending_fare_ts").apply()
+        // [v25] 시작 때 판별한 플랫폼 자동 반영(3시간 내)
+        val pPlat = fp.getString("pending_platform", "") ?: ""
+        val pPlatTs = fp.getLong("pending_platform_ts", 0L)
+        val usePlat = if (pPlat.isNotBlank() && System.currentTimeMillis() - pPlatTs < 3L * 60 * 60 * 1000) pPlat else "길빵/예약"
+        fp.edit().remove("pending_fare").remove("pending_fare_ts").remove("pending_platform").remove("pending_platform_ts").apply()
         thread {
             try {
                 val json = JSONObject().apply {
                     put("user_id", uid)
                     put("originName", originName)
                     put("destName", destName)
-                    put("platform", "길빵/예약")
+                    put("platform", usePlat)   // [v25] 시작 화면서 판별한 플랫폼 자동기록
                     put("payment_type", "cash")   // GPS 운행은 기본 현금(기사가 수정)
                     if (useFare > 0) put("fare", useFare)   // [v24] 종료 화면 OCR 금액
                     put("source", "gps")

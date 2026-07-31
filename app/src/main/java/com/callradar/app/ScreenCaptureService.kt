@@ -129,6 +129,14 @@ class ScreenCaptureService : Service() {
                     parseFareAndStore(full)
                     return@setOnImageAvailableListener
                 }
+                if (purpose0 == "platform") {
+                    // [v25] 시작 화면 OCR → 플랫폼(카카오/우버/티머니) 자동판별 저장
+                    getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
+                    val full = bmp.copy(Bitmap.Config.ARGB_8888, false)
+                    image.close(); releaseDisplay()
+                    detectPlatformAndStore(full)
+                    return@setOnImageAvailableListener
+                }
                 // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
                 try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
                 fullForDetect = bmp.copy(Bitmap.Config.ARGB_8888, false)   // [v24] 자동판별용 전체 프레임(독립 복사)
@@ -193,6 +201,28 @@ class ScreenCaptureService : Service() {
             text.contains("우버") || t.contains("uber") -> "우버"
             else -> getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("last_platform", "카카오T") ?: "카카오T"
         }
+    }
+
+    // [v25] 시작 화면 OCR → 플랫폼 판별 → pending_platform 저장 (createTrip이 읽어 자동기록). 확실할 때만 저장.
+    private fun detectPlatformAndStore(bmp: Bitmap) {
+        try {
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+                com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions.Builder().build())
+            recognizer.process(com.google.mlkit.vision.common.InputImage.fromBitmap(bmp, 0))
+                .addOnSuccessListener { vt ->
+                    val text = vt.text; val tl = text.lowercase()
+                    val plat = when {
+                        text.contains("티머니") || tl.contains("tmoney") -> "티머니GO"
+                        text.contains("카카오") || tl.contains("kakao") -> "카카오T"
+                        text.contains("우버") || tl.contains("uber") -> "우버"
+                        else -> null
+                    }
+                    if (plat != null) getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit()
+                        .putString("pending_platform", plat).putLong("pending_platform_ts", System.currentTimeMillis()).apply()
+                    finishCapture()
+                }
+                .addOnFailureListener { finishCapture() }
+        } catch (e: Exception) { finishCapture() }
     }
 
     // [v24] 스샷 공유: 전체 프레임 OCR → 플랫폼 자동판별 → 맞는 크롭 → 워터마크 → 공유

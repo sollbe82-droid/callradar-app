@@ -51,15 +51,16 @@ import androidx.core.content.ContextCompat
  */
 class ImageImportActivity : ComponentActivity() {
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, ImageImportActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        fun start(context: Context, mode: String = "both") {
+            context.startActivity(Intent(context, ImageImportActivity::class.java).apply { putExtra("mode", mode); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val userId = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
-        setContent { ImportScreen(userId) { finish() } }
+        val mode = intent.getStringExtra("mode") ?: "both"
+        setContent { ImportScreen(userId, mode) { finish() } }
     }
 }
 
@@ -89,11 +90,13 @@ private fun rulesFromJson(txt: String, fallback: ImportRules): ImportRules {
 }
 
 @Composable
-private fun ImportScreen(userId: String, onClose: () -> Unit) {
+private fun ImportScreen(userId: String, initialMode: String = "both", onClose: () -> Unit) {
     val ctx = LocalContext.current
     val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     val scope = rememberCoroutineScope()
     val prefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    // [v25] 임포트 모드 — 지출: 전부 지출(-) / 수입: 전부 수입(+) / 둘다: 자동 분류(마감 장부). 추측 대신 컨텍스트로 확정.
+    var importMode by remember { mutableStateOf(initialMode) }
     // [v19] 파싱 규칙: 캐시(마지막 수신) → 없으면 내장 기본값. 화면 열릴 때 서버에서 최신 규칙 갱신.
     var rules by remember { mutableStateOf(prefs.getString("import_rules_json", null)?.let { rulesFromJson(it, ImportRules()) } ?: ImportRules()) }
     LaunchedEffect(Unit) {
@@ -129,6 +132,12 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
             looksCalendar -> { parsed = parseCalendar(best); if (parsed.isEmpty()) parseReceipt(best, month, rules)?.let { parsed = listOf(it) } }
             looksReceipt -> { parseReceipt(best, month, rules)?.let { parsed = listOf(it) }; if (parsed.isEmpty()) parsed = parseCalendar(best) }
             else -> { parsed = parseCalendar(best); if (parsed.isEmpty()) parseReceipt(best, month, rules)?.let { parsed = listOf(it) } }
+        }
+        // [v25] 모드 적용 — 지출: 전부 지출, 수입: 전부 수입 (income/expense 추측 제거)
+        parsed = when (importMode) {
+            "expense" -> parsed.map { val t = (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0); it.copy(income = "", expense = if (t > 0) t.toString() else "") }
+            "income" -> parsed.map { val t = (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0); it.copy(income = if (t > 0) t.toString() else "", expense = "") }
+            else -> parsed
         }
         rows = if (accumulate) {
             // [v24] 여러 장 누적 — 같은 날은 합산, 없으면 추가
@@ -238,10 +247,27 @@ private fun ImportScreen(userId: String, onClose: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).padding(16.dp).verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(32.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("실적 가져오기", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.weight(1f))
+            Text(when (importMode) { "expense" -> "➖ 지출 가져오기"; "income" -> "➕ 수입 가져오기"; else -> "실적 가져오기" }, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.weight(1f))
             TextButton(onClick = onClose) { Text("닫기", color = muted) }
         }
-        Text("영수증·전표·다른 앱 화면을 📷카메라로 찍거나 🖼갤러리에서 고르거나 📄파일(CSV)로 가져와요. 인식 후 표에서 숫자를 확인·수정하고 넣습니다.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+        Text("영수증·전표·화면을 📷카메라·🖼갤러리(여러장)·📄파일로 가져와요. 인식 후 표에서 확인·수정하고 넣습니다.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+        // [v25] 수입/지출 모드 — 컨텍스트로 확정(income/expense 추측 제거)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+            listOf("income" to "➕ 수입", "expense" to "➖ 지출", "both" to "자동").forEach { (v, lbl) ->
+                FilterChip(selected = importMode == v, onClick = {
+                    importMode = v
+                    // 이미 인식된 행을 새 모드로 즉시 재분류(다시 찍을 필요 없음)
+                    rows = rows.map { r ->
+                        val t = (r.income.toIntOrNull() ?: 0) + (r.expense.toIntOrNull() ?: 0)
+                        when (v) {
+                            "expense" -> r.copy(income = "", expense = if (t > 0) t.toString() else "")
+                            "income" -> r.copy(income = if (t > 0) t.toString() else "", expense = "")
+                            else -> r
+                        }
+                    }
+                }, label = { Text(lbl, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+            }
+        }
 
         // 연·월 선택 (달력 사진엔 연도가 없어 여기서 지정)
         Text("가져올 연·월", fontSize = 13.sp, color = muted)
