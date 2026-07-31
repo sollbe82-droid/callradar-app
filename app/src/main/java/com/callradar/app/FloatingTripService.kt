@@ -228,6 +228,15 @@ class FloatingTripService : Service() {
                 }
             }
         } else {
+            // [v24] 종료 시 화면 캡처 → OCR로 금액 자동 파싱 (기본 켜짐, 더보기에서 끌 수 있음)
+            //  안내: 요금이 화면에 완전히 뜬 상태에서 종료를 누르면 그 화면을 읽어 금액을 자동 입력.
+            val fpEnd = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            if (fpEnd.getBoolean("endfare_on", true)) {
+                try {
+                    fpEnd.edit().putString("capture_purpose", "endfare").remove("pending_fare").apply()
+                    ScreenCapturePermissionActivity.start(this)
+                } catch (e: Exception) {}
+            }
             // ★완료: 버튼 즉시 "취소?"로 전환 (GPS 안 기다림)
             stopPulse()                 // [v2] 운행 종료 → 펄스 멈춤
             pendingConfirm = true
@@ -463,6 +472,12 @@ class FloatingTripService : Service() {
         // 서버는 destName 필수 — GPS/주소 못잡아 비면 기본값으로 채움(저장 실패 방지)
         val originName = if (oAddr.isBlank()) "출발(미상)" else oAddr
         val destName = if (dAddr.isBlank()) "도착(미상)" else dAddr
+        // [v24] 종료 캡처로 OCR된 금액(있으면) 사용 — 90초 내 값만
+        val fp = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+        val pFare = fp.getInt("pending_fare", 0)
+        val pTs = fp.getLong("pending_fare_ts", 0L)
+        val useFare = if (pFare > 0 && System.currentTimeMillis() - pTs < 90000) pFare else 0
+        fp.edit().remove("pending_fare").remove("pending_fare_ts").apply()
         thread {
             try {
                 val json = JSONObject().apply {
@@ -471,6 +486,7 @@ class FloatingTripService : Service() {
                     put("destName", destName)
                     put("platform", "길빵/예약")
                     put("payment_type", "cash")   // GPS 운행은 기본 현금(기사가 수정)
+                    if (useFare > 0) put("fare", useFare)   // [v24] 종료 화면 OCR 금액
                     put("source", "gps")
                     put("origin_lat", oLat); put("origin_lng", oLng)
                     put("dest_lat", dLat); put("dest_lng", dLng)

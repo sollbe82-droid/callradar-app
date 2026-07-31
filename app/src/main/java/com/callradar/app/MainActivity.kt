@@ -210,6 +210,8 @@ class MainActivity : ComponentActivity() {
         // 신규 설치에만 노출: 이미 온보딩 마친 기존 사용자는 건너뜀
         var driverTypeChosen by remember { mutableStateOf(prefs.getBoolean("driver_type_chosen", false) || prefs.getBoolean(KEY_ONBOARDING_DONE, false)) }
         var isSetupComplete by remember { mutableStateOf(prefs.getBoolean("setup_complete", false) && androidx.core.content.ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
+        // [v23] 온보딩 갇힘 해소: 전체화면 권한게이트 제거 → 홈 바로 진입 + 작은 위치권한 팝업. 신규 설치만 1회 노출.
+        var showSetupPopup by remember { mutableStateOf(!prefs.getBoolean("setup_complete", false)) }
         when {
             !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
                 prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
@@ -223,7 +225,8 @@ class MainActivity : ComponentActivity() {
                 if (type != null) prefs.edit().putString("driver_type", type).apply()
                 prefs.edit().putBoolean("driver_type_chosen", true).apply(); driverTypeChosen = true
             })
-            !isSetupComplete -> com.callradar.app.screen.SetupGuideScreen(onSetupComplete = { isSetupComplete = true })             else -> MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
+            else -> {
+                MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
                 stopService(Intent(this, LocationTrackingService::class.java)); finishAffinity()
             }, onLogout = {
                 // [v17][#10] 완전 로그아웃 = 자동로그인 플래그 + 계정 자격정보만 제거 → 로그인 화면.
@@ -238,6 +241,8 @@ class MainActivity : ComponentActivity() {
                 stopService(Intent(this, LocationTrackingService::class.java))
                 isLoggedIn = false; userNickname = ""; userId = ""
             })
+                if (showSetupPopup) com.callradar.app.screen.SetupPopup(onFinish = { showSetupPopup = false })
+            }
         }
     }
 

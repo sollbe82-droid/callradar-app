@@ -615,6 +615,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
                 var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
                 val distEnabled = prefs.getBoolean("work_dist_enabled", true)
+                var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }  // [v23] 근무 최대시간 자동마감(0=끔)
                 val active = workStart > 0L
                 val paused = pauseStart > 0L
                 // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
@@ -665,9 +666,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
                     pushWorkSession(0L, 0L, 0L, 0)
                     stopMeter()
+                    com.callradar.app.WorkAutoEnd.cancel(context)
                     com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
                     showEndSummary = true
                 }
+                LaunchedEffect(Unit) { if (workStart > 0L) com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)) }  // [v23] 앱 재시작 시 예약 복원
                 LaunchedEffect(active, paused) {
                     while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
                 }
@@ -682,6 +685,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                                 prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
                                 if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
+                                if (rws > 0L) com.callradar.app.WorkAutoEnd.schedule(context, rws, maxHours) else com.callradar.app.WorkAutoEnd.cancel(context)
                             }
                         } catch (e: Exception) {}
                         kotlinx.coroutines.delay(20000)
@@ -779,8 +783,22 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
+                            // [v23] 근무시간 자동마감 설정 — 탭하면 프리셋 순환(꺼짐/10/12/15/18/24시간)
+                            run {
+                                val presets = listOf(0, 10, 12, 15, 18, 24)
+                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
+                                    val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
+                                    val nv = presets[(idx + 1) % presets.size]
+                                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
+                                    if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
+                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("🛌 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
+                                    Text(if (maxHours > 0) "${maxHours}시간 후" else "꺼짐 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (maxHours > 0) accent else muted)
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {

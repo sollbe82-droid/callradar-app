@@ -248,6 +248,53 @@ fun SetupGuideScreen(onSetupComplete: () -> Unit) {
     }
 }
 
+// [v23] 온보딩 갇힘 해소 — 전체화면 권한 게이트 대신 홈 위에 뜨는 작은 팝업.
+//  위치 권한을 '가볍게' 요청하되, 거부/나중에여도 앱엔 바로 들어가게(이탈 방지).
+//  백그라운드 위치·배터리 최적화는 여기서 안 물음 → 마찰 최소화(설정에서 나중에 가능).
+@Composable
+fun SetupPopup(onFinish: () -> Unit) {
+    val context = LocalContext.current
+    val accent = Color(0xFF00C896)
+    val muted = Color(0xFF6B7280)
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        // 허용이든 거부든 팝업 닫고 진입 (권한은 기능 쓸 때 다시 유도 가능)
+        completeSetup(context, onFinish)
+    }
+    AlertDialog(
+        onDismissRequest = { completeSetup(context, onFinish) },
+        icon = { Text("🚕", fontSize = 32.sp) },
+        title = { Text("바로 시작할까요?", fontWeight = FontWeight.Bold, color = AppTheme.text) },
+        text = {
+            Text(
+                "출발지·도착지를 자동으로 기록하려면 위치 권한이 필요해요.\n지금 허용하면 운행이 자동으로 채워집니다. (나중에 설정에서 바꿀 수 있어요)",
+                fontSize = 13.sp, color = muted
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    launcher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = accent),
+                shape = RoundedCornerShape(10.dp)
+            ) { Text("위치 허용하고 시작", color = Color.Black, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = { completeSetup(context, onFinish) }) {
+                Text("나중에", color = muted)
+            }
+        },
+        containerColor = AppTheme.card
+    )
+}
+
 @Composable
 private fun SetupItem(
     step: Int,

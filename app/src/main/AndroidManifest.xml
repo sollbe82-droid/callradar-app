@@ -113,6 +113,11 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- [v23] 근무 최대시간 초과 자동 마감 (부정확 알람 → 특수권한 불필요, 심사 영향 없음) -->
+        <receiver
+            android:name=".WorkAutoEndReceiver"
+            android:exported="false" />
+
         <!-- [v19] 요금 미터기 플로팅 백그라운드 -->
         <service
             android:name=".MeterFloatingService"

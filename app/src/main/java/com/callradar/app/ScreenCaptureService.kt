@@ -92,6 +92,15 @@ class ScreenCaptureService : Service() {
                 var bmp = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888)
                 bmp.copyPixelsFromBuffer(buffer)
                 if (bmp.width != w) bmp = Bitmap.createBitmap(bmp, 0, 0, w, h)
+                // [v24] 종료 금액 자동파싱 모드: 전체 프레임 OCR → 금액만 추출 (크롭/공유 없음)
+                val purpose0 = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("capture_purpose", "") ?: ""
+                if (purpose0 == "endfare") {
+                    getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
+                    val full = bmp.copy(Bitmap.Config.ARGB_8888, false)
+                    image.close(); cleanup()
+                    parseFareAndStore(full)
+                    return@setOnImageAvailableListener
+                }
                 // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
                 try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
                 cropped = cropForShare(bmp)   // 독립 비트맵 복사본 → 아래서 projection 해제해도 유지
@@ -244,6 +253,52 @@ class ScreenCaptureService : Service() {
     }
 
     private fun toast(m: String) { handler.post { Toast.makeText(this, m, Toast.LENGTH_SHORT).show() } }
+
+    /** [v24] 종료 시 전체 화면 OCR → 택시 요금만 추출해 pending_fare 저장 (createTrip이 읽어감) */
+    private fun parseFareAndStore(bmp: Bitmap) {
+        try {
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+                com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions.Builder().build())
+            val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bmp, 0)
+            recognizer.process(image)
+                .addOnSuccessListener { vt ->
+                    val raw = vt.text
+                    val fare = extractFare(raw)
+                    val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putInt("pending_fare", fare)
+                        .putString("pending_fare_raw", raw.take(1500))
+                        .putLong("pending_fare_ts", System.currentTimeMillis())
+                        .apply()
+                    // 학습용 원문 로컬 누적(원문|추출값) — 추후 서버 업로드로 규칙 자동개선
+                    try {
+                        val d = File(filesDir, "fare_learn").apply { mkdirs() }
+                        FileOutputStream(File(d, "log.tsv"), true).use {
+                            it.write(("${System.currentTimeMillis()}\t$fare\t" + raw.replace("\n", " ").take(1200) + "\n").toByteArray())
+                        }
+                    } catch (e: Exception) {}
+                    if (fare > 0) toast("금액 인식: ${"%,d".format(fare)}원 — 기록에 자동 입력")
+                    else toast("금액을 못 읽었어요 — 기록에서 직접 입력하세요")
+                    stopSelfSafe()
+                }
+                .addOnFailureListener { toast("금액 인식 실패"); stopSelfSafe() }
+        } catch (e: Exception) { toast("금액 인식 실패"); stopSelfSafe() }
+    }
+
+    /** OCR 텍스트에서 택시 요금 추출 — 키워드(합계/요금/결제…) 라인 우선, 없으면 최댓값 */
+    private fun extractFare(text: String): Int {
+        fun nums(s: String) = Regex("[0-9][0-9,]{2,}").findAll(s)
+            .mapNotNull { it.value.replace(",", "").toIntOrNull() }
+            .filter { it in 1000..2000000 }.toList()
+        val lines = text.split("\n")
+        for (kw in listOf("합계", "총요금", "총 요금", "받을", "청구", "결제", "요금", "금액")) {
+            for (ln in lines) if (ln.contains(kw)) {
+                val m = nums(ln); if (m.isNotEmpty()) return m.max()
+            }
+        }
+        val all = nums(text)
+        return if (all.isEmpty()) 0 else all.max()
+    }
 
     override fun onDestroy() { cleanup(); super.onDestroy() }
 }

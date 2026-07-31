@@ -1055,6 +1055,7 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
         Triple("card_platform", "🏷️", "플랫폼별 매출"),
         Triple("work_session_enabled", "⏱", "근무 세션"),
         Triple("work_dist_enabled", "📏", "거리(km) 미터"),
+        Triple("endfare_on", "🧾", "종료 시 금액인식"),
         Triple("quick_entry_enabled", "💬", "완료 후 팝업"),
         Triple("card_notice", "📢", "제보 배너")
     )
