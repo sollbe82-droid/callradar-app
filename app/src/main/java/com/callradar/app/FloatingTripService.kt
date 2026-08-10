@@ -331,7 +331,7 @@ class FloatingTripService : Service() {
             stopPulse()                 // [v2] 운행 종료 → 펄스 멈춤
             pendingConfirm = true
             updateButton("취소?", "#EF4444")
-            toast("운행 종료 — 5초 뒤 자동 기록 · 잘못 눌렀으면 지금 탭하면 취소")
+            toast("운행 종료 — 3초 뒤 자동 기록 · 잘못 눌렀으면 지금 탭하면 취소")
             pendingDestLat = 0.0; pendingDestLng = 0.0; pendingDestAddr = ""
             // [플로팅 개선] 취소창 3초→5초 — 잘못 눌렀을 때 되돌릴 여유. 그 안에 다시 누르면 취소, 아니면 확정.
             confirmRunnable = Runnable {
