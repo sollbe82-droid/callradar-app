@@ -28,11 +28,25 @@ android {
         applicationId = "com.callradar.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 26
-        versionName = "2.1"
+        versionCode = 50
+        versionName = "2.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // [v22] 카카오맵 네이티브 앱 키 — local.properties의 KAKAO_NATIVE_KEY 사용(코드/깃에 하드코딩 X)
         buildConfigField("String", "KAKAO_NATIVE_KEY", "\"${keystoreProps.getProperty("KAKAO_NATIVE_KEY") ?: ""}\"")
+        // [v43] 카카오 네이티브 로그인 SDK 리다이렉트 스킴(kakao{네이티브키}://oauth) 매니페스트 치환값
+        manifestPlaceholders["KAKAO_NATIVE_KEY"] = keystoreProps.getProperty("KAKAO_NATIVE_KEY") ?: ""
+    }
+    // [스토어 분기] play = 접근성 OFF(구글 정책 안전), onestore = 접근성 ON(v9 완전자동)
+    // 접근성 서비스(NaviIntentReceiver) 등록은 각 flavor의 매니페스트에서만 병합됨.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+        }
+        create("onestore") {
+            dimension = "store"
+            versionNameSuffix = "-onestore"
+        }
     }
     buildTypes {
         release {
@@ -68,6 +82,7 @@ dependencies {
     implementation("androidx.fragment:fragment:1.8.9")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.kakao.maps.open:android:2.13.2")   // [v22] 카카오맵 SDK v2 (내 운행 지도)
+    implementation("com.kakao.sdk:v2-user:2.23.2")          // [v43] 카카오 네이티브 로그인(1탭·토큰유지)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
