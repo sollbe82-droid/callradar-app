@@ -338,16 +338,8 @@ fun RadarScreen(userId: String) {
                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("🔥 콜 많은 동네", color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        // 오늘 / 내 누적 / 전체 토글
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(Pair("오늘", 2), Pair("내 누적", 1), Pair("전체", 0)).forEach { (label, v) ->
-                                val sel = hzScope == v
-                                Box(Modifier.background(if (sel) green else AppTheme.surface2, RoundedCornerShape(8.dp)).clickable { hzScope = v }.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                                    Text(label, color = if (sel) Color.White else muted, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
-                                }
-                            }
-                        }
-                        Text(when (hzScope) { 1 -> "내 출발지 누적" ; 2 -> "오늘 내 운행 (오늘 궤적 기준)" ; else -> "지금 시간대 · 이 근처 · 전체 기사(기사 늘수록 정확)" }, color = muted, fontSize = 10.sp)
+                        // [지도필터로 이동] 오늘/내누적/전체 토글 제거 → 지도 위 버튼(오늘/30k/50k)으로 통합.
+                        Text("지금 시간대 · 이 근처 · 전체 기사(기사 늘수록 정확)", color = muted, fontSize = 10.sp)
                         if (hzone.isEmpty()) {
                             Text("이 조건엔 아직 데이터가 없어요", color = muted, fontSize = 12.sp)
                         } else {

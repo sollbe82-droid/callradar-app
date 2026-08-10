@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -41,6 +42,7 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
     val muted = Color(0xFF9CA3AF)
 
     var pointCount by remember { mutableStateOf(0) }
+    var mapFilter by remember { mutableStateOf(0) }   // [지도필터] 0=오늘 1=30k+ 2=50k+ (버튼 누를 때마다 순환)
     var status by remember { mutableStateOf("불러오는 중…") }
     var authFailed by remember { mutableStateOf(false) }
 
@@ -81,6 +83,12 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
             if (showTrack) drawTodayTrack(km, ctx, scope) else clearTrack(km)
         }
 
+        // [지도필터] 오늘/30k/50k 전환 시 히트맵 다시 그림 (지도 준비 후에도 1회)
+        LaunchedEffect(mapRef, mapFilter) {
+            val km = mapRef ?: return@LaunchedEffect
+            loadMyHeatmap(km, userId, scope, mapFilter) { pts, _, msg -> pointCount = pts; status = msg }
+        }
+
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -92,10 +100,7 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                         },
                         object : com.kakao.vectormap.KakaoMapReadyCallback() {
                             override fun onMapReady(kakaoMap: com.kakao.vectormap.KakaoMap) {
-                                mapRef = kakaoMap   // [궤적토글] LaunchedEffect가 showTrack에 맞춰 궤적 그림/지움
-                                loadMyHeatmap(kakaoMap, userId, scope) { pts, cells, msg ->
-                                    pointCount = pts; status = msg
-                                }
+                                mapRef = kakaoMap   // [궤적토글/지도필터] LaunchedEffect가 showTrack·mapFilter에 맞춰 그림
                             }
                             override fun getZoomLevel(): Int = 11
                             override fun getPosition(): com.kakao.vectormap.LatLng =
@@ -105,6 +110,17 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                     mapView
                 }
             )
+
+            // [지도필터 버튼] 누를 때마다 오늘→30k→50k 순환. Radar FAB(우상단)와 안 겹치게 좌상단.
+            if (!authFailed)
+            Box(
+                Modifier.align(Alignment.TopStart).padding(8.dp)
+                    .background(Color(0xFF111827).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
+                    .clickable { mapFilter = (mapFilter + 1) % 3 }
+                    .padding(horizontal = 13.dp, vertical = 7.dp)
+            ) {
+                Text(when (mapFilter) { 1 -> "💰 30k↑"; 2 -> "💰 50k↑"; else -> "📍 오늘" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
 
             // [v44] 레이더 임베드에선 '내 운행 밀도' 범례를 숨겨 지도 뷰 가림 방지. 단 지도 인증 실패 경고는 유지.
             if (!embedded || authFailed)
@@ -161,22 +177,30 @@ private fun loadMyHeatmap(
     kakaoMap: com.kakao.vectormap.KakaoMap,
     userId: String,
     scope: kotlinx.coroutines.CoroutineScope,
+    filter: Int,   // 0=오늘 1=30k+ 2=50k+
     onDone: (Int, Int, String) -> Unit
 ) {
     scope.launch {
         try {
             val resp = withContext(Dispatchers.IO) {
-                val conn = (URL("$MAP_SERVER/api/trips/$userId?limit=2000").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
+                val conn = (URL("$MAP_SERVER/api/trips/$userId?limit=1000").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                 conn.inputStream.bufferedReader().readText()
             }
             val arr = JSONArray(resp)
             val cells = HashMap<String, Int>()
             var pts = 0
+            val kstDay = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+            val todayStr = kstDay.format(java.util.Date())
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val lat = o.optDouble("origin_lat", Double.NaN)
                 val lng = o.optDouble("origin_lng", Double.NaN)
                 if (lat.isNaN() || lng.isNaN() || lat == 0.0 || lng == 0.0) continue
+                when (filter) {   // [지도필터] 오늘 / 30k+ / 50k+
+                    0 -> { val d = parseUtcLoose(o.optString("started_at", "")) ?: continue; if (kstDay.format(d) != todayStr) continue }
+                    1 -> { if (o.optInt("fare", 0) < 30000) continue }
+                    2 -> { if (o.optInt("fare", 0) < 50000) continue }
+                }
                 pts++
                 val key = "${(lat * 1000).roundToInt()},${(lng * 1000).roundToInt()}"
                 cells[key] = (cells[key] ?: 0) + 1
@@ -184,27 +208,39 @@ private fun loadMyHeatmap(
             withContext(Dispatchers.Main) {
                 val manager = kakaoMap.labelManager
                 val layer = manager?.layer
+                try { layer?.removeAll() } catch (e: Exception) {}   // [필터전환] 기존 점 지우고 다시 그림
                 if (layer != null && cells.isNotEmpty()) {
                     val density = kakaoMap.mapDpScale.coerceAtLeast(1f)
                     val styleLow = manager.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFF22C55E.toInt(), 20, density))))
                     val styleMid = manager.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFFF59E0B.toInt(), 26, density))))
-                    val styleHigh = manager.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFFEF4444.toInt(), 34, density))))
+                    val styleHigh = manager.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFFEF4444.toInt(), 32, density))))
+                    val styleTop = manager.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFF000000.toInt(), 38, density))))  // [4단계] 흑색=최다
                     var hottest: com.kakao.vectormap.LatLng? = null; var hottestN = 0
                     for ((key, n) in cells) {
                         val parts = key.split(","); val lat = parts[0].toInt() / 1000.0; val lng = parts[1].toInt() / 1000.0
-                        val style = if (n >= 8) styleHigh else if (n >= 3) styleMid else styleLow
+                        val style = if (n >= 10) styleTop else if (n >= 6) styleHigh else if (n >= 3) styleMid else styleLow
                         val pos = com.kakao.vectormap.LatLng.from(lat, lng)
                         layer.addLabel(com.kakao.vectormap.label.LabelOptions.from(pos).setStyles(style))
                         if (n > hottestN) { hottestN = n; hottest = pos }
                     }
                     if (hottest != null) kakaoMap.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(hottest, 12))
                 }
-                onDone(pts, cells.size, if (pts == 0) "좌표가 있는 운행이 아직 없어요 (기록이 쌓이면 표시)" else "내 운행 ${pts}건 · ${cells.size}곳")
+                val fname = when (filter) { 1 -> "30k↑ 장거리"; 2 -> "50k↑ 장거리"; else -> "오늘" }
+                onDone(pts, cells.size, if (pts == 0) "$fname · 표시할 운행 없음" else "$fname · ${pts}건 · ${cells.size}곳")
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) { onDone(0, 0, "불러오기 실패") }
         }
     }
+}
+
+// [지도필터] started_at(UTC 문자열) 유연 파싱
+private fun parseUtcLoose(s: String): java.util.Date? {
+    if (s.isBlank()) return null
+    for (f in arrayOf("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd'T'HH:mm:ss")) {
+        try { val sdf = java.text.SimpleDateFormat(f, java.util.Locale.US); sdf.timeZone = java.util.TimeZone.getTimeZone("UTC"); return sdf.parse(s) } catch (e: Exception) {}
+    }
+    return null
 }
 
 // [궤적on지도] 오늘 영업일 시작(야간·일차 기사 dayStart 반영)
