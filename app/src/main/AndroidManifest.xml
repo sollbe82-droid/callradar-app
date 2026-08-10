@@ -10,8 +10,6 @@
     <!-- 포그라운드 서비스 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <!-- [v18] 화면 스샷 공유(MediaProjection) — 유저 개시 캡처→워터마크→공유. 선언+시연영상과 함께 심사. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!-- GPS -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -39,7 +37,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CallRadar"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         tools:targetApi="31">
 
         <!-- ML Kit OCR 모델 자동 다운로드 (Play Services 방식) -->
@@ -68,11 +66,53 @@
             </intent-filter>
         </activity>
 
+        <!-- [v43] 카카오 네이티브 로그인 리다이렉트 처리(kakao{네이티브키}://oauth) -->
+        <activity
+            android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakao${KAKAO_NATIVE_KEY}" android:host="oauth" />
+            </intent-filter>
+        </activity>
+
         <!-- 영수증 스캔 -->
         <activity
             android:name=".ReceiptScanActivity"
             android:exported="false"
             android:label="영수증 스캔" />
+
+        <!-- 매출 영수증 자동정산 (당일상세거래내역) -->
+        <activity
+            android:name=".ReceiptReconcileActivity"
+            android:exported="false"
+            android:label="매출 영수증 정산" />
+
+        <!-- [명세서] 급여명세서 전항목 스캔 + 역산 -->
+        <activity
+            android:name=".PayslipScanActivity"
+            android:exported="false"
+            android:label="급여명세서 스캔" />
+
+        <!-- [명세서] 회사 프로필 + 실시간 예상 기사몫 -->
+        <activity
+            android:name=".CompanyProfileActivity"
+            android:exported="false"
+            android:label="회사 프로필" />
+
+        <!-- [세무] 개인택시 연간 세무 리포트(추정) -->
+        <activity
+            android:name=".TaxReportActivity"
+            android:exported="false"
+            android:label="세무 리포트" />
+
+        <!-- [궤적] 오늘 운행 궤적(실차/공차) + PNG 공유 -->
+        <activity
+            android:name=".TrackActivity"
+            android:exported="false"
+            android:label="운행 궤적" />
 
         <!-- [v18] 과거기록 이미지 가져오기 -->
         <activity
@@ -143,14 +183,10 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true" />
 
-        <!-- 화면캡처 포그라운드 서비스 (1프레임 캡처→워터마크→공유 즉시 종료) -->
-        <service
-            android:name=".ScreenCaptureService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+        <!-- [Play정책] MediaProjection FGS는 현재 미사용(v30에서 화면캡처 제거) → 선언 제거. 필요 시 시연영상과 함께 재선언. -->
 
-        <!-- [v23][스토어버전 제외] 알림 자동캡처(CallCaptureService) — 자동화 차수(phase-2)에서만 등록.
-             다른 앱 알림 읽기라 첫 심사엔 넣지 않음. phase-2 때 아래 주석 해제 + Config.NOTIF_CAPTURE_ENABLED=true.
+
+        <!-- [v43] 알림 자동캡처(CallCaptureService) 등록 — 카드결제 승인 알림 금액 자동입력. Config.NOTIF_CAPTURE_ENABLED=true 병행. -->
         <service
             android:name=".CallCaptureService"
             android:exported="false"
@@ -160,7 +196,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-        -->
     </application>
 
 </manifest>

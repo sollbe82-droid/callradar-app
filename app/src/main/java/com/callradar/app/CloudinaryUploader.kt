@@ -59,7 +59,8 @@ object CloudinaryUploader {
     private fun uploadBytes(imageBytes: ByteArray): String? {
         val url = URL("https://api.cloudinary.com/v1_1/$CLOUD_NAME/image/upload")
         val boundary = "----CallRadar${System.currentTimeMillis()}"
-        val conn = (url.openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+        // [보안] Cloudinary는 제3자 → 우리 세션 토큰(Authorization)을 붙이지 않는다(토큰 유출 방지).
+        val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
             connectTimeout = 15000

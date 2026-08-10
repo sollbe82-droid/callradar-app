@@ -5,9 +5,10 @@ import android.content.SharedPreferences
 // 서버 주소 한 곳 관리 — 바뀌면 여기 한 줄만 수정
 object Config {
     const val SERVER_URL = "https://callradar-server.onrender.com"
-    // [v23] 알림 자동캡처(금액 자동입력) 노출 플래그. 스토어 첫 심사(v18/19)=false(심사 리스크).
-    // 자동화 차수(phase-2)에서 true + Manifest의 CallCaptureService 주석 해제.
-    const val NOTIF_CAPTURE_ENABLED = false
+    // [v43] 알림 자동캡처(금액 자동입력) 노출 — 대표 결정으로 Play·원스토어 둘 다 활성화.
+    //   '[택시승인] …원' 카드결제 승인 알림에서 금액을 뽑아 현재 무금액 운행에 반영(유령운행 생성 없음).
+    //   ※ Play는 NotificationListener 사용사유 심사 민감(반려·삭제 리스크 감수). Manifest의 CallCaptureService 주석 해제 병행.
+    const val NOTIF_CAPTURE_ENABLED = true
 }
 
 // [v17] 플랫폼 수수료 소수점 지원. 기존엔 Int(putInt)로 저장돼 있어서

@@ -89,7 +89,9 @@ class ReceiptOcrService {
         return when {
             text.contains("카카오택시") || text.contains("카카오T") && text.contains("콜ID") -> ReceiptType.KAKAO_TAXI
             text.contains("티머니") || text.contains("승차") || text.contains("하차") && text.contains("운행") -> ReceiptType.TMONEYGO
-            text.contains("LPG") || text.contains("lpg") || text.contains("충전") && (text.contains("리터") || text.contains("L")) -> ReceiptType.LPG
+            text.contains("LPG") || text.contains("lpg") || text.contains("부탄") || text.contains("프로판") || text.contains("남서울가스") || text.contains("가스(주)") ||
+                ((text.contains("수량") || text.contains("수 량")) && (text.contains("단가") || text.contains("단 가"))) ||
+                (text.contains("충전") && (text.contains("리터") || text.contains("L"))) -> ReceiptType.LPG
             text.contains("하이패스") || text.contains("통행료") || text.contains("고속도로") -> ReceiptType.HIPASS
             text.contains("수리") || text.contains("정비") || text.contains("공업사") -> ReceiptType.REPAIR
             text.contains("세차") || text.contains("WASH") -> ReceiptType.WASH
@@ -175,17 +177,85 @@ class ReceiptOcrService {
     }
 
     private fun parseLpgReceipt(text: String): ReceiptResult {
+        // [v41] 남서울가스 등 LPG 매출전표 학습: 리터(소수3)·단가(소수2) 자릿수로 구분,
+        //  금액은 '리터×단가' 교차검증으로 확정(각도/측면 사진에서 '원'이 뭉개져도 정확).
+        val liters = extractLpgLiters(text)
+        val unit = extractLpgUnitPrice(text)
+        val amount = extractLpgAmount(text, liters, unit)
         return ReceiptResult(
             type = ReceiptType.LPG,
             typeName = "충전비",
-            amount = extractAmount(text),
+            amount = amount,
             time = extractTime(text),
             date = extractDate(text),
             memo = extractStationName(text),
             rawText = text,
-            liters = extractLiters(text),
-            pricePerLiter = extractPricePerLiter(text)
+            liters = liters,
+            pricePerLiter = unit
         )
+    }
+
+    // [v41] LPG 충전량(L) — 수량 라벨 우선, 소수 3자리(NN.NNN)로 단가(소수2)와 구분, 5~200L 범위.
+    private fun extractLpgLiters(text: String): Float {
+        Regex("수\\s*량[^0-9]{0,8}([0-9]{1,3}\\.[0-9]{1,3})").find(text)?.groupValues?.get(1)?.toFloatOrNull()?.let {
+            if (it in 1f..300f) return it
+        }
+        // 소수3자리 + L(오인식 l·ℓ 포함), 범위
+        for (m in Regex("(?<![0-9])([0-9]{1,3}\\.[0-9]{3})\\s*[LlℓΙ|]?").findAll(text)) {
+            val v = m.groupValues[1].toFloatOrNull() ?: continue
+            if (v in 5f..200f) return v
+        }
+        // 일반 소수(단가 제외 위해 200 미만)
+        for (m in Regex("(?<![0-9])([0-9]{1,3}\\.[0-9]{1,3})(?![0-9])").findAll(text)) {
+            val v = m.groupValues[1].toFloatOrNull() ?: continue
+            if (v in 5f..200f) return v
+        }
+        return 0f
+    }
+
+    // [v42] LPG 단가(원/L) — 라벨 우선. 콤마 있는 "1,170.00"·콤마 없는 "1162.00" 모두 지원(역종별 양식), 300~5000원.
+    private fun extractLpgUnitPrice(text: String): Int {
+        Regex("단\\s*가[^0-9]{0,8}([0-9]{1,2},[0-9]{3}\\.[0-9]{2}|[0-9]{3,4}\\.[0-9]{2}|[0-9]{3,4})").find(text)?.groupValues?.get(1)?.replace(",", "")?.toFloatOrNull()?.let {
+            if (it in 300f..5000f) return it.toInt()
+        }
+        // 콤마 단가 "1,170.00"
+        for (m in Regex("(?<![0-9])([0-9]{1,2},[0-9]{3}\\.[0-9]{2})(?![0-9])").findAll(text)) {
+            val v = m.groupValues[1].replace(",", "").toFloatOrNull() ?: continue
+            if (v in 300f..5000f) return v.toInt()
+        }
+        // 콤마 없는 단가 "1162.00"
+        for (m in Regex("(?<![0-9])([0-9]{3,4}\\.[0-9]{2})(?![0-9])").findAll(text)) {
+            val v = m.groupValues[1].toFloatOrNull() ?: continue
+            if (v in 300f..5000f) return v.toInt()
+        }
+        return 0
+    }
+
+    // [v43] LPG 금액(총액) — 공급가액/세액 줄 제외 + '리터×단가' 교차검증으로 확정.
+    private fun extractLpgAmount(text: String, liters: Float, unitPrice: Int): Int {
+        val expected = if (liters > 0f && unitPrice > 0) Math.round(liters * unitPrice) else 0
+        // [v43 버그수정] 공급가액(부가세 전)만 잡히던 문제 → 공급가액 + 세액 = 총 금액(부가세 포함, 큰 금액)으로 확정.
+        val supply = Regex("공\\s*급\\s*가\\s*액[^0-9]{0,8}([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,7})").find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+        val tax = Regex("(?:부\\s*가\\s*세\\s*액|부\\s*가\\s*세|세\\s*액)[^0-9]{0,8}([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})").find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+        if (supply != null && supply > 0 && tax != null && tax > 0) {
+            val sum = supply + tax
+            if (expected <= 0 || Math.abs(sum - expected) <= expected * 0.1) return sum   // 리터×단가와 10% 이내면 확정(총액)
+        }
+        val amounts = mutableListOf<Int>()
+        for (line in text.lines()) {
+            val clean = line.replace(" ", "")
+            if (clean.contains("공급") || clean.contains("세액") || clean.contains("부가")) continue
+            for (m in Regex("([0-9]{1,3}(?:,[0-9]{3})+)").findAll(line)) {
+                m.groupValues[1].replace(",", "").toIntOrNull()?.let { if (it in 1000..2_000_000) amounts.add(it) }
+            }
+        }
+        if (expected > 0) {
+            val best = amounts.minByOrNull { Math.abs(it - expected) }
+            if (best != null && Math.abs(best - expected) <= expected * 0.05) return best
+            return expected   // 금액 줄 OCR 실패 시 계산값으로 확정
+        }
+        Regex("금\\s*액[^0-9]{0,8}([0-9]{1,3}(?:,[0-9]{3})+)").find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()?.let { return it }
+        return amounts.maxOrNull() ?: extractAmount(text)
     }
 
     private fun parseHipassReceipt(text: String): ReceiptResult {
@@ -284,15 +354,39 @@ class ReceiptOcrService {
     }
 
     private fun extractDate(text: String): String {
-        val patterns = listOf(
-            Regex("(202[0-9])[./\\-](0?[1-9]|1[0-2])[./\\-](0?[1-9]|[12][0-9]|3[01])"),
-            Regex("(0?[1-9]|1[0-2])[./](0?[1-9]|[12][0-9]|3[01])")
-        )
-        for (pattern in patterns) {
-            val match = pattern.find(text)
-            if (match != null) return match.value
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+        val nowYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        fun fmt(y: Int, m: Int, d: Int): String? {
+            if (m !in 1..12 || d !in 1..31) return null
+            val yy = if (y < 100) 2000 + y else y
+            if (yy < 2020 || yy > nowYear + 1) return null
+            return "%04d-%02d-%02d".format(yy, m, d)
         }
-        return SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+        // 0) [v41] '일시/승인일시/거래일시' 라벨 뒤 날짜 우선 — YYYY/MM/DD (전화·카드번호를 날짜로 오인 방지)
+        Regex("(?:일\\s*시|승인일시|거래일시)[^0-9]{0,4}(20\\d{2})[./\\-](1[0-2]|0?[1-9])[./\\-](3[01]|[12]\\d|0?[1-9])").find(text)?.let {
+            fmt(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt())?.let { s -> return s }
+        }
+        // 1) 한글: 2025년 8월 1일 / 25년 8월 1일
+        Regex("(20\\d{2}|\\d{2})\\s*년\\s*(1[0-2]|0?[1-9])\\s*월\\s*(3[01]|[12]\\d|0?[1-9])\\s*일").find(text)?.let {
+            fmt(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt())?.let { s -> return s }
+        }
+        // 2) 구분자: 2025.08.01 / 2025-8-1 / 25/08/01
+        Regex("(20\\d{2}|\\d{2})[./\\-](1[0-2]|0?[1-9])[./\\-](3[01]|[12]\\d|0?[1-9])").find(text)?.let {
+            fmt(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt())?.let { s -> return s }
+        }
+        // 3) 8자리: 20250801
+        Regex("(20\\d{2})(1[0-2]|0[1-9])(3[01]|[12]\\d|0[1-9])").find(text)?.let {
+            fmt(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt())?.let { s -> return s }
+        }
+        // 4) 한글 짧게: 8월 1일 (올해)
+        Regex("(1[0-2]|0?[1-9])\\s*월\\s*(3[01]|[12]\\d|0?[1-9])\\s*일").find(text)?.let {
+            fmt(nowYear, it.groupValues[1].toInt(), it.groupValues[2].toInt())?.let { s -> return s }
+        }
+        // 5) MM/DD, MM-DD, MM.DD (올해) — 앞뒤 숫자/점 없을 때만
+        Regex("(?<![\\d.])(1[0-2]|0?[1-9])[./\\-](3[01]|[12]\\d|0?[1-9])(?![\\d.])").find(text)?.let {
+            fmt(nowYear, it.groupValues[1].toInt(), it.groupValues[2].toInt())?.let { s -> return s }
+        }
+        return today
     }
 
     private fun extractLiters(text: String): Float {
@@ -313,11 +407,14 @@ class ReceiptOcrService {
     }
 
     private fun extractStationName(text: String): String {
-        val keywords = listOf("GS칼텍스", "SK에너지", "S-OIL", "현대오일뱅크", "알뜰주유소")
+        val keywords = listOf("남서울가스", "GS칼텍스", "SK에너지", "S-OIL", "현대오일뱅크", "알뜰주유소")
         for (keyword in keywords) {
             if (text.contains(keyword)) return keyword
         }
-        return text.lines().firstOrNull { it.isNotBlank() }?.trim()?.take(20) ?: ""
+        // "○○가스(주)" 형태 상호 추출
+        Regex("([가-힣]{2,10}가스)\\s*\\(?주\\)?").find(text)?.groupValues?.get(1)?.let { return it }
+        // 첫 의미있는 줄(헤더 노이즈 제외)
+        return text.lines().firstOrNull { it.isNotBlank() && !it.contains("전표") && it.length in 2..20 }?.trim()?.take(20) ?: "LPG 충전"
     }
 
     private fun extractHighwayRoute(text: String): String {

@@ -61,6 +61,9 @@ class CallCaptureService : NotificationListenerService() {
         if (amount != null) {
             if (amount == lastFare && now - lastTime < 60000L) return
             lastFare = amount; lastTime = now
+            // [v43] 직접결제 카드승인 금액을 종료 금액창(QuickEntry) 프리필용 pending_fare로 저장.
+            //   플로팅 완료(finalizeCurrentTrip)가 5분 내 pending_fare를 읽어 자동 기입 → 손 안 대고 금액 채워짐.
+            try { prefs.edit().putInt("pending_fare", amount).putLong("pending_fare_ts", now).putString("pending_fare_raw", full.take(120)).apply() } catch (e: Exception) {}
         }
 
         scope.launch {

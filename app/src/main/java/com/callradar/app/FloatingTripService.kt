@@ -56,6 +56,7 @@ class FloatingTripService : Service() {
     private val confirmHandler = android.os.Handler(Looper.getMainLooper())
     private var confirmRunnable: Runnable? = null
     private val MIN_DISTANCE_M = 100f  // 최소 이동거리(제자리 연타 방지)
+    private val MIN_RIDE_MS = 2L * 60 * 1000  // [플로팅 개선] 100m 미만이어도 이 시간(2분) 이상 운행이면 기록 — 정체·단거리 실제 운행 보호
     private val MAX_RIDE_MS = 3L * 60 * 60 * 1000  // [v2] 3시간 넘게 열린 운행 = '깜빡 잊고 안 끈' 스톨 → 복원·기록 안 함
     private fun parseUtc(s: String): Long = try {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC")
@@ -124,8 +125,7 @@ class FloatingTripService : Service() {
                     initX = params.x; initY = params.y
                     touchX = event.rawX; touchY = event.rawY; moved = false
                     longPressed = false
-                    lpRun = Runnable { if (!moved) { longPressed = true; shareCall() } }
-                    lpHandler.postDelayed(lpRun!!, 1000)   // [v19] 600→1000ms: 탭이 실수로 공유(길게누름)로 안 넘어가게
+                    // [v26] 길게누름 공유 제거 — 종료 탭이 공유로 오인되던 문제 원천 차단. 버튼은 시작/종료 전용. (공유는 별도 방법)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -145,6 +145,53 @@ class FloatingTripService : Service() {
 
         try { windowManager.addView(btn, params) } catch (e: Exception) {}
         restoreRideState()
+        startAutoBadgeTicker()
+    }
+
+    // [자동기록 배지] 자동기록이 플랫폼 콜을 기록 중이면(activeTripId>0) 플로팅을 '🔴자동 · 출발동→현재동'으로 변신.
+    //   NaviIntentReceiver가 prefs(auto_origin_dong/auto_cur_dong)에 채워둔 값을 5초마다 읽어 실시간 갱신(추가 네트워크·GPS 0).
+    private val autoBadgeHandler = android.os.Handler(Looper.getMainLooper())
+    private var autoBadgeRunnable: Runnable? = null
+    private var autoBadgeShown = false
+    private fun startAutoBadgeTicker() {
+        autoBadgeRunnable = object : Runnable {
+            override fun run() {
+                try { updateAutoBadge() } catch (e: Exception) {}
+                autoBadgeHandler.postDelayed(this, 5000)
+            }
+        }
+        autoBadgeHandler.post(autoBadgeRunnable!!)
+    }
+    private fun dongOnly(s: String): String {
+        val toks = s.trim().split(" ").filter { it.isNotBlank() }
+        val d = toks.lastOrNull { it.endsWith("동") || it.endsWith("읍") || it.endsWith("면") || it.endsWith("가") || it.endsWith("리") }
+        return d ?: toks.firstOrNull() ?: s.trim()
+    }
+    private fun updateAutoBadge() {
+        // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
+        if (isRiding) return
+        val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
+        val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+        val armed = p.getBoolean("auto_record_on", false)
+        when {
+            active -> {   // 자동기록 운행 중 — 출발동→현재동
+                val o = dongOnly(p.getString("auto_origin_dong", "") ?: "")
+                val c = dongOnly(p.getString("auto_cur_dong", "") ?: "")
+                val body = when {
+                    o.isNotBlank() && c.isNotBlank() && o != c -> "🔴자동\n$o→\n$c"
+                    c.isNotBlank() -> "🔴자동\n$c"
+                    o.isNotBlank() -> "🔴자동\n$o"
+                    else -> "🔴자동\n기록중"
+                }
+                updateButtonSmall(body, "#EF4444"); startPulse()
+            }
+            armed -> {    // 자동기록 켜짐·콜 대기 — 기록되는지 눈으로 확인되게 항상 표시
+                stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981")
+            }
+            else -> {     // 자동기록 꺼짐 = 수동 시작 버튼
+                stopPulse(); updateButton("시작", "#F59E0B")
+            }
+        }
     }
 
     // 서비스가 죽어도 시스템이 되살리도록 (운행중 상태는 prefs에서 복원)
@@ -193,6 +240,43 @@ class FloatingTripService : Service() {
         } catch (e: Exception) {}
     }
 
+    // [v44] 운행 시작 = 근무 자동 시작/재개. 출근 깜빡했거나 일시정지 상태여도 근무시간·궤적이 끊기지 않게.
+    //  · 미출근(work_start=0) → 자동 출근    · 일시정지(work_pause_start>0) → 자동 재개    · 이미 근무중 → 서비스만 확실히 기동
+    //  WorkSessionService가 궤적 점(addPoint)을 4초마다 기록하므로, 이걸 켜야 운행 궤적이 남는다(거리미터 off여도 켬).
+    private fun ensureWorkSessionActive() {
+        try {
+            val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            val ws = p.getLong("work_start", 0L)
+            val ps = p.getLong("work_pause_start", 0L)
+            var pushWs = ws; var pushPt = p.getLong("work_paused_total", 0L); var pushPs = ps
+            if (ws == 0L) {
+                p.edit().putLong("work_start", now).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L)
+                    .putInt("work_start_fare", p.getInt("work_day_start_fare", 0)).apply()
+                pushWs = now; pushPt = 0L; pushPs = 0L
+                toast("자동 출근 — 근무 시작")
+            } else if (ps > 0L) {
+                val pt = p.getLong("work_paused_total", 0L) + (now - ps)
+                p.edit().putLong("work_paused_total", pt).putLong("work_pause_start", 0L).apply()
+                pushPt = pt; pushPs = 0L
+                toast("근무 재개")
+            }
+            try { androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.callradar.app.WorkSessionService::class.java)) } catch (e: Exception) {}
+            val uid = userId()
+            if (uid.isNotEmpty()) {
+                val sf = p.getInt("work_start_fare", 0)
+                Thread {
+                    try {
+                        val json = org.json.JSONObject().apply { put("user_id", uid); put("work_start", pushWs); put("paused_total", pushPt); put("pause_start", pushPs); put("start_fare", sf) }
+                        val conn = (java.net.URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as java.net.HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 15000; readTimeout = 20000 }
+                        conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
+                        conn.responseCode; conn.disconnect()
+                    } catch (e: Exception) {}
+                }.start()
+            }
+        } catch (e: Exception) {}
+    }
+
     // 버튼 탭: 탑승 → 완료(취소대기 3초) → 확정
     private fun onButtonTap() {
         // [안전장치 3] 취소 대기중 다시 누르면 → 취소
@@ -208,6 +292,14 @@ class FloatingTripService : Service() {
         }
 
         if (!isRiding) {
+            val p0 = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            // [v44 Fix A] 자동기록이 플랫폼 콜을 이미 기록 중이면 플로팅 시작 차단 → 중복 트립 방지. (플로팅은 길빵 전용)
+            if (p0.getBoolean("auto_record_on", false) && com.callradar.app.NaviIntentReceiver.activeTripId > 0) {
+                toast("자동기록이 플랫폼 운행을 기록 중이에요 — 길빵일 때만 시작하세요")
+                return
+            }
+            // [v44 Fix B] 이전 트립의 카드금액(pending_fare)이 이 운행에 새는 것 방지 → 탑승 순간 초기화.
+            p0.edit().remove("pending_fare").remove("pending_fare_ts").remove("pending_fare_raw").apply()
             // ★탑승: 버튼 즉시 "완료"로 전환 (GPS 안 기다림 = 백그라운드서도 즉각 반응)
             isRiding = true
             startTime = utcNow()
@@ -216,12 +308,10 @@ class FloatingTripService : Service() {
             startPulse()                // [v2] 운행중 은은한 펄스
             startLocationForeground()   // [v18] 운행 내내 포그라운드 유지 → 화면잠금에도 버튼/서비스 유지
             saveRideState()
+            ensureWorkSessionActive()   // [v44] 운행 시작 → 근무 자동 출근/재개 + 궤적 기록 서비스 기동
             com.callradar.app.TimingLog.send(this, "trip_start")   // [v24 진화⑥] 시작 누른 순간 기록
-            // [v25] 시작 화면에서 플랫폼(카카오/우버/티머니) 자동판별 — 세션 유지 중일 때만(추가 동의 없음)
-            if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("endfare_on", true) && ScreenCaptureService.sessionAlive) {
-                ScreenCaptureService.captureNow(this, "platform")
-            }
-            toast("시작 — 출발 확인 중 · 버튼 길게 누르면 공유")
+            // [v30] 시작 화면 캡처(플랫폼 자동판별) 제거 — 화면캡처 미사용으로 동의창 원천 차단.
+            toast("시작 — 출발 확인 중")
             // GPS는 백그라운드에서 따로 잡아 채움 (늦게 와도 됨). 잡히면 출발지 동을 버튼에 표시
             captureLocation { lat, lng, addr ->
                 startLat = lat; startLng = lng; startAddr = addr
@@ -233,28 +323,17 @@ class FloatingTripService : Service() {
                 }
             }
         } else {
-            // [v24] 종료 시 화면 캡처 → OCR로 금액 자동 파싱 (기본 켜짐, 더보기에서 끌 수 있음)
-            //  안내: 요금이 화면에 완전히 뜬 상태에서 종료를 누르면 그 화면을 읽어 금액을 자동 입력.
-            val fpEnd = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
-            if (fpEnd.getBoolean("endfare_on", true)) {
-                try {
-                    fpEnd.edit().remove("pending_fare").apply()
-                    if (ScreenCaptureService.sessionAlive) {
-                        ScreenCaptureService.captureNow(this, "endfare")   // [v24] 세션 유지 → 동의창 없이 자동 캡처
-                    } else {
-                        fpEnd.edit().putString("capture_purpose", "endfare").apply()
-                        ScreenCapturePermissionActivity.start(this)        // 첫 1회만 동의 → 근무세션 동안 유지
-                    }
-                } catch (e: Exception) {}
-            }
+            // [v30] 종료 시 화면캡처(자동 금액인식) 제거 — 안드로이드 화면공유 동의창을 원천 차단.
+            //  금액은 기록 후 QuickEntry 팝업에서 수동 입력(원래 방식). 화면캡처 안 씀 = 동의창 안 뜸.
+            getSharedPreferences("callradar_prefs", MODE_PRIVATE).edit().remove("pending_fare").apply()
             // ★완료: 버튼 즉시 "취소?"로 전환 (GPS 안 기다림)
             com.callradar.app.TimingLog.send(this, "trip_end")   // [v24 진화⑥] 종료 누른 순간 기록
             stopPulse()                 // [v2] 운행 종료 → 펄스 멈춤
             pendingConfirm = true
-            updateButton("취소", "#EF4444")
-            toast("종료 — 잠시 후 기록 (누르면 취소)")
+            updateButton("취소?", "#EF4444")
+            toast("운행 종료 — 5초 뒤 자동 기록 · 잘못 눌렀으면 지금 탭하면 취소")
             pendingDestLat = 0.0; pendingDestLng = 0.0; pendingDestAddr = ""
-            // 3초 취소창 — 그 안에 다시 누르면 취소, 아니면 확정
+            // [플로팅 개선] 취소창 3초→5초 — 잘못 눌렀을 때 되돌릴 여유. 그 안에 다시 누르면 취소, 아니면 확정.
             confirmRunnable = Runnable {
                 if (pendingConfirm) {
                     pendingConfirm = false
@@ -267,11 +346,14 @@ class FloatingTripService : Service() {
                         if (startLat != 0.0 && lat != 0.0) {
                             val dist = FloatArray(1)
                             Location.distanceBetween(startLat, startLng, lat, lng, dist)
-                            if (dist[0] < MIN_DISTANCE_M) {
+                            // [플로팅 개선] 예전엔 거리 100m 미만이면 무조건 폐기 → 정체·단거리 실제 운행이 사라짐.
+                            //  이제 100m 미만이라도 운행 시간이 2분 이상이면 정상 운행으로 기록. 거리·시간 둘 다 짧을 때만 폐기(제자리 연타).
+                            val rideMsShort = parseUtc(startTime).let { if (it > 0L) System.currentTimeMillis() - it else 0L }
+                            if (dist[0] < MIN_DISTANCE_M && rideMsShort < MIN_RIDE_MS) {
                                 isRiding = false
                                 stopLocationForeground(); clearRideState()
                                 updateButton("시작", "#F59E0B")
-                                toast("이동거리가 짧아 기록 안 함")
+                                toast("이동거리·시간이 짧아 기록 안 함")
                                 return@captureLocation
                             }
                         }
@@ -289,7 +371,7 @@ class FloatingTripService : Service() {
                         isRiding = false
                         stopLocationForeground(); clearRideState()
                         updateButton("시작", "#F59E0B")
-                        toast("운행 기록됨")
+                        toast("운행 기록됨 · 잘못됐으면 기록 탭에서 삭제")
                     }
                 }
             }
@@ -297,34 +379,26 @@ class FloatingTripService : Service() {
         }
     }
 
-    // [v2] 플로팅 버튼 롱프레스 → 콜 화면 공유. 모드는 더보기에서 선택(share_mode).
-    //   screenshot: 화면 캡처 → 콜 팝업만 크롭 → 워터마크 → 이미지 공유
-    //   text: 화면 캡처 → 콜 팝업 OCR(한글) → 텍스트만 공유
-    //   off: 아무 것도 안 함
-    //  스샷/텍스트 둘 다 화면 캡처 동의가 필요 → ScreenCapturePermissionActivity로 진입.
-    //  ScreenCaptureService가 share_mode를 읽어 이미지/텍스트를 알아서 처리한다.
-    private fun shareCall() {
-        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-        val mode = prefs.getString("share_mode", "screenshot") ?: "screenshot"
-        if (mode == "off") { toast("공유 꺼짐 — 더보기 > 운행 버튼에서 켜기"); return }
-        try {
-            if (ScreenCaptureService.sessionAlive) ScreenCaptureService.captureNow(this, "share")
-            else { prefs.edit().putString("capture_purpose", "share").apply(); ScreenCapturePermissionActivity.start(this) }
-        } catch (e: Exception) { toast("공유를 시작할 수 없어요") }
-    }
+    // [v27] 플로팅 버튼 공유 기능 제거 — 버튼은 시작/종료 전용.
+    //  종료 탭 시 화면 캡처 → OCR로 요금만 읽어 자동 기입(endfare). 공유(shareCall)는 삭제됨.
 
     private fun toast(msg: String) {
         floatingView?.post { android.widget.Toast.makeText(applicationContext, msg, android.widget.Toast.LENGTH_SHORT).show() }
     }
 
-    // [v2] 운행중 펄스 시작/정지 (밝기 0.55~1.0 사인 호흡, ~1.2초 주기)
+    // [v2] 운행중 펄스 시작/정지 (밝기 0.55~1.0 사인 호흡, ~3초 주기)
+    // [v41 수정] 매 틱마다 floating_pulse 설정 재확인 → 운행 중에 껐을 때 즉시 멈춤(꺼도 깜빡이던 버그).
     private fun startPulse() {
         val enabled = getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("floating_pulse", true)
         if (!enabled || pulseOn) return
         pulseOn = true; pulsePhase = 0.0
         pulseRunnable = object : Runnable {
             override fun run() {
-                pulsePhase += 0.16
+                // 설정을 끄면(운행 중이라도) 다음 틱에서 즉시 정지 + 알파 원복
+                if (!getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("floating_pulse", true)) {
+                    stopPulse(); return
+                }
+                pulsePhase += 0.115   // ~3초 주기 (55ms 틱 * 2π/0.115 ≈ 3000ms)
                 val a = (0.55 + 0.45 * ((Math.sin(pulsePhase) + 1) / 2)).toFloat()
                 floatingView?.alpha = a
                 if (pulseOn) pulseHandler.postDelayed(this, 55)
@@ -422,8 +496,9 @@ class FloatingTripService : Service() {
                 PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             } catch (e: Exception) { null }
             val noti = Notification.Builder(this, LOC_CHANNEL_ID)
-                .setContentTitle("운행 위치 기록 중")
-                .setContentText("출발·도착 위치를 기록하고 있어요")
+                .setContentTitle("콜레이더 · 운행 기록 중")
+                .setContentText("출발·도착 위치를 확인하고 있어요")
+                .setOnlyAlertOnce(true)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setOngoing(true)
                 .apply { if (pi != null) setContentIntent(pi) }
@@ -489,13 +564,20 @@ class FloatingTripService : Service() {
         val pFare = fp.getInt("pending_fare", 0)
         val pTs = fp.getLong("pending_fare_ts", 0L)
         val pRaw = fp.getString("pending_fare_raw", "") ?: ""   // [v24] 학습용 원문(ai 인식 근거)
-        val useFare = if (pFare > 0 && System.currentTimeMillis() - pTs < 90000) pFare else 0
+        val useFare = if (pFare > 0 && System.currentTimeMillis() - pTs < 300000) pFare else 0  // [v43] 카드승인 알림 금액(직접결제)도 반영 — 90s→5분
         // [v25] 시작 때 판별한 플랫폼 자동 반영(3시간 내)
         val pPlat = fp.getString("pending_platform", "") ?: ""
         val pPlatTs = fp.getLong("pending_platform_ts", 0L)
         val usePlat = if (pPlat.isNotBlank() && System.currentTimeMillis() - pPlatTs < 3L * 60 * 60 * 1000) pPlat else "길빵/예약"
         fp.edit().remove("pending_fare").remove("pending_fare_ts").remove("pending_platform").remove("pending_platform_ts").apply()
         thread {
+            // [v31] 로컬 우선: 먼저 로컬 DB에 저장 → 서버가 느리거나 죽어도 트립 유실 0. 서버 성공 시 synced 표시.
+            val db = com.callradar.app.LocalTripDatabase.getInstance(this)
+            val cuid = java.util.UUID.randomUUID().toString()   // [fix-B] 멱등키 — 재전송·타임아웃 중복 방지
+            val localId = try { db.savePending(uid, usePlat, originName, destName, oLat, oLng, dLat, dLng, sTime, cuid) } catch (e: Exception) { -1L }
+            if (useFare > 0 && localId > 0) try { db.updateFare(localId, useFare, usePlat) } catch (e: Exception) {}
+            if (localId > 0) com.callradar.app.LocalTripDatabase.handlingLocalIds.add(localId)   // [fix-B] 전송 중 중복 재전송 방지
+            var tripId = 0
             try {
                 val json = JSONObject().apply {
                     put("user_id", uid)
@@ -503,34 +585,36 @@ class FloatingTripService : Service() {
                     put("destName", destName)
                     put("platform", usePlat)   // [v25] 시작 화면서 판별한 플랫폼 자동기록
                     put("payment_type", "cash")   // GPS 운행은 기본 현금(기사가 수정)
-                    if (useFare > 0) put("fare", useFare)   // [v24] 종료 화면 OCR 금액
+                    if (useFare > 0) put("fare", useFare)
                     put("source", "gps")
                     put("origin_lat", oLat); put("origin_lng", oLng)
                     put("dest_lat", dLat); put("dest_lng", dLng)
                     put("started_at", sTime)
                     put("ended_at", utcNow())
+                    put("client_uuid", cuid)   // [fix-B] 멱등키
                 }
                 val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    doOutput = true; connectTimeout = 8000; readTimeout = 8000
+                    doOutput = true; connectTimeout = 30000; readTimeout = 30000   // [v31] Render 콜드스타트(30~50초) 대응
                 }
                 conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
                 val code = conn.responseCode
                 val body = if (code in 200..299) try { conn.inputStream.bufferedReader().readText() } catch (e: Exception) { "" } else ""
-                val tripId = try { JSONObject(body).optInt("id", 0) } catch (e: Exception) { 0 }
-                // [v18] 완료 후 금액 팝업 (설정 켬일 때) — 앱 안 열고 요금·플랫폼 즉시 입력
-                if (tripId > 0 && getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getBoolean("quick_entry_enabled", true)) {
-                    confirmHandler.post {
-                        try {
-                            startActivity(Intent(this, QuickEntryActivity::class.java).apply { putExtra("trip_id", tripId); putExtra("dest", destName); putExtra("ocr_fare", useFare); putExtra("ocr_raw", pRaw); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                        } catch (e: Exception) {}
-                    }
-                } else if (useFare > 0) {
-                    // [v24 A단계] 빠른입력 팝업이 안 뜨면 OCR 금액이 그대로 확정 → 정답=인식값으로 학습 기록
-                    com.callradar.app.Feedback.send(this@FloatingTripService, "amount", null, pRaw, useFare.toString(), useFare.toString())
+                tripId = try { JSONObject(body).optInt("id", 0) } catch (e: Exception) { 0 }
+                if (tripId > 0 && localId > 0) try { db.markSynced(localId, tripId) } catch (e: Exception) {}
+            } catch (e: Exception) { /* 서버 실패 → 로컬 pending 유지, 앱 열 때 syncPendingTrips가 재전송 */ }
+            finally { if (localId > 0) com.callradar.app.LocalTripDatabase.handlingLocalIds.remove(localId) }
+            // [v18] 완료 후 금액 팝업 — 서버 성공이면 서버ID, 실패/오프라인이면 로컬ID로도 금액 입력 가능
+            if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("quick_entry_enabled", true)) {
+                confirmHandler.post {
+                    try {
+                        startActivity(Intent(this, QuickEntryActivity::class.java).apply { putExtra("trip_id", tripId); putExtra("local_id", localId); putExtra("dest", destName); putExtra("ocr_fare", useFare); putExtra("ocr_raw", pRaw); putExtra("start_platform", usePlat); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                    } catch (e: Exception) {}
                 }
-            } catch (e: Exception) {}
+            } else if (useFare > 0) {
+                com.callradar.app.Feedback.send(this@FloatingTripService, "amount", null, pRaw, useFare.toString(), useFare.toString())
+            }
         }
     }
 
@@ -538,6 +622,7 @@ class FloatingTripService : Service() {
         super.onDestroy()
         try { getSharedPreferences("callradar_prefs", MODE_PRIVATE).edit().putString("overlay_died", java.text.SimpleDateFormat("MM-dd HH:mm:ss").format(java.util.Date()) + " (onDestroy)").apply() } catch (e: Exception) {}
         confirmRunnable?.let { confirmHandler.removeCallbacks(it) }
+        autoBadgeRunnable?.let { autoBadgeHandler.removeCallbacks(it) }
         stopPulse()
         try { floatingView?.let { windowManager.removeView(it) } } catch (e: Exception) {}
     }

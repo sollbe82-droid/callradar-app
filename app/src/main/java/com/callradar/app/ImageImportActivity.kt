@@ -115,6 +115,7 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
     var month by remember { mutableStateOf(cal.get(Calendar.MONTH) + 1) } // 1~12
     var rows by remember { mutableStateOf<List<ImpRow>>(emptyList()) }
     var rawText by remember { mutableStateOf("") }
+    var aiTotal by remember { mutableStateOf(0) }   // [v31] 이 OCR의 AI 파싱 합계(학습 feedback용)
     var showRaw by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -139,6 +140,8 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             "income" -> parsed.map { val t = (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0); it.copy(income = if (t > 0) t.toString() else "", expense = "") }
             else -> parsed
         }
+        // [v31] 이 파싱의 AI 합계 기억 → 저장 때 유저 확정값과 함께 학습 서버로(라벨 소스)
+        aiTotal = parsed.sumOf { (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0) }
         rows = if (accumulate) {
             // [v24] 여러 장 누적 — 같은 날은 합산, 없으면 추가
             val merged = rows.toMutableList()
@@ -341,6 +344,15 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                         }
                         val j = JSONObject(resp)
                         busy = false; status = "✅ ${j.optInt("imported", 0)}일 가져왔어요! 기록·통계에서 확인하세요."
+                        // [v31] 영수증 인식 학습 feedback — AI 파싱값(ai) vs 유저 확정 합계(user) + OCR 원문(raw)
+                        //  → 이미 배포된 /api/feedback 엔진이 오답 패턴에서 키워드 자동발굴(카나리·가드레일 적용). Play에서 살아있는 유일 학습 target.
+                        try {
+                            val userTotal = rows.sumOf { (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0) }
+                            if (rawText.isNotBlank() && userTotal > 0) {
+                                val feat = if (importMode == "income") "import_income" else "import_expense"
+                                com.callradar.app.Feedback.send(ctx, feat, "receipt", rawText, if (aiTotal > 0) aiTotal.toString() else null, userTotal.toString())
+                            }
+                        } catch (e: Exception) {}
                     } catch (e: Exception) { busy = false; status = "가져오기 실패: ${e.message}" }
                 }
             }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) {

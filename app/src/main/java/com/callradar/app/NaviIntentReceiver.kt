@@ -268,7 +268,7 @@ class NaviIntentReceiver : AccessibilityService() {
             if ((clickedText.contains("길안내") || clickedText.contains("탑승") || clickedText.contains("손님"))
                 && !clickedText.contains("만나지") && !clickedText.contains("다시 만나") && !clickedText.contains("차단")) {
                 Log.d(TAG, "길안내/탑승/손님 버튼 클릭! 즉시 파싱")
-                sendDebugLog("CLICK", "$lastPlatform | $clickedText")
+                if (!clickedText.contains("길안내")) sendDebugLog("CLICK", "$lastPlatform | $clickedText")  // [perf] 길안내 연타는 로그 안 함(과다 네트워크 제거), 탑승/손님만
                 // 손님 탑승 클릭 시 → 이 운행은 실제 운행 (장거리/정체여도 취소 방지)
                 // [정확도] 실제 '탑승' 클릭 순간 = 진짜 픽업 지점. 출발지를 여기로 다시 찍어 콜수락~픽업 빈이동을 출발지에서 제외.
                 if (clickedText.contains("탑승")) {
@@ -319,7 +319,7 @@ class NaviIntentReceiver : AccessibilityService() {
             extractScreenAddress(lines)?.let { addr ->
                 if (addr.isNotBlank()) {
                     if (passengerBoarded) screenAddrDest = addr else screenAddrPickup = addr
-                    if (addr != lastLoggedScreenAddr) { lastLoggedScreenAddr = addr; sendDebugLog("SCREEN_ADDR", "${if (passengerBoarded) "목적지" else "픽업"} | $addr") }
+                    if (addr != lastLoggedScreenAddr) { lastLoggedScreenAddr = addr }  // [perf] SCREEN_ADDR 서버로그 제거(과다). 주소는 TRIP_START/BOARDING에 이미 포함됨
                 }
             }
 

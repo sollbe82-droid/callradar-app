@@ -7,13 +7,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -37,30 +41,76 @@ class QuickEntryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val tripId = intent.getIntExtra("trip_id", 0)
+        val localId = intent.getLongExtra("local_id", -1L)   // [v31] 오프라인 폴백용 로컬 트립 ID
         val dest = intent.getStringExtra("dest") ?: ""
         val ocrFare = intent.getIntExtra("ocr_fare", 0)      // [v24] 종료 OCR가 뽑은 금액(ai)
         val ocrRaw = intent.getStringExtra("ocr_raw") ?: ""  // [v24] 종료 화면 원문(학습용)
+        val startPlatform = intent.getStringExtra("start_platform") ?: ""  // [v43] 시작 때 판별된 플랫폼(팝업 기본값)
         val userId = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
-        if (tripId <= 0 || userId.isEmpty()) { finish(); return }
-        setContent { QuickEntry(tripId, dest, userId, ocrFare, ocrRaw) { finish() } }
+        if (userId.isEmpty() || (tripId <= 0 && localId <= 0)) { finish(); return }
+        setContent { QuickEntry(tripId, localId, dest, userId, ocrFare, ocrRaw, startPlatform) { finish() } }
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun QuickEntry(tripId: Int, dest: String, userId: String, ocrFare: Int, ocrRaw: String, onClose: () -> Unit) {
+private fun QuickEntry(tripId: Int, localId: Long, dest: String, userId: String, ocrFare: Int, ocrRaw: String, startPlatform: String = "", onClose: () -> Unit) {
     val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = Color(0xFF6B7280)
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     val qPrefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-    var fare by remember { mutableStateOf("") }
+    var fare by remember { mutableStateOf(if (ocrFare > 0) ocrFare.toString() else "") }  // [v43] 종료 금액(카드승인 캡처 포함) 자동 프리필
     var tip by remember { mutableStateOf("") }
     var promo by remember { mutableStateOf("") }
     var promoType by remember { mutableStateOf("프로모션") }
     // 마지막 쓴 플랫폼·결제 기억 (다중플랫폼 기사도 매번 안 고르게)
-    var platform by remember { mutableStateOf(qPrefs.getString("last_platform", "") ?: "") }
+    // [v43] 종료 팝업 플랫폼 기본값 = 시작 때 판별된 플랫폼(카카오T 등 자동판별 또는 길빵/예약). 값 없을 때만 마지막 사용값.
+    var platform by remember { mutableStateOf(if (startPlatform.isNotBlank()) startPlatform else (qPrefs.getString("last_platform", "") ?: "")) }
     var payType by remember { mutableStateOf(qPrefs.getString("last_paytype", "card") ?: "card") }
     var showExtra by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    // [v43] 직접결제 카드승인(택시투데이 등) 금액 자동 프리필. 팝업이 뜬 뒤 결제돼도 최대 120초 감시해 채움.
+    //   사용자가 직접 입력을 시작하면(fare 비어있지 않음) 덮어쓰지 않음.
+    LaunchedEffect(Unit) {
+        if (ocrFare > 0) { qPrefs.edit().remove("pending_fare").remove("pending_fare_ts").apply(); return@LaunchedEffect }
+        var waited = 0L
+        while (waited < 120000L && fare.isBlank()) {
+            val pf = qPrefs.getInt("pending_fare", 0); val pts = qPrefs.getLong("pending_fare_ts", 0L)
+            if (pf > 0 && System.currentTimeMillis() - pts < 300000L) {
+                fare = pf.toString(); qPrefs.edit().remove("pending_fare").remove("pending_fare_ts").apply(); break
+            }
+            kotlinx.coroutines.delay(1500L); waited += 1500L
+        }
+    }
+    val focusRequester = remember { FocusRequester() }
+
+    // 저장: 로컬 우선(즉시·유실0) → 팝업 즉시 닫기 → 서버 반영·학습은 백그라운드.
+    // 예전엔 서버 응답(최대 30초)을 기다린 뒤 닫아서 콜드스타트 때 체감이 느렸다. 이제 안 기다린다.
+    val saveAndClose: () -> Unit = save@{
+        if (busy) return@save
+        busy = true
+        val f = fare.toIntOrNull() ?: 0
+        val t = tip.toIntOrNull() ?: 0
+        val pr = promo.toIntOrNull() ?: 0
+        qPrefs.edit().putString("last_platform", platform).putString("last_paytype", payType).apply()
+        if (localId > 0) { try { com.callradar.app.LocalTripDatabase.getInstance(ctx).updateFare(localId, f, platform.ifEmpty { null }) } catch (e: Exception) {} }
+        val appCtx = ctx.applicationContext
+        val userFare = if (f > 0) f else ocrFare
+        Thread {
+            var ok = false
+            try {
+                if (tripId > 0) {
+                    val json = JSONObject().apply { put("user_id", userId); if (f > 0) put("fare", f); if (t > 0) put("tip", t); if (pr > 0) { put("promo", pr); put("promo_type", promoType) }; if (platform.isNotEmpty()) put("platform", platform); put("payment_type", payType) }
+                    val conn = (URL("${Config.SERVER_URL}/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
+                    conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
+                    if (conn.responseCode in 200..299) ok = true
+                }
+            } catch (e: Exception) {}
+            try { com.callradar.app.Telemetry.log(appCtx, "quick_save", "floating", ok = ok, meta = platform) } catch (e: Exception) {}
+            try { com.callradar.app.Feedback.send(appCtx, "amount", platform.ifEmpty { null }, ocrRaw, if (ocrFare > 0) ocrFare.toString() else null, if (userFare > 0) userFare.toString() else null) } catch (e: Exception) {}
+        }.start()
+        onClose()
+    }
 
     Dialog(onDismissRequest = onClose) {
         Surface(shape = RoundedCornerShape(18.dp), color = AppTheme.card) {
@@ -69,7 +119,9 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, ocrFare: Int, 
                 if (dest.isNotBlank() && dest != "도착(미상)") Text("도착: ${dest}", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                 Spacer(Modifier.height(14.dp))
 
-                OutlinedTextField(value = fare, onValueChange = { fare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                OutlinedTextField(value = fare, onValueChange = { fare = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth().focusRequester(focusRequester), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { saveAndClose() }), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                // [v31] 팝업 열리면 금액칸에 바로 포커스 → 타이핑 후 엔터(완료)로 즉시 저장
+                LaunchedEffect(Unit) { try { focusRequester.requestFocus() } catch (e: Exception) {} }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
                     listOf(1000, 5000, 10000, 50000).forEach { amt ->
                         OutlinedButton(onClick = { val cur = fare.toIntOrNull() ?: 0; fare = (cur + amt).toString() }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 6.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) {
@@ -81,7 +133,8 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, ocrFare: Int, 
 
                 Spacer(Modifier.height(10.dp))
                 Text("플랫폼", fontSize = 12.sp, color = muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                // [v32] 칩 4개가 한 줄에 안 들어가 마지막 '길빵/예약'이 잘리던 문제 → 줄바꿈(FlowRow)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p ->
                         FilterChip(selected = platform == p, onClick = { platform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
                     }
@@ -118,30 +171,8 @@ private fun QuickEntry(tripId: Int, dest: String, userId: String, ocrFare: Int, 
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("나중에", color = muted) }
-                    Button(onClick = {
-                        if (busy) return@Button
-                        busy = true
-                        val f = fare.toIntOrNull() ?: 0
-                        val t = tip.toIntOrNull() ?: 0
-                        val pr = promo.toIntOrNull() ?: 0
-                        qPrefs.edit().putString("last_platform", platform).putString("last_paytype", payType).apply()
-                        scope.launch {
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    val json = JSONObject().apply { put("user_id", userId); if (f > 0) put("fare", f); if (t > 0) put("tip", t); if (pr > 0) { put("promo", pr); put("promo_type", promoType) }; if (platform.isNotEmpty()) put("platform", platform); put("payment_type", payType) }
-                                    val conn = (URL("${Config.SERVER_URL}/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
-                                    conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
-                                    conn.responseCode
-                                }
-                                com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = true, meta = platform)
-                                // [v24 A단계] OCR 인식값(ai) vs 유저 확정 금액(user) 업로드 → 서버 규칙 자동개선
-                                val userFare = if (f > 0) f else ocrFare
-                                com.callradar.app.Feedback.send(ctx, "amount", platform.ifEmpty { null }, ocrRaw, if (ocrFare > 0) ocrFare.toString() else null, if (userFare > 0) userFare.toString() else null)
-                            } catch (e: Exception) { com.callradar.app.Telemetry.log(ctx, "quick_save", "floating", ok = false) }
-                            onClose()
-                        }
-                    }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(10.dp)) {
-                        Text(if (busy) "저장 중" else "저장", color = Color.White, fontWeight = FontWeight.Bold)
+                    Button(onClick = saveAndClose, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(10.dp)) {
+                        Text("저장 (Enter)", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }

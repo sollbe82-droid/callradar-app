@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  [원스토어 전용] 접근성 자동기록(v9 = NaviIntentReceiver).
+  이 파일은 onestore flavor 빌드에만 병합된다. Play(구글) 빌드에는 절대 포함되지 않음.
+  → 구글 스토어와 항상 분리. 접근성 관련 선언·서비스는 여기(onestore)에만 존재.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- v9 접근성 자동기록: 택시앱 화면 텍스트를 읽어 운행/요금 자동기록 (유저 동의 후) -->
+        <service
+            android:name=".NaviIntentReceiver"
+            android:exported="false"
+            android:label="콜레이더 자동기록"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- [자동화버그 수정] 접근성 자동기록의 GPS 좌표 소스(LocationTrackingService.currentLat/Lng).
+             기존 활성 매니페스트에서 누락돼 NaviIntentReceiver가 이 서비스를 못 켜서(not found) 좌표=0 →
+             extractTaxiInfo가 'GPS 좌표없음'으로 트립을 아예 못 만들던 버그. 자동화가 onestore 전용이므로 여기(onestore)에만 선언(Play는 미사용). -->
+        <service
+            android:name=".LocationTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+    </application>
+
+</manifest>

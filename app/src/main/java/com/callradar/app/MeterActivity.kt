@@ -80,7 +80,7 @@ fun rateOfRegion(name: String): MeterRate = meterRegions.find { it.first == name
 data class MeterResult(val base: Int, val distFare: Int, val timeFare: Int, val nightAdd: Int, val intercityAdd: Int, val nightPct: Int, val total: Int)
 
 // 순수 함수 — 단위테스트 가능. distance=총 이동거리(m), slowSec=저속(정차·서행) 누적초.
-//  심야할증은 시간대별 정밀(nightPctAt): 서울 예) 22~23시 20%, 23~04시 40%.
+//  심야할증은 시간대별: 서울) 22~23시 20%, 23~02시 40%, 02~04시 20%.
 fun calcMeterBreakdown(distanceM: Double, slowSec: Long, r: MeterRate, nightPct: Int, intercity: Boolean): MeterResult {
     val base = r.base
     val extra = (distanceM - r.baseM).coerceAtLeast(0.0)
@@ -96,12 +96,13 @@ fun calcMeterBreakdown(distanceM: Double, slowSec: Long, r: MeterRate, nightPct:
 fun calcMeterFare(distanceM: Double, slowSec: Long, r: MeterRate, night: Boolean, intercity: Boolean): Int =
     calcMeterBreakdown(distanceM, slowSec, r, if (night) r.nightPct else 0, intercity).total
 
-// 현재 시각 심야할증률(%) — 시간대별 정밀. 서울 관행: 22~23시 20%, 23~04시 40%, 그 외 0.
+// 현재 시각 심야할증률(%) — 서울 현행(2023.2~): 22~23시 20%, 23~02시 40%, 02~04시 20%, 그 외 0.
 fun nightPctNow(r: MeterRate): Int {
     val h = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY)
-    return when {
-        h == 22 -> 20            // 22~23시
-        (h == 23 || h in 0 until r.nightEnd) -> 40   // 23~04시 (깊은 심야)
+    return when (h) {
+        22 -> 20        // 22:00~22:59
+        23, 0, 1 -> 40  // 23:00~01:59 (깊은 심야)
+        2, 3 -> 20      // 02:00~03:59
         else -> 0
     }
 }
@@ -158,31 +159,13 @@ private fun MeterScreen(userId: String, onClose: () -> Unit) {
 
     fun startMeter() {
         if (!hasPerm) { permLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION); return }
-        distanceM = 0.0; slowSec = 0; elapsedSec = 0; lastLoc = null; saved = false
+        distanceM = 0.0; slowSec = 0; elapsedSec = 0; lastLoc = null
         startMs = System.currentTimeMillis(); lastTickMs = 0L; nightPct = nightPctNow(rate)
         val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L).setMinUpdateIntervalMillis(1000L).setGranularity(Granularity.GRANULARITY_FINE).build()
         try { fused.requestLocationUpdates(req, callback, Looper.getMainLooper()); running = true } catch (e: SecurityException) { hasPerm = false }
     }
     fun stopMeter() { try { fused.removeLocationUpdates(callback) } catch (e: Exception) {}; running = false }
     DisposableEffect(Unit) { onDispose { try { fused.removeLocationUpdates(callback) } catch (e: Exception) {} } }
-
-    fun saveTrip() {
-        if (fare <= 0) return
-        scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC")
-                    val json = JSONObject().apply {
-                        put("user_id", userId); put("platform", "미터기"); put("originName", ""); put("destName", "미터기 운행"); put("fare", fare)
-                        put("payment_type", "cash"); put("source", "manual"); put("started_at", sdf.format(Date()))
-                    }
-                    val conn = (URL("${Config.SERVER_URL}/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }
-                    conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode
-                }
-                saved = true
-            } catch (e: Exception) {}
-        }
-    }
 
     Column(Modifier.fillMaxSize().background(AppTheme.bg).padding(16.dp)) {
         Spacer(Modifier.height(20.dp))
@@ -250,13 +233,10 @@ private fun MeterScreen(userId: String, onClose: () -> Unit) {
             Button(onClick = { startMeter() }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(14.dp)) {
                 Text(if (fare > 0) "다시 시작" else "🟢 미터기 시작", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
             }
-            if (fare > 0 && !saved) {
+            if (fare > 0) {
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = { saveTrip() }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(14.dp)) {
-                    Text("₩${String.format("%,d", fare)} 기록에 저장", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
+                Text("추정 요금 ₩${String.format("%,d", fare)} · 재미용이라 기록에 저장되지 않아요", fontSize = 12.sp, color = muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
-            if (saved) { Spacer(Modifier.height(8.dp)); Text("✅ 기록에 저장했어요 (기록 탭에서 확인)", fontSize = 13.sp, color = green, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         } else {
             Button(onClick = { stopMeter() }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)), shape = RoundedCornerShape(14.dp)) {
                 Text("🔴 정지 (하차)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -273,7 +253,7 @@ private fun MeterScreen(userId: String, onClose: () -> Unit) {
         }, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(12.dp)) {
             Text("📌 플로팅으로 백그라운드 실행 (내비 위에 요금)", color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
-        Text("요금표는 지역별 근사값이에요. 지역·시기별로 달라 실제와 차이가 있을 수 있어요. 플로팅은 탭=저장·길게=취소.", fontSize = 10.sp, color = muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        Text("요금표는 지역별 근사값이에요. 지역·시기별로 달라 실제와 차이가 있을 수 있어요. 재미용 추정이라 기록엔 저장되지 않아요.", fontSize = 10.sp, color = muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         Spacer(Modifier.height(8.dp))
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -236,6 +237,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var isLoading by remember { mutableStateOf(true) }
     var homeLoaded by remember { mutableStateOf(false) }   // [v22] 최초 로딩 완료 전엔 매출 카드에 스피너(0원/-사납금 깜빡임 방지)
     var showGoalDialog by remember { mutableStateOf(false) }
+    // [관리자 게이트] 버전 라벨 탭 → ADMIN_KEY 입력 → 서버검증 → 이 기기 관리자 해금(자동기록 사용 가능)
+    var showAdminDialog by remember { mutableStateOf(false) }
+    var adminKeyInput by remember { mutableStateOf("") }
+    var adminBusy by remember { mutableStateOf(false) }
+    // [v43] 계정 기반 관리자/권한 — 서버(users.is_admin/auto_entitled)에서 조회. 카카오 로그인하면 어느 폰에서든 유지.
+    var acctAdmin by remember { mutableStateOf(prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))) }
+    var acctEntitled by remember { mutableStateOf(prefs.getBoolean("acct_entitled", false)) }
+    var entitleTarget by remember { mutableStateOf("") }
+    var entitleMsg by remember { mutableStateOf("") }
     var goalInput by remember { mutableStateOf("") }
     var sanapInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -270,6 +280,74 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             containerColor = AppTheme.card)
     }
 
+    // [관리자 게이트] 자동기록(접근성)은 관리자 해금 기기에서만. 버전 라벨 탭 → 이 다이얼로그 → ADMIN_KEY 서버검증.
+    if (showAdminDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!adminBusy) { showAdminDialog = false; adminKeyInput = ""; entitleMsg = "" } },
+            title = { Text(if (acctAdmin) "관리자 (${nickname})" else "관리자 인증", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column {
+                if (!acctAdmin) {
+                    Text("ADMIN_KEY를 넣으면 이 카카오 계정이 관리자로 등록돼요. 이후엔 어느 폰에서든 이 계정으로 로그인만 하면 자동기록을 쓸 수 있어요(기기별 재인증 불필요).", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(value = adminKeyInput, onValueChange = { adminKeyInput = it.trim() }, label = { Text("ADMIN_KEY", color = muted) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                } else {
+                    Text("이 계정은 관리자예요. 테스트 기사에게 자동기록 사용권을 부여/회수할 수 있어요. 대상 기사의 계정 ID(user_id)를 넣으세요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(value = entitleTarget, onValueChange = { entitleTarget = it.filter { c -> c.isDigit() } }, label = { Text("대상 계정 ID", color = muted) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    if (entitleMsg.isNotEmpty()) { Spacer(Modifier.height(6.dp)); Text(entitleMsg, fontSize = 12.sp, color = accent) }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        fun entitle(on: Boolean) {
+                            val t = entitleTarget.toIntOrNull() ?: return; adminBusy = true; entitleMsg = ""
+                            scope.launch {
+                                val ok = withContext(Dispatchers.IO) { try {
+                                    val json = JSONObject().apply { put("target_user_id", t); put("on", on) }
+                                    val conn = (URL("$SERVER_URL/api/admin/entitle").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 10000 }
+                                    conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
+                                    conn.responseCode in 200..299
+                                } catch (e: Exception) { false } }
+                                adminBusy = false; entitleMsg = if (ok) (if (on) "부여 완료" else "회수 완료") else "실패 · 관리자 권한/ID 확인"
+                            }
+                        }
+                        Button(enabled = !adminBusy && entitleTarget.isNotBlank(), onClick = { entitle(true) }, colors = ButtonDefaults.buttonColors(containerColor = green)) { Text("권한 부여", color = Color.White, fontSize = 13.sp) }
+                        OutlinedButton(enabled = !adminBusy && entitleTarget.isNotBlank(), onClick = { entitle(false) }) { Text("회수", color = red, fontSize = 13.sp) }
+                    }
+                }
+            } },
+            confirmButton = {
+                if (!acctAdmin) Button(enabled = !adminBusy && adminKeyInput.isNotBlank(), onClick = {
+                    adminBusy = true
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) {
+                            try {
+                                val json = JSONObject().apply { put("user_id", userId); put("key", adminKeyInput) }
+                                val conn = (URL("$SERVER_URL/api/admin/claim").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
+                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
+                                conn.responseCode == 200
+                            } catch (e: Exception) { false }
+                        }
+                        adminBusy = false
+                        if (ok) { acctAdmin = true; prefs.edit().putBoolean("acct_admin", true).putBoolean("is_admin", true).apply(); adminKeyInput = ""; android.widget.Toast.makeText(context, "이 계정이 관리자로 등록됨 · 자동기록 사용 가능 (원스토어+접근성)", android.widget.Toast.LENGTH_LONG).show() }
+                        else android.widget.Toast.makeText(context, "키가 올바르지 않아요", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text(if (adminBusy) "확인 중" else "관리자 등록", color = Color.Black, fontWeight = FontWeight.Bold) }
+                else TextButton(onClick = { if (!adminBusy) { showAdminDialog = false; entitleMsg = "" } }) { Text("완료", color = accent) }
+            },
+            dismissButton = { OutlinedButton(onClick = { if (!adminBusy) { showAdminDialog = false; adminKeyInput = ""; entitleMsg = "" } }) { Text("닫기") } },
+            containerColor = AppTheme.card)
+    }
+
+    // [v43] 계정 플래그(is_admin/auto_entitled) 서버 조회 → 자동기록 토글 노출 결정
+    LaunchedEffect(userId, refreshKey) {
+        if (userId.isEmpty()) return@LaunchedEffect
+        try {
+            val s = withContext(Dispatchers.IO) { (URL("$SERVER_URL/api/users/$userId/flags").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 12000 }.inputStream.bufferedReader().readText() }
+            val o = JSONObject(s)
+            val ia = o.optBoolean("is_admin", false); val ae = o.optBoolean("auto_entitled", false)
+            val fo = o.optBoolean("free_open", false)  // [근본해결] 전원 무료 개방 스위치
+            acctAdmin = ia; acctEntitled = ae || fo
+            prefs.edit().putBoolean("acct_admin", ia).putBoolean("acct_entitled", ae).putBoolean("is_admin", ia).putBoolean("auto_free_open", fo).apply()
+        } catch (e: Exception) {}
+    }
+
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
 
     fun loadHomeData() {
@@ -277,7 +355,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
         scope.launch {
             try {
                 // [v23] 계정 dayStart 동기화 — 서브폰도 같은 영업일 기준으로 오늘매출 계산되게(today 조회 전에 갱신)
-                try { withContext(Dispatchers.IO) { val s = (URL("$SERVER_URL/api/user-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 6000 }.inputStream.bufferedReader().readText(); val ds = JSONObject(s).optInt("day_start", prefs.getInt("day_start_hour", 0)); prefs.edit().putInt("day_start_hour", ds).apply() } } catch (e: Exception) {}
+                try { withContext(Dispatchers.IO) { val s = (URL("$SERVER_URL/api/user-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }.inputStream.bufferedReader().readText(); val ds = JSONObject(s).optInt("day_start", prefs.getInt("day_start_hour", 0)); prefs.edit().putInt("day_start_hour", ds).apply() } } catch (e: Exception) {}
                 val todayResponse = withContext(Dispatchers.IO) { getWithSelfHeal(prefs, "$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}") }
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
@@ -294,8 +372,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
                 recentTrips = rList
 
+                // [perf] 프로필/플랫폼/지출/근무일 병렬 로드 (순차 4연속 → 동시 실행). 홈 로딩 체감 개선.
+                val ymH = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
+                val dshH = prefs.getInt("day_start_hour", 0)
+                val profD = async(Dispatchers.IO) { try { (URL("$SERVER_URL/api/profile/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText() } catch (e: Exception) { null } }
+                val platD = async(Dispatchers.IO) { try { (URL("$SERVER_URL/api/stats/platform/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText() } catch (e: Exception) { null } }
+                val expD = async(Dispatchers.IO) { try { (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ymH").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText() } catch (e: Exception) { null } }
+                val dailyD = async(Dispatchers.IO) { try { (URL("$SERVER_URL/api/stats/daily/$userId?month=$ymH&dayStart=$dshH").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText() } catch (e: Exception) { null } }
+
                 try {
-                    val profResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/profile/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val profResponse = profD.await() ?: throw Exception("prof")
                     val pJson = JSONObject(profResponse); val lJson = pJson.optJSONObject("level") ?: JSONObject()
                     val badgeArr = pJson.optJSONArray("badges") ?: JSONArray()
                     val bList = mutableListOf<Badge>(); for (i in 0 until badgeArr.length()) { val b = badgeArr.getJSONObject(i); bList.add(Badge(b.optString("emoji", "🏅"), b.optString("name", ""))) }
@@ -310,7 +396,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } catch (e: Exception) { }
 
                 try {
-                    val platResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/platform/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val platResponse = platD.await() ?: throw Exception("plat")
                     val platJson = JSONObject(platResponse)
                     val todayArr = platJson.getJSONArray("today")
                     val platList = mutableListOf<PlatformStat>()
@@ -323,7 +409,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
                 try {
                     val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
-                    val expResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val expResponse = expD.await() ?: throw Exception("exp")
                     val expJson = JSONObject(expResponse)
                     businessExpense = expJson.optInt("business", 0)
                     personalExpense = expJson.optInt("personal", 0)
@@ -334,12 +420,17 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 try {
                     val ym2 = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
                     val dsh = prefs.getInt("day_start_hour", 0)
-                    val dailyResp = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym2&dayStart=$dsh").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                    val dailyResp = dailyD.await() ?: throw Exception("daily")
                     val arr = JSONArray(dailyResp)
                     var cnt = 0
                     for (i in 0 until arr.length()) { if (arr.getJSONObject(i).optInt("total_fare", 0) > 0) cnt++ }
                     monthWorkedDays = cnt
-                } catch (e: Exception) { }
+                    prefs.edit().putInt("mwd_$ym2", cnt).apply()   // [SEV3] 성공 값 캐시 → 다음 실패 때 0으로 떨어져 월급 과대표시 되는 것 방지
+                } catch (e: Exception) {
+                    // 로드 실패 시 이번 달 마지막 성공값 유지(없으면 기존값). 0으로 리셋해 사납금 미차감→월급 과대 방지.
+                    val ym2 = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
+                    val cached = prefs.getInt("mwd_$ym2", -1); if (cached >= 0) monthWorkedDays = cached
+                }
 
                 errorMessage = null
                 isLoading = false; homeLoaded = true
@@ -370,7 +461,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     // 백업: 앱 켜둔 채 있을 때 15초마다 조용히 갱신
     LaunchedEffect(userId) {
         if (userId.isEmpty()) return@LaunchedEffect
-        while (true) { kotlinx.coroutines.delay(15000L); loadHomeData() }
+        while (true) { kotlinx.coroutines.delay(60000L); loadHomeData() }   // [SEV9] 15s→60s: 데이터·배터리 절약(포그라운드 복귀는 ON_RESUME이 갱신)
     }
 
     Column(modifier = Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState())) {
@@ -381,7 +472,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Text("콜레이더", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent)
                     Text("β", fontSize = 11.sp, color = muted)
                     val verLabel = remember { try { val pi = context.packageManager.getPackageInfo(context.packageName, 0); val vc = if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt() else @Suppress("DEPRECATION") pi.versionCode; "v${pi.versionName}·$vc" } catch (e: Exception) { "" } }
-                    if (verLabel.isNotBlank()) Text(verLabel, fontSize = 10.sp, color = muted)
+                    if (verLabel.isNotBlank()) Text(verLabel, fontSize = 10.sp, color = muted, modifier = Modifier.clickable { showAdminDialog = true })
                 }
                 profile?.let { p ->
                     Text(buildString { append(p.nickname); if (p.carNumber.isNotEmpty()) append(" · ${p.carNumber}") }, fontSize = 12.sp, color = muted)
@@ -393,7 +484,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text("📇 명함", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                 }
                 Card(modifier = Modifier.height(36.dp).clickable { onOpenSettings() }, colors = CardDefaults.cardColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(20.dp)) {
-                    Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) { Text("⚙️ 기사 설정", fontSize = 12.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
+                    Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Text("⚙️ 기사설정", fontSize = 12.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
                 }
             }
         }
@@ -465,13 +556,15 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         Column {
                             Text("오늘 매출", fontSize = 12.sp, color = muted)
                             Text(if (todayFare > 0) "${String.format("%,d", todayFare)}원" else "0원", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
-                            if (dailySanap > 0 || lpgDailyCost > 0) {
+                            // [4-A] 개인택시(personal)는 사납금이 없음 → 사납 미적용. 순수익=매출−가스. 법인만 사납 반영.
+                            val effDailySanap = if (isCorporate) dailySanap else 0
+                            if (effDailySanap > 0 || lpgDailyCost > 0) {
                                 val sanapDaysQuota = (workDaysSetting - prefs.getInt("annual_leave", 0)).coerceAtLeast(0)
-                                val owedSanap = dailySanap * sanapDaysQuota
-                                val sanapMet = driverType == "corporate" && dailySanap > 0 && sanapDaysQuota > 0 && owedSanap > 0 &&
+                                val owedSanap = effDailySanap * sanapDaysQuota
+                                val sanapMet = isCorporate && effDailySanap > 0 && sanapDaysQuota > 0 && owedSanap > 0 &&
                                     (monthWorkedDays > sanapDaysQuota || (profile?.monthFare ?: 0) >= owedSanap)
-                                val todayNet = calcNetIncome(todayFare, 1, if (sanapMet) 0 else dailySanap)
-                                Text((if (sanapMet) "순수익 " else "순수익 ") + "${String.format("%,d", todayNet)}원" + (if (sanapMet) " (사납금 완납)" else ""), fontSize = 11.sp, color = if (todayNet > 0) accent else red)
+                                val todayNet = calcNetIncome(todayFare, 1, if (sanapMet) 0 else effDailySanap)
+                                Text("순수익 ${String.format("%,d", todayNet)}원" + (if (sanapMet) " (사납금 완납)" else ""), fontSize = 11.sp, color = if (todayNet > 0) accent else red)
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
@@ -488,6 +581,25 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("$todayTrips", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("오늘 콜", fontSize = 11.sp, color = muted) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { val avg = if (todayTrips > 0) todayFare / todayTrips else 0; Text("${String.format("%,d", avg)}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("콜 평균", fontSize = 11.sp, color = muted) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (todayFare >= goalFare) "달성!" else "${String.format("%,d", goalFare - todayFare)}", fontSize = if (todayFare >= goalFare) 18.sp else 20.sp, fontWeight = FontWeight.Bold, color = if (todayFare >= goalFare) green else AppTheme.text); Text(if (todayFare >= goalFare) "목표완료" else "남은금액", fontSize = 11.sp, color = muted) }
+                    }
+                }
+            }
+
+            // [v32] 🏢 회사 프로필 기반 예상 기사몫 (법인 + 활성 프로필 있을 때만). 홈 순수익 계산과 별개 표시(무손상).
+            // [4-A] 개인택시(personal)는 사납금이 없으므로 이 카드를 표시하지 않는다(정관 도메인 규칙).
+            // [금액중복 정리] 예상 기사몫 금액은 아래 '예상 월급 수령액' 카드와 사실상 동일값(총매출−사납) → 큰 금액 중복.
+            //  여기선 큰 금액을 빼고 '회사 급여 계산기 바로가기'로만. 금액은 아래 월급 카드 하나만 표시.
+            run {
+                val ap = if (isCorporate) com.callradar.app.CompanyProfile.active(prefs) else null
+                if (ap != null && monthFare > 0) {
+                    Card(modifier = Modifier.fillMaxWidth().clickable { com.callradar.app.CompanyProfileActivity.start(context) }, colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("🏢 ${ap.label()} · 급여 계산기", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text("사납 ${String.format("%,d", ap.sanapDaily * billDays)}" + (if (ap.gasBearer == "기사") " · 가스 기사부담" else " · 가스 회사부담") + " · 초과율 ${(ap.overRate * 100).toInt()}%", fontSize = 10.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                            }
+                            Text("바로가기 →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)
+                        }
                     }
                 }
             }
@@ -619,14 +731,49 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
             }
 
+            // [자동기록 시작/종료] 관리자·원스토어 전용 인앱 토글. 접근성은 켜둔 채 이 값으로 실제 기록 on/off (앱이 접근성 자체를 못 끔).
+            if (com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)) run {
+                var autoRec by remember(refreshKey) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
+                var showAutoSetup by remember { mutableStateOf(false) }
+                Card(colors = CardDefaults.cardColors(containerColor = if (autoRec) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text(if (autoRec) "카카오T·우버·티머니고 운행·요금이 자동 기록돼요. (탭하면 설정 점검)" else "택시앱 화면을 읽어 운행·요금 자동 기록. 켜면 필요한 설정을 순서대로 잡아줘요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp).clickable { showAutoSetup = true })
+                        }
+                        Switch(checked = autoRec, onCheckedChange = { on ->
+                            autoRec = on
+                            prefs.edit().putBoolean("auto_record_on", on).apply()
+                            if (on) {
+                                showAutoSetup = true   // 켜면 설정 체크리스트 표시(감지+원탭 켜기)
+                            } else {
+                                try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
+                            }
+                            com.callradar.app.Telemetry.log(context, if (on) "auto_record_on" else "auto_record_off", "home")
+                        })
+                    }
+                }
+                if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {
+                    showAutoSetup = false
+                    // 접근성이 켜졌으면 위치 추적 서비스 기동
+                    val acc = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
+                    if (acc) try { ContextCompat.startForegroundService(context, Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
+                }
+            }
+
             // [v23] 금액 자동 입력(알림 캡처) — "손 안 가는 앱"의 핵심. 자동화 차수(phase-2)에서만 노출(첫 심사 리스크 회피).
-            if (Config.NOTIF_CAPTURE_ENABLED) run {
+            if (Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)) run {
                 var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
                 Card(colors = CardDefaults.cardColors(containerColor = if (capOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                             Text(if (capOn) "카카오T·우버 완료 알림에서 금액이 자동 입력돼요" else "카카오T·우버 알림을 읽어 금액을 자동 입력 — 손 안 가게. (알림 접근 권한 필요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+                            // [택시투데이 안내] 직접결제·길빵 카드결제 금액은 '[택시승인]' 카드 알림에서 읽음 → 택시투데이 설치 필요.
+                            Text("📲 택시투데이 설치 ▸ 직접결제·길빵 카드결제 금액 자동 읽기 (교통카드·폰결제는 알림이 조금 늦을 수 있어요)", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable {
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=택시투데이")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                catch (e: Exception) { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/search?q=택시투데이&c=apps")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) {} }
+                            })
                         }
                         Switch(checked = capOn, onCheckedChange = { on ->
                             prefs.edit().putBoolean("notif_capture_on", on).apply()
@@ -662,6 +809,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }  // [v23] 근무 최대시간 자동마감(0=끔)
                 val active = workStart > 0L
                 val paused = pauseStart > 0L
+                // [v41] 영업일(day_start_hour 기준) 키 — 하루 안 여러 출퇴근을 하나로 누적하기 위한 기준.
+                fun workDayKey(): Long {
+                    val h = prefs.getInt("day_start_hour", 0)
+                    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+                    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
+                    return c.timeInMillis
+                }
                 // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
                 fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
                     if (userId.isEmpty()) return
@@ -669,7 +824,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         try {
                             withContext(Dispatchers.IO) {
                                 val json = JSONObject().apply { put("user_id", userId); put("work_start", ws); put("paused_total", pt); put("pause_start", ps); put("start_fare", sf) }
-                                val conn = (URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
+                                val conn = (URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                                 conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
                             }
                         } catch (e: Exception) {}
@@ -677,6 +832,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
                 // [v17][#5] 퇴근 요약 카드
                 var showEndSummary by remember { mutableStateOf(false) }
+                var showPastSessions by remember { mutableStateOf(false) }   // [v41] 지난 근무 기록 보기/공유
                 var showEndConfirm by remember { mutableStateOf(false) }   // [v23] 실수 퇴근 방지 확인
                 var sumGrossMin by remember { mutableStateOf(0L) }
                 var sumNetMin by remember { mutableStateOf(0L) }
@@ -688,20 +844,33 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
+                // [원스토어 반려수정] 어떤 예외가 나도 '퇴근'으로 앱이 죽지 않도록 전체를 안전망으로 감쌈.
                 val endShiftNow = {
+                  try {
                     val now = System.currentTimeMillis()
                     val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
                     val grossMs = (now - workStart).coerceAtLeast(0L)
-                    val startFare = prefs.getInt("work_start_fare", 0)
-                    val sFare = (todayFare - startFare).coerceAtLeast(0)
-                    val hrs = netMs / 3600000.0
-                    sumGrossMin = grossMs / 60000L
-                    sumNetMin = netMs / 60000L
-                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f
+                    // [v41] 하루(영업일) 누적 — 오전·오후 여러 출퇴근을 하나로 합쳐 영수증을 '하루 총합'으로.
+                    //  이번 세션분을 당일 누적(work_day_net_ms/gross_ms)에 더하고, 매출·거리는 당일 첫 출근 기준으로 계산.
+                    val dayKey = workDayKey()
+                    val sameDay = prefs.getLong("work_day_key", 0L) == dayKey
+                    // [버그수정] 16시간 초과 세션 = 퇴근 깜빡한 유령 → 하루 누적에 더하지 않음(25시간 오염 방지)
+                    val realSession = grossMs < 16L * 3600000L
+                    val dayNetMs = (if (sameDay) prefs.getLong("work_day_net_ms", 0L) else 0L) + (if (realSession) netMs else 0L)
+                    val dayGrossMs = (if (sameDay) prefs.getLong("work_day_gross_ms", 0L) else 0L) + (if (realSession) grossMs else 0L)
+                    val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
+                    prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
+                    val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
+                    val hrs = dayNetMs / 3600000.0
+                    sumGrossMin = dayGrossMs / 60000L
+                    sumNetMin = dayNetMs / 60000L
+                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f   // 당일 누적 거리(출근마다 리셋 안 함)
                     sumFare = sFare
                     sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
-                    // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익
-                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + prefs.getInt("daily_sanap", 0)
+                    // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
+                    // [개인/법인 분리] 개인택시는 사납금이 없음 → 고정비=유류만. 법인만 사납 포함(잔존 사납값 누출 방지).
+                    val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
+                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + effShiftSanap
                     sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
                     com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
                     try {
@@ -716,10 +885,20 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
                     pushWorkSession(0L, 0L, 0L, 0)
                     stopMeter()
+                    com.callradar.app.TrackSync.uploadRecent(context)   // [v44] 퇴근 시 오늘 궤적 서버 백업
                     com.callradar.app.WorkAutoEnd.cancel(context)
                     com.callradar.app.ScreenCaptureService.stopSession(context)   // [v24] 퇴근 시 화면권한 해제
                     com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
                     showEndSummary = true
+                  } catch (e: Exception) {
+                    // 안전망: 예상치 못한 예외에도 세션은 종료 상태로 만들고 요약을 띄운다(강제종료 방지).
+                    try {
+                        workStart = 0L; pausedTotal = 0L; pauseStart = 0L
+                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    } catch (e2: Exception) {}
+                    try { stopMeter() } catch (e2: Exception) {}
+                    showEndSummary = true
+                  }
                 }
                 LaunchedEffect(Unit) { if (workStart > 0L) com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)) }  // [v23] 앱 재시작 시 예약 복원
                 LaunchedEffect(active, paused) {
@@ -801,14 +980,75 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         containerColor = card
                     )
                 }
+                // [v41] 지난 근무 기록 목록 + 각 건 공유 — 자정이 지나도 과거 근무 영수증을 다시 공유 가능.
+                if (showPastSessions) {
+                    val logArr = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
+                    val fmtP = java.text.SimpleDateFormat("M/d(E) HH:mm", java.util.Locale.KOREA).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+                    AlertDialog(
+                        onDismissRequest = { showPastSessions = false },
+                        title = { Text("📋 지난 근무 기록", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = {
+                            if (logArr.length() == 0) {
+                                Text("아직 퇴근 기록이 없어요. 퇴근하면 여기에 쌓여요.", fontSize = 13.sp, color = muted)
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    for (i in logArr.length() - 1 downTo 0) {
+                                        val o = logArr.optJSONObject(i) ?: continue
+                                        val endMs = o.optLong("end", 0L)
+                                        val nmP = o.optLong("netMin", 0L); val nhP = nmP / 60; val nmmP = nmP % 60
+                                        val fareP = o.optInt("fare", 0)
+                                        val phP = o.optInt("perHour", 0)
+                                        val dkP = o.optDouble("distKm", 0.0)
+                                        val dateP = if (endMs > 0) fmtP.format(java.util.Date(endMs)) else "-"
+                                        Column(Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(12.dp)) {
+                                            Text(dateP, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                            Text("근무 ${nhP}시간 ${nmmP}분 · ${String.format("%.1f", dkP)}km", fontSize = 12.sp, color = muted)
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                                Text("매출 ${String.format("%,d", fareP)}원 · 시간당 ${String.format("%,d", phP)}원", fontSize = 12.sp, color = green)
+                                                TextButton(onClick = {
+                                                    val dashP = "─".repeat(22)
+                                                    val txtP = buildString {
+                                                        append("📻 콜레이더 · 근무 영수증\n"); append("$dashP\n")
+                                                        append("날짜   $dateP\n")
+                                                        append("근무   ${nhP}시간 ${nmmP}분\n")
+                                                        append("거리   ${String.format("%.1f", dkP)} km\n")
+                                                        append("매출   ${String.format("%,d", fareP)}원\n")
+                                                        append("시간당 ${String.format("%,d", phP)}원\n")
+                                                        append("$dashP\n수고하셨습니다!")
+                                                    }
+                                                    try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txtP) }, "영수증 공유")) } catch (e: Exception) {}
+                                                }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("📤 공유", fontSize = 12.sp, color = accent) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = { Button(onClick = { showPastSessions = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("닫기", color = Color.Black) } },
+                        containerColor = card
+                    )
+                }
                 if (sessionEnabled) {
-                    val workedMs = if (!active) 0L else ((nowTick - workStart) - pausedTotal - (if (paused) nowTick - pauseStart else 0L)).coerceAtLeast(0L)
+                    // [v41] 라이브 카드도 '하루 누적'으로 — 당일 완료 세션분 + 현재 세션분을 이어서 표시.
+                    val sameDayLive = prefs.getLong("work_day_key", 0L) == workDayKey()
+                    // [버그수정] '퇴근 깜빡' 등으로 비현실적(>16h) 누적이 박히면 오염값 → 무시하고 자가치유(pref 정리).
+                    //  (25시간처럼 말이 안 되는 근무시간이 출근해도 계속 뜨던 문제 해결)
+                    val rawDayNet = if (sameDayLive) prefs.getLong("work_day_net_ms", 0L) else 0L
+                    val dayNetPrev = if (rawDayNet > 16L * 3600000L) {
+                        prefs.edit().putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).apply(); 0L
+                    } else rawDayNet
+                    val curNet = if (!active) 0L else ((nowTick - workStart) - pausedTotal - (if (paused) nowTick - pauseStart else 0L)).coerceAtLeast(0L)
+                    val workedMs = dayNetPrev + curNet
                     val workedMin = workedMs / 60000L
                     val hh = workedMin / 60; val mm = workedMin % 60
                     val workedHours = workedMs.toDouble() / 3600000.0
-                    val perHour = if (workedHours > 0.05) (todayFare / workedHours).toInt() else 0
+                    // [버그수정] 시간당/㎞당 매출은 '하루 매출(당일 첫 출근 기준)'을 '하루 근무시간'으로 나눔.
+                    // (짧은 세션 하나로 나눠 시간당 수백만원 나오던 버그는 하루 누적시간으로 방지)
+                    val sStartFare = if (sameDayLive) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
+                    val sessionFare = (todayFare - sStartFare).coerceAtLeast(0)
+                    val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
                     val distKm = workDist / 1000f
-                    val perKm = if (distKm > 0.3f) (todayFare / distKm).toInt() else 0
+                    val perKm = if (distKm > 0.3f) (sessionFare / distKm).toInt() else 0
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -854,7 +1094,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             }
                             Spacer(Modifier.height(10.dp))
                             if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t; workDist = 0f; prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putInt("work_start_fare", todayFare).apply(); pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
+                                    // [v41] 같은 영업일 재출근이면 당일 누적(거리·시작요금·시간) 유지 → 이어서 근무. 새 영업일이면 리셋.
+                                    val dayKey = workDayKey(); val newDay = prefs.getLong("work_day_key", 0L) != dayKey
+                                    val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare)
+                                    if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
+                                    e.apply()
+                                    workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
+                                    pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
@@ -865,6 +1112,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
                                 }
                             }
+                            // [v41] 지난 근무 기록 보기/공유 진입 — 퇴근 후 자정이 지나도 과거 세션을 다시 공유
+                            TextButton(onClick = { showPastSessions = true }, modifier = Modifier.align(Alignment.CenterHorizontally), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("📋 지난 근무 기록", fontSize = 12.sp, color = muted) }
                         }
                     }
                 }
@@ -907,6 +1156,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             // [v21] 튜닝 홈 2단계 — 커스텀 바로가기 블록 (추가/제거/순서변경). 온오프: home_shortcuts
             if (prefs.getBoolean("home_shortcuts", true)) {
                 val registry = listOf(
+                    Triple("gas", "⛽", "가스"), Triple("elec", "🔌", "전기"),
+                    Triple("expense", "🧾", "지출촬영"),
+                    Triple("track", "🗺️", "운행궤적"),
                     Triple("import", "📥", "가져오기"), Triple("records", "📋", "기록"),
                     Triple("airport", "✈️", "공항"), Triple("namecard", "📇", "명함"),
                     Triple("ai", "🤖", "AI비서"), Triple("events", "📅", "이벤트"),
@@ -914,12 +1166,27 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Triple("ranking", "🏆", "랭킹"), Triple("links", "🌐", "링크"),
                     Triple("settings", "⚙️", "기사설정"), Triple("more", "⋯", "더보기")
                 )
-                var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "import,records,airport,ai,more") ?: "import,records,airport,ai,more") }
+                var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "gas,elec,expense,records,import,more") ?: "gas,elec,expense,records,import,more") }
+                // [v32] 기존 사용자 홈에 '지출촬영' 1회 자동 추가(레이아웃 보존 + 한 칸만 추가)
+                LaunchedEffect(Unit) {
+                    if (!prefs.getBoolean("home_expense_migrated", false)) {
+                        val cur = prefs.getString("home_blocks", null)
+                        if (cur != null && !cur.split(",").contains("expense")) {
+                            val l = cur.split(",").toMutableList(); l.add(minOf(2, l.size), "expense")
+                            val nv = l.joinToString(","); prefs.edit().putString("home_blocks", nv).apply(); blockCsv = nv
+                        }
+                        prefs.edit().putBoolean("home_expense_migrated", true).apply()
+                    }
+                }
                 var blockEdit by remember { mutableStateOf(false) }
                 val order = blockCsv.split(",").map { it.trim() }.filter { id -> registry.any { it.first == id } }
                 val save: (List<String>) -> Unit = { l -> blockCsv = l.joinToString(","); prefs.edit().putString("home_blocks", blockCsv).apply() }
                 val runBlock: (String) -> Unit = { id ->
                     when (id) {
+                        "gas" -> com.callradar.app.ReceiptScanActivity.start(context, "가스")
+                        "elec" -> com.callradar.app.ReceiptScanActivity.start(context, "전기")
+                        "expense" -> com.callradar.app.ReceiptScanActivity.start(context, "지출")
+                        "track" -> com.callradar.app.TrackActivity.start(context)
                         "import" -> com.callradar.app.ImageImportActivity.start(context)
                         "records" -> onNavTab(2)
                         "airport" -> onNavTab(3)
@@ -1033,4 +1300,82 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
 private fun isNaviEnabled(context: Context): Boolean {
     return try { Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)?.contains("com.callradar.app") == true } catch (e: Exception) { false }
+}
+
+// [자동기록 온보딩] 필요한 권한을 자동 감지(✅/❌)하고, 안 된 건 원탭으로 정확한 설정화면으로 이동.
+//   안드로이드 보안상 마지막 스위치는 사용자가 눌러야 함 → '감지 + 안내'가 최선. 돌아오면 1.5초마다 자동 재확인.
+@Composable
+fun AutoRecordSetupDialog(context: Context, onDone: () -> Unit) {
+    var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1500); tick++ } }
+    val refreshTrigger = tick  // tick 변화 시 재구성 → 아래 권한상태 재확인
+    if (refreshTrigger < 0) return  // (사용 보장용, 실행 안 됨)
+
+    val accOn = (Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
+    // [근본해결] 접근성이 켜지면 자동기록 토글을 자동으로 ON. "접근성만 켜고 토글 안 켜서 안 되는" 고질병 제거.
+    //   (이 다이얼로그는 유저가 자동기록을 켜려고 열었을 때만 뜨므로, 접근성 켜지는 순간 켜주는 게 의도에 맞음)
+    if (accOn) { try { context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().putBoolean("auto_record_on", true).apply() } catch (e: Exception) {} }
+    val overlayOn = try { Settings.canDrawOverlays(context) } catch (e: Exception) { false }
+    val locOn = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val batteryOn = try { (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(context.packageName) } catch (e: Exception) { true }
+    val notifOn = try { androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName) } catch (e: Exception) { false }
+
+    fun open(intent: Intent) { try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {} }
+    val pkgUri = android.net.Uri.parse("package:" + context.packageName)
+
+    AlertDialog(
+        onDismissRequest = onDone,
+        confirmButton = { TextButton(onClick = onDone) { Text(if (accOn) "완료" else "닫기") } },
+        title = { Text(if (accOn) "자동기록 설정 점검" else "자동기록을 켜려면", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("아래를 켜면 자동기록이 완전히 작동해요. 안드로이드 보안상 마지막 스위치는 직접 눌러야 합니다. (돌아오면 자동으로 ✅ 표시)", fontSize = 12.sp, color = Color.Gray)
+                Spacer(Modifier.height(12.dp))
+                AutoSetupRow("① 접근성 (필수)", "택시앱 화면 읽어 자동기록", accOn) {
+                    // [접근성 바로가기 수정] 전체 목록(ACTION_ACCESSIBILITY_SETTINGS)이 아니라 콜레이더 전용 페이지로 딥링크.
+                    //   삼성 One UI 등에서 목록 깊이 묻혀 '바로가기가 안 되는' 문제 해결. 실패 시 전체 목록으로 폴백.
+                    try {
+                        val cn = android.content.ComponentName(context, com.callradar.app.NaviIntentReceiver::class.java).flattenToString()
+                        val b = android.os.Bundle().apply { putString(":settings:fragment_args_key", cn) }
+                        context.startActivity(Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                            .putExtra(":settings:fragment_args_key", cn)
+                            .putExtra(":settings:show_fragment_args", b)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (e: Exception) { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                }
+                AutoSetupRow("② 화면 위 표시", "플로팅 배지·버튼", overlayOn) { open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri)) }
+                AutoSetupRow("③ 위치 (항상 허용)", "GPS 운행 자동기록", locOn) { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) }
+                AutoSetupRow("④ 배터리 최적화 제외", "백그라운드서 안 끊기게", batteryOn) { open(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkgUri)) }
+                // [삼성 전용] 표준 배터리 최적화 제외(④)로도 One UI의 '앱 잠자기/딥슬립'이 남아 접근성이 죽는다.
+                //   앱 정보 > 배터리 > '제한 없음'을 직접 눌러야 완전 해결. (이 상태는 API로 감지 불가라 항상 안내)
+                if (android.os.Build.MANUFACTURER.contains("samsung", true)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text("⚙️", fontSize = 18.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("⑤ 삼성 필수: 배터리 '제한 없음'", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text("연 화면에서 '배터리' → '제한 없음' 선택 (삼성은 이게 핵심)", fontSize = 11.sp, color = Color.Gray)
+                        }
+                        TextButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) }) { Text("열기") }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                AutoSetupRow("(선택) 알림 접근", "카드 결제금액 자동입력", notifOn) { open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            }
+        }
+    )
+}
+
+@Composable
+private fun AutoSetupRow(title: String, desc: String, granted: Boolean, onEnable: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(if (granted) "✅" else "⬜", fontSize = 18.sp)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            Text(desc, fontSize = 11.sp, color = Color.Gray)
+        }
+        if (!granted) TextButton(onClick = onEnable) { Text("켜기") }
+        else Text("완료", fontSize = 12.sp, color = Color(0xFF10B981))
+    }
 }

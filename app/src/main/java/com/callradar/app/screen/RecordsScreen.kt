@@ -93,6 +93,70 @@ private fun shareTrip(context: android.content.Context, origin: String, dest: St
     }
 }
 
+// [하루 기록 공유] 그날 운행(시간·출발→도착·플랫폼)을 이미지 카드로 공유.
+//  includeAmount=false(기본): 금액 제외(기록만). true: 각 운행 금액 + 총매출 포함.
+//  tripsChrono: 시간 오름차순(자정 넘김 포함, started_at 기준) 정렬된 목록.
+private fun shareDayRecordsImage(context: android.content.Context, dateLabel: String, tripsChrono: List<TripRecord>, includeAmount: Boolean = false) {
+    if (tripsChrono.isEmpty()) { android.widget.Toast.makeText(context, "공유할 운행 기록이 없어요", android.widget.Toast.LENGTH_SHORT).show(); return }
+    try {
+        val W = 1080
+        val rowH = 96; val headerH = 300; val footerH = 150
+        val H = headerH + tripsChrono.size * rowH + footerH
+        val bmp = android.graphics.Bitmap.createBitmap(W, H, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        c.drawColor(android.graphics.Color.parseColor("#0E1524"))
+        fun paint(sizePx: Float, colorHex: String, bold: Boolean = false, right: Boolean = false) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor(colorHex); textSize = sizePx
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, if (bold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            textAlign = if (right) android.graphics.Paint.Align.RIGHT else android.graphics.Paint.Align.LEFT
+        }
+        val padL = 56f; val padR = (W - 56).toFloat()
+        // [금액 포함 시] 금액을 오른쪽 끝, 플랫폼을 그 왼쪽으로 밀어 겹침 방지
+        val fareX = padR; val platX = if (includeAmount) padR - 250f else padR
+        // 헤더
+        c.drawText("운행 기록", padL, 90f, paint(52f, "#F5F7FA", true))
+        c.drawText("콜레이더", padR, 74f, paint(30f, "#8b97a8", false, true))
+        c.drawText(dateLabel, padL, 148f, paint(34f, "#9aa6b6"))
+        val first = tripsChrono.first().time; val last = tripsChrono.last().time
+        val range = if (first.isNotEmpty() && last.isNotEmpty()) "  ·  $first~$last" else ""
+        val total = tripsChrono.sumOf { it.fare }
+        val cntLabel = "총 ${tripsChrono.size}건$range" + if (includeAmount) "  ·  ${String.format("%,d", total)}원" else ""
+        c.drawText(cntLabel, padL, 210f, paint(40f, "#5DCAA5", true))
+        // 컬럼 헤더 + 구분선
+        val colY = 262f
+        c.drawText("시간", padL, colY, paint(26f, "#8b97a8"))
+        c.drawText("출발 → 도착", padL + 150f, colY, paint(26f, "#8b97a8"))
+        c.drawText("플랫폼", platX, colY, paint(26f, "#8b97a8", false, true))
+        if (includeAmount) c.drawText("금액", fareX, colY, paint(26f, "#8b97a8", false, true))
+        val line = android.graphics.Paint().apply { color = android.graphics.Color.parseColor("#26324a"); strokeWidth = 1.5f }
+        c.drawLine(padL, colY + 20f, padR, colY + 20f, line)
+        // 행
+        var y = (headerH + 60).toFloat()
+        val cut = { s: String, n: Int -> if (s.length > n) s.take(n) + "…" else s }
+        for (t in tripsChrono) {
+            c.drawText(if (t.time.isNotEmpty()) t.time else "-", padL, y, paint(30f, "#c3ccd8"))
+            val route = (if (t.origin.isNotEmpty()) cut(t.origin, 7) + " → " else "") + cut(t.destination.ifEmpty { "도착" }, if (includeAmount) 9 else 12)
+            c.drawText(route, padL + 150f, y, paint(32f, "#E5E7EB"))
+            c.drawText(cut(t.platform, 6), platX, y, paint(27f, "#9aa6b6", false, true))
+            if (includeAmount) c.drawText(if (t.fare > 0) String.format("%,d", t.fare) else "-", fareX, y, paint(30f, "#E5E7EB", true, true))
+            y += rowH
+            c.drawLine(padL, y - 40f, padR, y - 40f, android.graphics.Paint().apply { color = android.graphics.Color.parseColor("#1b2436"); strokeWidth = 1f })
+        }
+        // 푸터 브랜드
+        c.drawText("콜레이더 — 택시기사 수입관리 · 실시간 콜 · 공항정보", (W / 2).toFloat(), (H - 60).toFloat(),
+            paint(26f, "#7d8899").apply { textAlign = android.graphics.Paint.Align.CENTER })
+        // 저장 + 공유
+        val dir = java.io.File(context.cacheDir, "shares").apply { mkdirs() }
+        val f = java.io.File(dir, "day_records_${System.currentTimeMillis()}.png")
+        java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri); addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "하루 기록 공유").apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) })
+    } catch (e: Exception) { android.widget.Toast.makeText(context, "공유 이미지 생성 실패", android.widget.Toast.LENGTH_SHORT).show() }
+}
+
 data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "", val rawDate: String = "", val tip: Int = 0, val promo: Int = 0, val promoType: String = "")
 data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int, val cardFare: Int = 0, val cashFare: Int = 0, val expense: Int = 0)
 data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String)
@@ -158,9 +222,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     var lpgPrice by remember { mutableStateOf(expensePrefs.getInt("lpg_price", 1050).toString()) }
     var lpgDiscount by remember { mutableStateOf(expensePrefs.getInt("lpg_discount", 0).toString()) }   // [v19] 가스비 리터당 할인(원/L)
     var expenseType by remember { mutableStateOf("business") }
+    var expenseTaxDeductible by remember { mutableStateOf(true) }   // [v32] 세금적용(경비 인정) 여부
     var expenseMemo by remember { mutableStateOf("") }
     var showDeleteExpense by remember { mutableStateOf(false) }
     var deletingExpense by remember { mutableStateOf<ExpenseRecord?>(null) }
+    var editingExpenseId by remember { mutableStateOf<Int?>(null) }   // [지출수정] null=추가, 값=그 id 수정
     val scope = rememberCoroutineScope()
 
     val focusManager = LocalFocusManager.current
@@ -176,12 +242,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         }
     }
 
-    fun loadData() {
+    // [UI춤 버그] showSpinner=false면 전체 스피너 없이 조용히 목록만 교체(수정/삭제 후 화면이 깜빡·튀는 것 방지).
+    fun loadData(showSpinner: Boolean = true) {
         scope.launch {
             try {
-                isLoading = true; val filterDate = getFilterDate()
+                if (showSpinner) isLoading = true; val filterDate = getFilterDate()
                 val url = if (filterDate != null) "$SERVER_URL/api/trips/$userId?date=$filterDate&limit=100&dayStart=$dayStartHour" else "$SERVER_URL/api/trips/$userId?limit=100"
-                val tripsResponse = withContext(Dispatchers.IO) { val conn = (URL(url).openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                val tripsResponse = withContext(Dispatchers.IO) { val conn = (URL(url).openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                 val tripsJson = JSONArray(tripsResponse); val tripList = mutableListOf<TripRecord>()
                 for (i in 0 until tripsJson.length()) {
                     val obj = tripsJson.getJSONObject(i); val rawTime = obj.optString("started_at", "")
@@ -311,7 +378,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(onClick = { shareTrip(ctx, editOrigin, editDest, editHour, editMinute, editFare) }, contentPadding = PaddingValues(horizontal = 10.dp), shape = RoundedCornerShape(10.dp)) { Text("🔗 공유", color = accent, fontSize = 13.sp) }
                     OutlinedButton(onClick = { showEditDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
-                    Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", (editFare.filter { it.isDigit() }.toIntOrNull() ?: 0)); put("payment_type", editPaymentType); if (editPlatform.isNotEmpty()) put("platform", editPlatform); if (editPromo.isNotEmpty()) { put("promo", editPromo.toIntOrNull() ?: 0); put("promo_type", editPromoType) }; if (editTip.isNotEmpty()) put("tip", editTip.toIntOrNull() ?: 0); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { try { val today = editDate; val h = editHour.filter { it.isDigit() }.padStart(2, '0'); val m = editMinute.filter { it.isDigit() }.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } catch (e: Exception) {} } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode }; showEditDialog = false; kotlinx.coroutines.delay(500); loadData() } catch (e: Exception) { showEditDialog = false } } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
+                    Button(onClick = { scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); if (editDest.isNotEmpty()) put("destination", editDest); if (editOrigin.isNotEmpty()) put("origin", editOrigin); if (editFare.isNotEmpty()) put("fare", (editFare.filter { it.isDigit() }.toIntOrNull() ?: 0)); put("payment_type", editPaymentType); if (editPlatform.isNotEmpty()) put("platform", editPlatform); if (editPromo.isNotEmpty()) { put("promo", editPromo.toIntOrNull() ?: 0); put("promo_type", editPromoType) }; if (editTip.isNotEmpty()) put("tip", editTip.toIntOrNull() ?: 0); if (editHour.isNotEmpty() && editMinute.isNotEmpty()) { try { val today = editDate; val h = editHour.filter { it.isDigit() }.padStart(2, '0'); val m = editMinute.filter { it.isDigit() }.padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${today}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) } catch (e: Exception) {} } }; val conn = (URL("$SERVER_URL/api/trips/${editingTrip!!.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode in 200..299 }.let { ok -> if (ok) { showEditDialog = false; kotlinx.coroutines.delay(500); loadData(false) } else { android.widget.Toast.makeText(ctx, "수정 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } } catch (e: Exception) { android.widget.Toast.makeText(ctx, "수정 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
               }
               }
@@ -332,7 +399,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 Text("플랫폼", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("카카오T", "우버", "티머니고", "길빵/예약").forEach { p -> FilterChip(selected = quickFarePlatform == p, onClick = { quickFarePlatform = p }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = Color(0xFF9CA3AF))) } }
             } },
-            confirmButton = { Button(onClick = { val f = quickFareInput.toIntOrNull(); if (f != null && f > 0) { val platSel = quickFarePlatform; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); put("fare", f); if (platSel.isNotEmpty()) put("platform", platSel) }; val conn = (URL("$SERVER_URL/api/trips/${quickFareTrip!!.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode }; loadData() } catch (e: Exception) { } } }; quickFarePlatform = ""; showQuickFare = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            confirmButton = { Button(onClick = { val f = quickFareInput.toIntOrNull(); if (f != null && f > 0) { val platSel = quickFarePlatform; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId); put("fare", f); if (platSel.isNotEmpty()) put("platform", platSel) }; val conn = (URL("$SERVER_URL/api/trips/${quickFareTrip!!.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8)); conn.responseCode in 200..299 }.let { ok -> if (ok) loadData(false) else android.widget.Toast.makeText(ctx, "저장 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } catch (e: Exception) { android.widget.Toast.makeText(ctx, "저장 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } }; quickFarePlatform = ""; showQuickFare = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { quickFarePlatform = ""; showQuickFare = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -341,7 +408,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         AlertDialog(onDismissRequest = { showDeleteConfirm = false },
             title = { Text("삭제", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("이 운행 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
-            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadData() } catch (e: Exception) { } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
+            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode in 200..299 }.let { ok -> if (ok) loadData(false) else android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } catch (e: Exception) { android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
             dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -408,11 +475,21 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { showManualDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
                     Button(onClick = {
-                        if (manualDest.isNotBlank() || (manualFare.toIntOrNull() ?: 0) > 0) { scope.launch { try { withContext(Dispatchers.IO) {
-                            val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest.ifBlank { "미정" }); put("fare", if (manualFare.isNotEmpty()) manualFare.toInt() else 0); put("tip", if (manualTip.isNotEmpty()) manualTip.toInt() else 0); put("promo", if (manualPromo.isNotEmpty()) manualPromo.toInt() else 0); put("promo_type", manualPromoType); put("payment_type", if (isReportMode) "report" else manualPaymentType); put("source", if (isReportMode) "report" else "manual")
-                                run { val nowCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); val h = (if (manualHour.isNotEmpty()) manualHour else nowCal.get(Calendar.HOUR_OF_DAY).toString()).padStart(2, '0'); val m = (if (manualMinute.isNotEmpty()) manualMinute else nowCal.get(Calendar.MINUTE).toString()).padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${manualDate}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
-                            }; val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
-                        }; com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = true, meta = if (isReportMode) "report" else manualPlatform); showManualDialog = false; val savedDate = manualDate; val savedHour = manualHour; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualPromo = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { val effH = if (savedHour.isNotEmpty()) (savedHour.toIntOrNull() ?: 0) else Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY); val sdfB = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdfB.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val bizCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); bizCal.time = sdfB.parse(savedDate)!!; if (effH < dayStartHour) bizCal.add(Calendar.DAY_OF_MONTH, -1); val bizDate = sdfB.format(bizCal.time); if (bizDate == todayStr) { dateFilter = "오늘"; customDate = "" } else { customDate = bizDate; dateFilter = "날짜선택" } }; loadData() } catch (e: Exception) { com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = false); showManualDialog = false } } }
+                        if (manualDest.isNotBlank() || (manualFare.toIntOrNull() ?: 0) > 0) { scope.launch {
+                            // [유실 방지] 저장 성공(2xx) 확인 후에만 다이얼로그 닫고 필드 비움. 실패 시 다이얼로그 유지 + 안내(운행은 오프라인 큐가 없어 재입력 필요).
+                            val ok = withContext(Dispatchers.IO) { try {
+                                val json = JSONObject().apply { put("user_id", userId); put("platform", if (isReportMode) "콜제보" else manualPlatform); put("originName", manualOrigin); put("destName", manualDest.ifBlank { "미정" }); put("fare", manualFare.toIntOrNull() ?: 0); put("tip", manualTip.toIntOrNull() ?: 0); put("promo", manualPromo.toIntOrNull() ?: 0); put("promo_type", manualPromoType); put("payment_type", if (isReportMode) "report" else manualPaymentType); put("source", if (isReportMode) "report" else "manual")
+                                    run { val nowCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); val h = (if (manualHour.isNotEmpty()) manualHour else nowCal.get(Calendar.HOUR_OF_DAY).toString()).padStart(2, '0'); val m = (if (manualMinute.isNotEmpty()) manualMinute else nowCal.get(Calendar.MINUTE).toString()).padStart(2, '0'); val fullSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()); fullSdf.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val kstDate = fullSdf.parse("${manualDate}T${h}:${m}:00"); val utcSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); utcSdf.timeZone = TimeZone.getTimeZone("UTC"); put("started_at", utcSdf.format(kstDate!!)) }
+                                }
+                                val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
+                                conn.responseCode in 200..299
+                            } catch (e: Exception) { false } }
+                            if (ok) {
+                                com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = true, meta = if (isReportMode) "report" else manualPlatform); showManualDialog = false; val savedDate = manualDate; val savedHour = manualHour; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualPromo = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; if (!isReportMode) { val effH = if (savedHour.isNotEmpty()) (savedHour.toIntOrNull() ?: 0) else Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.HOUR_OF_DAY); val sdfB = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); sdfB.timeZone = TimeZone.getTimeZone("Asia/Seoul"); val bizCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")); bizCal.time = sdfB.parse(savedDate)!!; if (effH < dayStartHour) bizCal.add(Calendar.DAY_OF_MONTH, -1); val bizDate = sdfB.format(bizCal.time); if (bizDate == todayStr) { dateFilter = "오늘"; customDate = "" } else { customDate = bizDate; dateFilter = "날짜선택" } }; loadData()
+                            } else {
+                                com.callradar.app.Telemetry.log(teleCtx, "save_trip", "records", ok = false); android.widget.Toast.makeText(teleCtx, "저장 실패 · 네트워크 확인 후 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } }
                     }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
               }
@@ -425,13 +502,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         scope.launch {
             try {
                 val ym = SimpleDateFormat("yyyy-MM", Locale.KOREA).apply { timeZone = TimeZone.getTimeZone("Asia/Seoul") }.format(Date())
-                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                 val arr = JSONArray(response); val list = mutableListOf<ExpenseRecord>()
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val rawTime = obj.optString("created_at", "")
                     val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
-                    list.add(ExpenseRecord(obj.getInt("id"), obj.optString("category", ""), obj.optInt("amount", 0), obj.optString("expense_type", "business"), obj.optString("memo", ""), formattedDate))
+                    list.add(ExpenseRecord(obj.optInt("id", 0), obj.optString("category", ""), obj.optInt("amount", 0), obj.optString("expense_type", "business"), obj.optString("memo", ""), formattedDate))
                 }
                 expenses = list
             } catch (e: Exception) { }
@@ -442,13 +519,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
 
     // 지출 추가 다이얼로그
     if (showExpenseDialog) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { showExpenseDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { editingExpenseId = null; showExpenseDialog = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
             DialogImeFix()
             BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
               val scrollMaxH = (maxHeight - 150.dp).coerceIn(140.dp, 440.dp)
               Surface(shape = RoundedCornerShape(20.dp), color = AppTheme.card, modifier = Modifier.fillMaxWidth(0.94f)) {
               Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("지출 추가", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(if (editingExpenseId != null) "지출 수정" else "지출 추가", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Column(modifier = Modifier.heightIn(max = scrollMaxH).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // [v6] 지출 날짜 선택 (기본=오늘)
                 Text("날짜", fontSize = 13.sp, color = Color(0xFF9CA3AF))
@@ -460,9 +537,17 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 Text("카테고리", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LPG", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 Text("구분", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal", "잡지출" to "misc").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else if (value == "personal") Color(0xFFF97316) else Color(0xFF8B5CF6), selectedLabelColor = Color.White, containerColor = AppTheme.surface2, labelColor = muted)) } }
-                if (expenseCategory == "LPG") {
-                    // LPG: 리터 + 단가 → 금액 자동
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal", "잡지출" to "misc").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value; expenseTaxDeductible = value != "personal" }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else if (value == "personal") Color(0xFFF97316) else Color(0xFF8B5CF6), selectedLabelColor = Color.White, containerColor = AppTheme.surface2, labelColor = muted)) } }
+                // [v32] 세금적용(경비 인정) 토글 — 세무 리포트 장부 경비에 포함할지. 개인지출은 기본 제외.
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("세금 적용 (경비 인정)", fontSize = 13.sp, color = AppTheme.text)
+                        Text(if (expenseTaxDeductible) "세무 리포트 장부 경비에 포함돼요" else "경비에서 제외 (절세 계산에 미반영)", fontSize = 10.sp, color = muted)
+                    }
+                    Switch(checked = expenseTaxDeductible, onCheckedChange = { expenseTaxDeductible = it }, colors = SwitchDefaults.colors(checkedTrackColor = green, checkedThumbColor = Color.White))
+                }
+                if (expenseCategory == "LPG" && editingExpenseId == null) {
+                    // LPG: 리터 + 단가 → 금액 자동 (수정 모드에선 원본 리터가 없어 금액 직접입력)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                         OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text("단가 (원/L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
@@ -482,9 +567,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 // [v20] 저장/취소: 필드 스크롤 밖 + imePadding 안 → 스크롤 안 해도 항상 보임
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { showExpenseDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
+                    OutlinedButton(onClick = { editingExpenseId = null; showExpenseDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
                     Button(onClick = {
-                        val isLpg = expenseCategory == "LPG"
+                        val editId = editingExpenseId
+                        val isLpg = expenseCategory == "LPG" && editId == null
                         val liters = expenseLiters.toDoubleOrNull() ?: 0.0
                         val price = lpgPrice.toIntOrNull() ?: 0
                         val disc = lpgDiscount.toIntOrNull() ?: 0
@@ -492,11 +578,43 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                         val amt = if (isLpg) (liters * netPrice).toInt() else (expenseAmount.toIntOrNull() ?: 0)
                         if (amt > 0) {
                             if (isLpg) expensePrefs.edit().putInt("lpg_price", price).putInt("lpg_discount", disc).apply()
-                            scope.launch { try { withContext(Dispatchers.IO) {
-                                val json = JSONObject().apply { put("user_id", userId); put("category", expenseCategory); put("amount", amt); put("expense_type", expenseType); put("memo", expenseMemo + (if (isLpg && disc > 0) " (할인 ${disc}원/L)" else "")); put("expense_date", expenseDate); if (isLpg) { put("liters", liters); put("price_per_liter", netPrice) } }
-                                val conn = (URL("$SERVER_URL/api/expenses").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 8000 }
-                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }; conn.responseCode
-                            }; showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses() } catch (e: Exception) { showExpenseDialog = false } } }
+                            val memoFull = expenseMemo + (if (isLpg && disc > 0) " (할인 ${disc}원/L)" else "")
+                            val cat = expenseCategory; val etype = expenseType; val taxD = expenseTaxDeductible; val edate = expenseDate
+                            val litersF = if (isLpg) liters else 0.0; val ppl = if (isLpg) netPrice else 0
+                            if (editId != null) {
+                                // [지출수정] 기존 항목 PUT 업데이트(날짜는 유지 — expense_date 미전송). 온라인 필요.
+                                scope.launch {
+                                    val ok = withContext(Dispatchers.IO) {
+                                        try {
+                                            val json = JSONObject().apply { put("user_id", userId); put("category", cat); put("amount", amt); put("expense_type", etype); put("tax_deductible", taxD); put("memo", memoFull) }
+                                            val conn = (URL("$SERVER_URL/api/expenses/$editId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
+                                            conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
+                                            conn.responseCode in 200..299
+                                        } catch (e: Exception) { false }
+                                    }
+                                    if (!ok) android.widget.Toast.makeText(ctx, "수정 실패 · 온라인에서 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show()
+                                    editingExpenseId = null; showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses()
+                                }
+                            } else {
+                            val cuid = java.util.UUID.randomUUID().toString()   // 멱등키: 온라인 POST와 오프라인 큐가 같은 uuid → 서버가 중복 무시
+                            // [오프라인 유실 방지] 전송 먼저 시도 → 실패하면 로컬 큐에 저장(같은 uuid) → 다음 실행 때 재전송(중복 없음).
+                            scope.launch {
+                                val ok = withContext(Dispatchers.IO) {
+                                    try {
+                                        val json = JSONObject().apply { put("user_id", userId); put("category", cat); put("amount", amt); put("expense_type", etype); put("tax_deductible", taxD); put("memo", memoFull); put("expense_date", edate); put("client_uuid", cuid); if (isLpg) { put("liters", litersF); put("price_per_liter", ppl) } }
+                                        val conn = (URL("$SERVER_URL/api/expenses").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
+                                        conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
+                                        conn.responseCode in 200..299
+                                    } catch (e: Exception) { false }
+                                }
+                                if (!ok) {
+                                    withContext(Dispatchers.IO) { try { com.callradar.app.LocalTripDatabase.getInstance(ctx).savePendingExpense(userId.toString(), cat, amt, etype, memoFull, litersF, ppl, taxD, edate, cuid) } catch (e: Exception) {} }
+                                    android.widget.Toast.makeText(ctx, "오프라인 저장됨 · 온라인 시 자동 전송돼요", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                showExpenseDialog = false; expenseAmount = ""; expenseLiters = ""; expenseMemo = ""; loadExpenses()
+                            }
+                            }
+                        }
                     }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
                 }
               }
@@ -510,7 +628,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         AlertDialog(onDismissRequest = { showDeleteExpense = false },
             title = { Text("삭제", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("이 지출 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
-            confirmButton = { Button(onClick = { val exp = deletingExpense!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/expenses/${exp.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadExpenses() } catch (e: Exception) { } }; showDeleteExpense = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
+            confirmButton = { Button(onClick = { val exp = deletingExpense!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/expenses/${exp.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode }; loadExpenses() } catch (e: Exception) { } }; showDeleteExpense = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
             dismissButton = { OutlinedButton(onClick = { showDeleteExpense = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -522,7 +640,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
                 if (selectedTab == 0) { TextButton(onClick = { isReportMode = false; manualDate = todayStr; manualOrigin = ""; manualDest = ""; manualFare = ""; manualTip = ""; manualPromo = ""; manualHour = ""; manualMinute = ""; manualPaymentType = "card"; showManualDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 추가", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
-                if (selectedTab == 2) { TextButton(onClick = { expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
+                if (selectedTab == 2) { TextButton(onClick = { editingExpenseId = null; expenseCategory = "LPG"; expenseDate = todayStr; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("+ 지출", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) } }
             }
         }
         when (selectedTab) {
@@ -567,6 +685,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                     }
                                 }
                             }
+                            Spacer(Modifier.height(8.dp))
+                            var shareWithAmount by remember { mutableStateOf(false) }
+                            Row(modifier = Modifier.fillMaxWidth().clickable { shareWithAmount = !shareWithAmount }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = shareWithAmount, onCheckedChange = { shareWithAmount = it }, colors = CheckboxDefaults.colors(checkedColor = accent))
+                                Text("금액 포함해서 공유", fontSize = 12.sp, color = AppTheme.text)
+                            }
+                            OutlinedButton(onClick = { shareDayRecordsImage(ctx, ((getFilterDate() ?: dateFilter) + " 운행기록"), trips.reversed(), shareWithAmount) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text(if (shareWithAmount) "📷 하루 기록 공유 (금액 포함)" else "📷 하루 기록 공유 (금액 제외)", fontSize = 12.sp) }
                         }
                     }
                 }
@@ -617,11 +742,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                 }
                 if (expenses.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💰", fontSize = 48.sp); Spacer(Modifier.height(12.dp)); Text("지출 기록이 없어요", fontSize = 14.sp, color = muted); Spacer(Modifier.height(8.dp)); TextButton(onClick = { expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출 추가하기", color = accent) } } }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💰", fontSize = 48.sp); Spacer(Modifier.height(12.dp)); Text("지출 기록이 없어요", fontSize = 14.sp, color = muted); Spacer(Modifier.height(8.dp)); TextButton(onClick = { editingExpenseId = null; expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출 추가하기", color = accent) } } }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(expenses) { _, exp ->
-                            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth().clickable { editingExpenseId = exp.id; expenseCategory = exp.category; expenseAmount = exp.amount.toString(); expenseType = exp.expenseType; expenseTaxDeductible = exp.expenseType != "personal"; expenseMemo = exp.memo; showExpenseDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -699,7 +824,7 @@ private fun CalendarView(userId: String) {
     fun loadMonthExpense(ym: String) {
         scope.launch {
             try {
-                val resp = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                val resp = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/expenses/summary/$userId?month=$ym").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                 val j = JSONObject(resp)
                 monthLpgAmount = j.optInt("lpgAmount", 0)
                 monthLpgLiters = j.optDouble("lpgLiters", 0.0)
@@ -712,9 +837,11 @@ private fun CalendarView(userId: String) {
     var selectedTrips by remember { mutableStateOf<List<TripRecord>>(emptyList()) }
     var isLoadingTrips by remember { mutableStateOf(false) }
     var dayExpense by remember { mutableStateOf(0) }   // [v19] 선택 날짜 지출 합계 (그날 순수익 계산용)
+    // [스크롤보존] 수정/추가 저장 후 월 리로드(isLoading 토글)에도 기록 리스트 스크롤 위치 유지 — 맨 위로 튀지 않게.
+    val listScroll = rememberScrollState()
 
-    fun loadMonth(ym: String) { scope.launch { isLoading = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val map = mutableMapOf<String, DailyRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val date = obj.optString("date", "").take(10); map[date] = DailyRecord(date, obj.optInt("trip_count", 0), obj.optInt("total_fare", 0), obj.optInt("card_fare", 0), obj.optInt("cash_fare", 0), obj.optInt("expense", 0)) }; dailyMap = map } catch (e: Exception) { dailyMap = emptyMap() }; isLoading = false } }
-    fun loadDayTrips(date: String) { scope.launch { isLoadingTrips = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$date&limit=50&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val list = mutableListOf<TripRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val rawTime = obj.optString("started_at", ""); val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }; list.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, date, obj.optString("payment_type", "auto"), "", date)) }; selectedTrips = list; try { val er = withContext(Dispatchers.IO) { val c = (URL("$SERVER_URL/api/expenses/$userId?date=$date&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; c.inputStream.bufferedReader().readText() }; val ea = JSONArray(er); var s = 0; for (i in 0 until ea.length()) s += ea.getJSONObject(i).optInt("amount", 0); dayExpense = s } catch (e: Exception) { dayExpense = 0 } } catch (e: Exception) { selectedTrips = emptyList(); dayExpense = 0 }; isLoadingTrips = false } }
+    fun loadMonth(ym: String) { scope.launch { isLoading = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/stats/daily/$userId?month=$ym&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val map = mutableMapOf<String, DailyRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val date = obj.optString("date", "").take(10); map[date] = DailyRecord(date, obj.optInt("trip_count", 0), obj.optInt("total_fare", 0), obj.optInt("card_fare", 0), obj.optInt("cash_fare", 0), obj.optInt("expense", 0)) }; dailyMap = map } catch (e: Exception) { dailyMap = emptyMap() }; isLoading = false } }
+    fun loadDayTrips(date: String) { scope.launch { isLoadingTrips = true; try { val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/trips/$userId?date=$date&limit=50&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }; val arr = JSONArray(response); val list = mutableListOf<TripRecord>(); for (i in 0 until arr.length()) { val obj = arr.getJSONObject(i); val rawTime = obj.optString("started_at", ""); val formattedTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val d = sdf.parse(rawTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(d!!) } catch (e: Exception) { "" }; list.add(TripRecord(obj.getInt("id"), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, date, obj.optString("payment_type", "auto"), "", date)) }; selectedTrips = list; try { val er = withContext(Dispatchers.IO) { val c = (URL("$SERVER_URL/api/expenses/$userId?date=$date&dayStart=$monthDayStart").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; c.inputStream.bufferedReader().readText() }; val ea = JSONArray(er); var s = 0; for (i in 0 until ea.length()) s += ea.getJSONObject(i).optInt("amount", 0); dayExpense = s } catch (e: Exception) { dayExpense = 0 } } catch (e: Exception) { selectedTrips = emptyList(); dayExpense = 0 }; isLoadingTrips = false } }
 
     LaunchedEffect(yearMonth) { loadMonth(yearMonth); loadMonthExpense(yearMonth); selectedDate = null }
     val totalFare = dailyMap.values.sumOf { it.totalFare }; val totalTrips = dailyMap.values.sumOf { it.tripCount }
@@ -734,7 +861,7 @@ private fun CalendarView(userId: String) {
             Box(modifier = Modifier.size(36.dp).clickable { val c = Calendar.getInstance(); c.set(parts[0].toInt(), parts[1].toInt() - 1, 1); c.add(Calendar.MONTH, 1); yearMonth = SimpleDateFormat("yyyy-MM", Locale.KOREA).format(c.time) }, contentAlignment = Alignment.Center) { Text("\u25B6", fontSize = 16.sp, color = accent) }
         }
         if (isLoading) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) }; return@Column }
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 10.dp)) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(listScroll).padding(horizontal = 10.dp)) {
             // 월 정산 요약 카드
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -805,7 +932,14 @@ private fun CalendarView(userId: String) {
             }
             if (selectedDate != null) {
                 Spacer(Modifier.height(12.dp)); HorizontalDivider(color = AppTheme.surface2); Spacer(Modifier.height(8.dp))
-                Text("${selectedDate} 운행기록", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.padding(bottom = 6.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("${selectedDate} 운행기록", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                    if (selectedTrips.isNotEmpty()) {
+                        OutlinedButton(onClick = { shareDayRecordsImage(ctx, "${selectedDate} 운행기록", selectedTrips.reversed()) }, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) {
+                            Text("📷 기록 공유", fontSize = 11.sp)
+                        }
+                    }
+                }
                 // [v19] 그날 수입·지출·순수익 요약 (마감 관리용)
                 run {
                     val dayIncome = selectedTrips.sumOf { it.fare }

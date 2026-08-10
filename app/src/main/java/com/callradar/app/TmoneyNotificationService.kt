@@ -155,7 +155,8 @@ class TmoneyNotificationService : NotificationListenerService() {
     private fun reverseGeocode(lat: Double, lng: Double): String? {
         return try {
             val url = URL("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=16&accept-language=ko")
-            val conn = (url.openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+            // [보안] 제3자(OSM Nominatim)에 우리 세션 토큰을 붙이지 않는다.
+            val conn = (url.openConnection() as HttpURLConnection).apply {
                 setRequestProperty("User-Agent", "CallRadar/1.0")
                 connectTimeout = 8000; readTimeout = 8000
             }

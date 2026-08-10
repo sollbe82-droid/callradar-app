@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- [원스토어 전용] 접근성 서비스 설명 (시스템 접근성 설정 화면에 노출) -->
+    <string name="accessibility_desc">택시 기사앱(카카오T·우버·티머니GO)의 운행 화면을 읽어 운행 기록과 요금을 콜레이더에 자동으로 기록합니다. 읽은 내용은 운행 자동기록 용도로만 사용되며, 사용자가 동의한 경우에만 동작합니다.</string>
+</resources>

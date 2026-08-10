@@ -19,7 +19,7 @@ object Telemetry {
     fun log(ctx: Context, event: String, screen: String = "", ok: Boolean = true, meta: String = "") {
         val prefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         val on = prefs.getBoolean("telemetry_on", true)
-        android.util.Log.d("CRTelemetry", "log() called event=$event on=$on")
+        if (BuildConfig.DEBUG) android.util.Log.d("CRTelemetry", "log() called event=$event on=$on")   // 릴리스 로그캣에 이벤트/anon_id 노출 방지
         if (!on) return
         val anon = prefs.getString("anon_id", null) ?: UUID.randomUUID().toString().also { prefs.edit().putString("anon_id", it).apply() }
         scope.launch {
@@ -28,15 +28,15 @@ object Telemetry {
                     put("anon_id", anon); put("event", event.take(64)); put("screen", screen.take(64)); put("ok", ok); put("meta", meta.take(200))
                 }
                 val url = "${com.callradar.app.screen.Config.SERVER_URL}/api/usage"
-                android.util.Log.d("CRTelemetry", "posting event=$event → $url")
+                if (BuildConfig.DEBUG) android.util.Log.d("CRTelemetry", "posting event=$event → $url")
                 val conn = (URL(url).openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true; connectTimeout = 6000; readTimeout = 6000
                     setRequestProperty("Content-Type", "application/json")
                 }
                 conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)); it.flush() }
                 val code = conn.responseCode; conn.disconnect()
-                android.util.Log.d("CRTelemetry", "sent event=$event code=$code")
-            } catch (e: Exception) { android.util.Log.e("CRTelemetry", "FAIL event=$event: ${e.message}") }
+                if (BuildConfig.DEBUG) android.util.Log.d("CRTelemetry", "sent event=$event code=$code")
+            } catch (e: Exception) { if (BuildConfig.DEBUG) android.util.Log.e("CRTelemetry", "FAIL event=$event: ${e.message}") }
         }
     }
 }

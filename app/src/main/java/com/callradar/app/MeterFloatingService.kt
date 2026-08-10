@@ -31,7 +31,7 @@ import kotlin.concurrent.thread
 
 /**
  * [v19] 요금 미터기 플로팅 백그라운드 서비스 — 내비(티맵/카카오T) 위에 요금이 떠 있게.
- *  포그라운드 위치(location) + 오버레이 요금 표시. 탭=정지·기록저장, 길게=취소(저장 안 함).
+ *  포그라운드 위치(location) + 오버레이 요금 표시. 탭·길게 모두 종료(추정용 · 기록 저장 안 함).
  *  요금엔진은 MeterActivity의 순수함수(calcMeterFare/rateOfRegion/nightPctNow) 재활용. 참고용 추정.
  */
 class MeterFloatingService : Service() {
@@ -135,35 +135,23 @@ class MeterFloatingService : Service() {
         view?.post { view?.text = "₩${String.format("%,d", f)}\n${String.format("%.1f", km)}km" + (if (nightPct > 0) " 🌙" else "") }
     }
 
-    // tap=저장 후 종료, longpress=취소(저장 안 함)
+    // [수정] 미터기는 재미·추정용 — 실제 기록(trips)에 저장하지 않음. 탭·길게 모두 그냥 종료.
     private fun finishMeter(save: Boolean) {
-        val f = fareNow()
         try { callback?.let { fused.removeLocationUpdates(it) } } catch (e: Exception) {}
-        if (save && f > 0) {
-            val uid = getSharedPreferences("callradar_prefs", MODE_PRIVATE).getString("user_id", "") ?: ""
-            if (uid.isNotEmpty()) thread {
-                try {
-                    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC")
-                    val json = JSONObject().apply { put("user_id", uid); put("platform", "미터기"); put("originName", ""); put("destName", "미터기 운행"); put("fare", f); put("payment_type", "cash"); put("source", "manual"); put("started_at", sdf.format(Date())) }
-                    val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000 }
-                    conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
-                } catch (e: Exception) {}
-            }
-            toast("₩${String.format("%,d", f)} 기록 저장")
-        } else toast("미터기 종료")
+        toast("미터기 종료")
         stopSelf()
     }
 
     private fun toast(m: String) { view?.post { android.widget.Toast.makeText(applicationContext, m, android.widget.Toast.LENGTH_SHORT).show() } }
 
-    private val CH = "callradar_location"; private val NID = 3101; private var fgOn = false
+    private val CH = "callradar_location"; private val NID = 3105; private var fgOn = false   // WorkSessionService(3101)와 충돌 방지
     private fun startLocationForeground() {
         if (fgOn) return
         try {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) nm.createNotificationChannel(NotificationChannel(CH, "미터기", NotificationManager.IMPORTANCE_LOW).apply { setShowBadge(false) })
             val pi = try { PendingIntent.getActivity(this, 0, packageManager.getLaunchIntentForPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) } catch (e: Exception) { null }
-            val noti = Notification.Builder(this, CH).setContentTitle("요금 미터기(추정) 동작 중").setContentText("화면 위 요금 표시 · 탭하면 저장").setSmallIcon(android.R.drawable.ic_menu_mylocation).setOngoing(true).apply { if (pi != null) setContentIntent(pi) }.build()
+            val noti = Notification.Builder(this, CH).setContentTitle("요금 미터기(추정) 동작 중").setContentText("화면 위 요금 표시(추정) · 탭하면 종료").setSmallIcon(android.R.drawable.ic_menu_mylocation).setOngoing(true).apply { if (pi != null) setContentIntent(pi) }.build()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(NID, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) else startForeground(NID, noti)
             fgOn = true
         } catch (e: Exception) {}

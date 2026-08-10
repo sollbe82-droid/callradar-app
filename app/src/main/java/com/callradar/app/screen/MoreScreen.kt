@@ -25,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -48,6 +49,12 @@ import java.net.URL
 
 private const val SETTINGS_SERVER = Config.SERVER_URL
 
+// [A-Z] AI/레이더 GET 헬퍼 — 타임아웃(콜드스타트 무한대기 방지)+인증헤더(ENFORCE_TOKEN 대비). 기존 URL(x).readText() 대체.
+private fun moreGet(url: String): String {
+    val conn = (URL(url).openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }
+    return conn.inputStream.bufferedReader().use { it.readText() }
+}
+
 // [v22] 다이얼로그 키보드 가림 완전수정: AlertDialog는 별도 윈도우라 imePadding()이 IME inset을 못 받아 무시됨.
 // 다이얼로그 윈도우에 decorFitsSystemWindows=false를 걸면 imePadding()이 실작동 → 입력칸/저장버튼이 키보드 위로.
 @Composable
@@ -68,8 +75,11 @@ private fun DialogImeFix() {
 }
 // 무료 버전 플래그: true면 자동화(접근성/알림 등) 권한 카드 숨김. 유료판 낼 때 false로.
 private const val IS_FREE_VERSION = true
-// 오픈톡방 링크 (버그·제안 제보방)
-private const val OPEN_CHAT_URL = "https://open.kakao.com/o/pqocJcDi"
+// [핵심만] true면 수입기록과 무관한 곁가지(예약·이벤트·노하우·AI비서·요금미터기)를 숨김.
+//   핵심 3개(운행·매출 기록 / 급여·사납 계산 / 레이더)에 집중. 나중에 되살리려면 false.
+private const val CORE_ONLY = true
+// 오픈톡방 링크 (커뮤니티 방 gsyuVMCi로 통일 — 홈 배너와 동일. 옛 버그방 pqocJcDi 제거)
+private const val OPEN_CHAT_URL = "https://open.kakao.com/o/gsyuVMCi"
 
 // 하위 화면 라우트
 private const val R_HOME = "home"
@@ -110,9 +120,13 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
     // [v19] 홈 '기사 설정' 버튼에서 열면 정산 설정으로 바로 진입
     LaunchedEffect(openSettleTick) { if (openSettleTick > 0) route = if (openRoute.isNotBlank()) openRoute else R_SETTLEMENT }
 
+    // [스크롤보존] 더보기 홈 스크롤 위치를 하위화면 왕복(route 변경) 사이에 유지.
+    //  MoreScreen은 하위화면 진입해도 계속 컴포즈되므로 여기서 remember → MoreHome/Grid/List로 전달.
+    val homeScroll = rememberScrollState()
     when (route) {
         R_HOME -> MoreHome(
             userId = userId, onLogout = onLogout, onOpenDailySettlement = onOpenDailySettlement,
+            homeScroll = homeScroll,
             onNavigate = { route = it; com.callradar.app.Telemetry.log(context, "open_feature", it) }
         )
         R_STATS -> MoreSubScreen("분석", onBack = { route = R_HOME }) { StatsScreen(userId = userId) }
@@ -120,7 +134,7 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
         R_LINKS -> MoreSubScreen("유용한 링크", onBack = { route = R_HOME }) {
             LinksView(context = context, card = card, accent = accent, muted = muted)
         }
-        R_REGISTRY -> MoreSubScreen("기능 등록소", onBack = { route = R_HOME }) {
+        R_REGISTRY -> MoreSubScreen("홈 편집", onBack = { route = R_HOME }) {
             val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                 FeatureRegistry(prefs = prefs, accent = accent, muted = muted, card = card)
@@ -220,7 +234,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) {
             try {
-                val txt = URL("$SETTINGS_SERVER/api/report-hotspots").readText()
+                val txt = moreGet("$SETTINGS_SERVER/api/report-hotspots")
                 val arr = org.json.JSONArray(txt)
                 (0 until arr.length()).map { val o = arr.getJSONObject(it); Triple(o.optString("origin"), o.optInt("cnt"), o.optInt("avg_hour")) }
             } catch (e: Exception) { emptyList() }
@@ -234,7 +248,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val r = withContext(Dispatchers.IO) {
             try {
-                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/rhythm/$userId").readText())
+                val o = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/rhythm/$userId"))
                 val days = listOf("일", "월", "화", "수", "목", "금", "토")
                 val dw = o.optJSONArray("by_dow"); val hr = o.optJSONArray("by_hour")
                 val dt = if (dw != null && dw.length() > 0) { val d = dw.getJSONObject(0); days.getOrElse(d.optInt("dow")) { "?" } + "요일 (평균 " + String.format("%,d", d.optInt("avg_fare")) + "원)" } else ""
@@ -249,7 +263,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) {
             try {
-                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/knowhow/$userId").readText())
+                val arr = org.json.JSONArray(moreGet("$SETTINGS_SERVER/api/knowhow/$userId"))
                 (0 until arr.length()).map { i ->
                     val o = arr.getJSONObject(i)
                     val head = listOfNotNull(o.optString("area").ifBlank { null }, o.optString("time_band").ifBlank { null }, o.optString("pattern").ifBlank { null }).joinToString(" · ")
@@ -266,7 +280,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
         val hr = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
         val list = withContext(Dispatchers.IO) {
             try {
-                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?hour=$hr").readText())
+                val o = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/demand?hour=$hr"))
                 val arr = o.optJSONArray("rows")
                 (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("drivers")) }
             } catch (e: Exception) { emptyList() }
@@ -279,7 +293,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val res = withContext(Dispatchers.IO) {
             try {
-                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/stats/deadzones/$userId").readText())
+                val o = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/stats/deadzones/$userId"))
                 val bt = o.optJSONArray("badTimes"); val bz = o.optJSONArray("badZones")
                 val times = (0 until (bt?.length() ?: 0)).map { val x = bt!!.getJSONObject(it); Triple(x.optInt("dow"), x.optInt("hour"), x.optInt("avg_gap")) }
                 val zones = (0 until (bz?.length() ?: 0)).map { val x = bz!!.getJSONObject(it); Pair(x.optString("area"), x.optInt("avg_gap")) }
@@ -293,7 +307,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val line = withContext(Dispatchers.IO) {
             try {
-                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/events?days=2").readText())
+                val arr = org.json.JSONArray(moreGet("$SETTINGS_SERVER/api/events?days=2"))
                 if (arr.length() > 0) {
                     val e = arr.getJSONObject(0)
                     val title = e.optString("title"); val area = e.optString("area")
@@ -311,7 +325,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
     LaunchedEffect(Unit) {
         val p = withContext(Dispatchers.IO) {
             try {
-                val arr = org.json.JSONArray(URL("$SETTINGS_SERVER/api/airport/passengers").readText())
+                val arr = org.json.JSONArray(moreGet("$SETTINGS_SERVER/api/airport/passengers"))
                 var bh = -1; var bn = -1
                 for (i in 0 until arr.length()) { val o = arr.getJSONObject(i); val tot = o.optInt("t1") + o.optInt("t2"); if (tot > bn) { bn = tot; bh = o.optInt("hour") } }
                 if (bh >= 0 && bn > 0) "인천공항 입국은 ${bh}시경 약 ${String.format("%,d", bn)}명으로 가장 붐벼요" else ""
@@ -488,7 +502,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                     scope.launch {
                         val list = withContext(Dispatchers.IO) {
                             try {
-                                val o = org.json.JSONObject(URL("$SETTINGS_SERVER/api/demand?area=" + java.net.URLEncoder.encode(area, "UTF-8")).readText())
+                                val o = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/demand?area=" + java.net.URLEncoder.encode(area, "UTF-8")))
                                 val arr = o.optJSONArray("rows")
                                 (0 until (arr?.length() ?: 0)).map { val x = arr!!.getJSONObject(it); Triple(x.optString("origin"), x.optInt("cnt"), x.optInt("avg_fare")) }
                             } catch (e: Exception) { emptyList() }
@@ -517,7 +531,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                                 else scope.launch {
                                                     val area = withContext(Dispatchers.IO) {
                                                         try {
-                                                            val g = org.json.JSONObject(URL("$SETTINGS_SERVER/api/geocode/reverse?x=${loc.longitude}&y=${loc.latitude}").readText())
+                                                            val g = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/geocode/reverse?x=${loc.longitude}&y=${loc.latitude}"))
                                                             val region = g.optString("region")
                                                             region.split(" ").firstOrNull { it.endsWith("구") || it.endsWith("시") || it.endsWith("군") } ?: region.split(" ").lastOrNull() ?: ""
                                                         } catch (e: Exception) { "" }
@@ -600,7 +614,7 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
 }
 
 @Composable
-private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -> Unit, onNavigate: (String) -> Unit) {
+private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -> Unit, homeScroll: ScrollState, onNavigate: (String) -> Unit) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     val card = AppTheme.card; val accent = Color(0xFFF59E0B)
@@ -611,7 +625,6 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
 
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
     var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
-    var shareMode by remember { mutableStateOf(prefs.getString("share_mode", "screenshot") ?: "screenshot") }   // [v2] 꾹 눌러 공유: screenshot/text/off
     var floatingPulse by remember { mutableStateOf(prefs.getBoolean("floating_pulse", true)) }   // [v2] 운행중 버튼 펄스
     var telemetryOn by remember { mutableStateOf(prefs.getBoolean("telemetry_on", true)) }
     var isDark by remember { mutableStateOf(AppTheme.isDark) }
@@ -624,7 +637,6 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     var sharePromo by remember { mutableStateOf(prefs.getString("share_promo", "") ?: "") }
     var showShareCfg by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
-    var showCaptureConsent by remember { mutableStateOf(false) }   // [v18] 화면캡처 인앱 고지
     var showPairCode by remember { mutableStateOf(false) }
     var pairCodeGen by remember { mutableStateOf("") }
     var pairGenLoading by remember { mutableStateOf(false) }
@@ -642,7 +654,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
 
     // ----- 그룹/항목 구성 -----
     val groups = listOf(
-        MoreGroup("오늘 할 일", listOf(
+        MoreGroup("오늘 할 일", listOfNotNull(
             MoreEntry("📋", "일일 마감", "전표·연료비로 매출 정리·회사 제출", chevron = true) { onOpenDailySettlement() },
             MoreEntry("🚕", "운행 버튼", "화면 위 플로팅 버튼으로 GPS 기록",
                 right = if (floatingOn) "켜짐" else "꺼짐", rightKind = if (floatingOn) 1 else 2,
@@ -651,27 +663,17 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 if (floatingOn) { act?.stopFloatingButton(); floatingOn = false }
                 else { act?.startFloatingButton(); floatingOn = prefs.getBoolean("floating_on", false) }
             },
-            run {
-                val modeLabel = when (shareMode) { "screenshot" -> "📷 사진"; "text" -> "📝 텍스트"; else -> "끄기" }
-                MoreEntry("🔁", "꾹 눌러 공유 방식", "운행 버튼 길게 누르면 보낼 것",
-                    right = modeLabel, rightKind = if (shareMode == "off") 2 else 1,
-                    badge = modeLabel, badgeKind = if (shareMode == "off") 2 else 1) {
-                    val next = when (shareMode) { "screenshot" -> "text"; "text" -> "off"; else -> "screenshot" }
-                    shareMode = next; prefs.edit().putString("share_mode", next).apply()
-                }
-            },
             MoreEntry("✨", "운행중 버튼 깜빡임", "운행중일 때 버튼이 은은하게 호흡",
                 right = if (floatingPulse) "켜짐" else "꺼짐", rightKind = if (floatingPulse) 1 else 2,
                 badge = if (floatingPulse) "켜짐" else "꺼짐", badgeKind = if (floatingPulse) 1 else 2) {
                 floatingPulse = !floatingPulse; prefs.edit().putBoolean("floating_pulse", floatingPulse).apply()
             },
-            MoreEntry("📸", "화면 스샷 공유", "지금 화면을 캡처해 워터마크 붙여 공유", right = "공유") { showCaptureConsent = true },
-            MoreEntry("🚕", "요금 미터기", "GPS 추정 요금(재미로) · 배터리 소모 큼", right = "추정") {
+            if (!CORE_ONLY) MoreEntry("🚕", "요금 미터기", "GPS 추정 요금(재미로) · 배터리 소모 큼", right = "추정") {
                 try { com.callradar.app.MeterActivity.start(context) } catch (e: Exception) {}
-            }
+            } else null
         )),
         MoreGroup("화면 · 기능", listOf(
-            MoreEntry("🧩", "기능 등록소", "홈에 보일 카드 켜고/끄기", chevron = true) { onNavigate(R_REGISTRY) },
+            MoreEntry("🏠", "홈 편집", "홈에 표시할 카드·바로가기 고르기", chevron = true) { onNavigate(R_REGISTRY) },
             MoreEntry("🎨", "화면 테마", "밝게/어둡게 전환 (앱 전체)",
                 right = if (isDark) "🌙 다크" else "☀️ 라이트", rightKind = 0,
                 badge = if (isDark) "다크" else "라이트", badgeKind = 0) {
@@ -691,16 +693,38 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             },
             MoreEntry("📷", "과거기록", "다른 앱 장부를 사진으로 불러오기", right = "사진") {
                 try { com.callradar.app.ImageImportActivity.start(context) } catch (e: Exception) {}
+            },
+            MoreEntry("🗺️", "운행 궤적", "오늘 실차·공차 경로 + 이미지 공유", right = "PNG") {
+                try { com.callradar.app.TrackActivity.start(context) } catch (e: Exception) {}
             }
         )),
         MoreGroup("정산 · 설정", listOf(
             // [v19] '기사 유형'은 정산 설정 안에 있으므로 중복 항목 제거 → 하나로 통합. 현재 유형은 오른쪽에 표시.
             MoreEntry("⚙️", "기사 설정", "유형·사납금·가스·수수료·연차", right = driverTypeLabel, rightKind = 3) { onNavigate(R_SETTLEMENT) },
+            MoreEntry("📄", "급여명세서 스캔", "명세서 촬영 → 전 항목 인식 + 실수령 역산", right = "역산") {
+                try { com.callradar.app.PayslipScanActivity.start(context) } catch (e: Exception) {}
+            },
+            MoreEntry("🧾", "매출 영수증 정산", "미터기 당일상세거래내역 촬영 → 빠진 금액 자동 채움·교정", right = "자동") {
+                try { com.callradar.app.ReceiptReconcileActivity.start(context) } catch (e: Exception) {}
+            },
+            MoreEntry("🏢", "회사 프로필", "회사×근무형태별 사납·가스·초과율 → 예상급여", right = "예상급여") {
+                try { com.callradar.app.CompanyProfileActivity.start(context) } catch (e: Exception) {}
+            },
+            MoreEntry("🧾", "세무 리포트", "개인택시 종소세·부가세 연간 추정 (경비율 vs 장부)", right = "추정") {
+                try { com.callradar.app.TaxReportActivity.start(context) } catch (e: Exception) {}
+            },
             MoreEntry("🙋", "내 이름", "홈·랭킹에 보이는 이름", right = nickname.ifEmpty { "기사님" }, rightKind = 3) {
                 nameInput = nickname; showNameDialog = true
             }
         )),
         MoreGroup("계정 · 연결 (2·3폰)", listOf(
+            MoreEntry("🆔", "내 계정 ID", "테스트 권한 등록 시 이 번호를 대표에게 알려주세요 (탭하면 복사)", right = userId.ifBlank { "-" }) {
+                try {
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(android.content.ClipData.newPlainText("user_id", userId))
+                    android.widget.Toast.makeText(context, "내 계정 ID 복사됨: $userId", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {}
+            },
             MoreEntry("📱", "다른 폰 연결", "주폰에서 코드 생성 → 서브폰 입력", right = "코드 생성") {
                 if (!pairGenLoading) {
                     pairGenLoading = true; pairCodeGen = ""; showPairCode = true
@@ -708,7 +732,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         try {
                             val resp = withContext(Dispatchers.IO) {
                                 val json = JSONObject().apply { put("user_id", userId) }
-                                val conn = (URL("$SETTINGS_SERVER/api/pair/create").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                                val conn = (URL("$SETTINGS_SERVER/api/pair/create").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                                 conn.outputStream.write(json.toString().toByteArray())
                                 conn.inputStream.bufferedReader().readText()
                             }
@@ -729,13 +753,13 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 showShareCfg = true
             }
         )),
-        MoreGroup("정보", listOf(
-            MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) },
-            MoreEntry("📝", "내 노하우", "내가 아는 콜 패턴을 적어두면 비서가 알려줘요", right = "씨앗", chevron = true) { onNavigate(R_KNOWHOW) },
+        MoreGroup("정보", listOfNotNull(
+            if (!CORE_ONLY) MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) } else null,
+            if (!CORE_ONLY) MoreEntry("📝", "내 노하우", "내가 아는 콜 패턴을 적어두면 비서가 알려줘요", right = "씨앗", chevron = true) { onNavigate(R_KNOWHOW) } else null,
             MoreEntry("🗺️", "내 운행 지도", "내 출발지 밀도를 지도로 (카카오맵)", right = "지도", chevron = true) { onNavigate(R_MAP) },
             MoreEntry("📈", "사용성 개선 참여 (익명)", "익명 통계로 앱을 함께 개선 · 개인정보 없음", right = if (telemetryOn) "참여중" else "끔", rightKind = if (telemetryOn) 1 else 2) { telemetryOn = !telemetryOn; prefs.edit().putBoolean("telemetry_on", telemetryOn).apply() },
-            MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) },
-            MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) },
+            if (!CORE_ONLY) MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) } else null,
+            if (!CORE_ONLY) MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) } else null,
             MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
             MoreEntry("💬", "오픈톡방", "아이디어·개선·버그 제보 환영", chevron = true) {
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_CHAT_URL))) } catch (e: Exception) {}
@@ -765,7 +789,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             }
         }
 
-        if (viewMode == "icon") MoreGrid(groups, accent, muted, card) else MoreList(groups, accent, green, red, muted, card)
+        if (viewMode == "icon") MoreGrid(groups, accent, muted, card, homeScroll) else MoreList(groups, accent, green, red, muted, card, homeScroll)
     }
 
     // ================= 다이얼로그들 =================
@@ -818,53 +842,14 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     if (showShareCfg) {
         var roomInput by remember { mutableStateOf(shareRoom) }
         var promoInput by remember { mutableStateOf(sharePromo) }
-        val cropPlatforms = listOf("카카오T", "우버", "티머니GO", "기타")
-        var cropOn by remember { mutableStateOf(prefs.getBoolean("shot_crop_on", true)) }
-        var cropPlat by remember { mutableStateOf(prefs.getString("shot_platform", "카카오T") ?: "카카오T") }
-        var cropTop by remember { mutableStateOf(prefs.getFloat("shot_crop_top_$cropPlat", 0.04f)) }
-        var cropBot by remember { mutableStateOf(prefs.getFloat("shot_crop_bottom_$cropPlat", 0.52f)) }
-        val previewBmp = remember { val f = java.io.File(context.cacheDir, "shares/last_full.png"); if (f.exists()) android.graphics.BitmapFactory.decodeFile(f.absolutePath) else null }
         AlertDialog(onDismissRequest = { showShareCfg = false },
             title = { Text("공유 설정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 Text("공유를 누르면 문구가 자동복사되고 이 오픈방이 바로 열려요 (방에서 꾹→붙여넣기)", fontSize = 12.sp, color = muted)
                 OutlinedTextField(value = roomInput, onValueChange = { roomInput = it }, label = { Text("오픈방 주소 (open.kakao.com/...)", color = muted) }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 OutlinedTextField(value = promoInput, onValueChange = { promoInput = it.take(60) }, label = { Text("홍보 문구/링크 (선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
-
-                androidx.compose.material3.Divider(color = Color(0xFF374151))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("📸 스샷 크롭 (콜 팝업만 잘라 공유)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.weight(1f))
-                    androidx.compose.material3.Switch(checked = cropOn, onCheckedChange = { cropOn = it })
-                }
-                Text("플랫폼마다 콜 팝업 위치가 달라요. 플랫폼 고르고 아래 슬라이더로 맞추면 각각 저장돼요.", fontSize = 11.sp, color = muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    cropPlatforms.forEach { p ->
-                        FilterChip(selected = cropPlat == p, onClick = {
-                            prefs.edit().putFloat("shot_crop_top_$cropPlat", cropTop).putFloat("shot_crop_bottom_$cropPlat", cropBot).apply()
-                            cropPlat = p; cropTop = prefs.getFloat("shot_crop_top_$p", 0.04f); cropBot = prefs.getFloat("shot_crop_bottom_$p", 0.52f)
-                        }, label = { Text(p, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
-                    }
-                }
-                if (previewBmp != null) {
-                    Box(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp).aspectRatio(previewBmp.width.toFloat() / previewBmp.height.toFloat())) {
-                        androidx.compose.foundation.Image(bitmap = previewBmp.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize())
-                        // 잘려나갈 위/아래를 어둡게, 남는 밴드만 밝게
-                        Column(Modifier.fillMaxSize()) {
-                            Box(Modifier.fillMaxWidth().weight(cropTop.coerceAtLeast(0.001f)).background(Color(0xCC000000)))
-                            Box(Modifier.fillMaxWidth().weight((cropBot - cropTop).coerceAtLeast(0.001f)).background(Color(0x33F59E0B)))
-                            Box(Modifier.fillMaxWidth().weight((1f - cropBot).coerceAtLeast(0.001f)).background(Color(0xCC000000)))
-                        }
-                    }
-                } else {
-                    Text("카카오T 콜 화면에서 '화면 스샷 공유'를 한 번 하면 여기 실제 미리보기가 떠요.", fontSize = 11.sp, color = accent)
-                }
-                Text("위 자르기 ${(cropTop * 100).toInt()}%", fontSize = 12.sp, color = muted)
-                androidx.compose.material3.Slider(value = cropTop, onValueChange = { cropTop = it.coerceIn(0f, cropBot - 0.05f) }, valueRange = 0f..0.9f)
-                Text("아래 자르기 ${(cropBot * 100).toInt()}%", fontSize = 12.sp, color = muted)
-                androidx.compose.material3.Slider(value = cropBot, onValueChange = { cropBot = it.coerceIn(cropTop + 0.05f, 1f) }, valueRange = 0.1f..1f)
-                Text("비워두면 공유 시 앱 선택창(카톡/밴드 등)이 떠요", fontSize = 11.sp, color = muted)
             } },
-            confirmButton = { Button(onClick = { shareRoom = roomInput.trim(); sharePromo = promoInput.trim(); prefs.edit().putString("share_room_url", shareRoom).putString("share_promo", sharePromo).putBoolean("shot_crop_on", cropOn).putString("shot_platform", cropPlat).putFloat("shot_crop_top_$cropPlat", cropTop).putFloat("shot_crop_bottom_$cropPlat", cropBot).apply(); showShareCfg = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            confirmButton = { Button(onClick = { shareRoom = roomInput.trim(); sharePromo = promoInput.trim(); prefs.edit().putString("share_room_url", shareRoom).putString("share_promo", sharePromo).apply(); showShareCfg = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showShareCfg = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -901,7 +886,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                         val resp = withContext(Dispatchers.IO) {
                             val json = JSONObject().apply { put("code", mergeCode); put("secondary_user_id", userId); put("device_id", deviceId) }
-                            val conn = (URL("$SETTINGS_SERVER/api/pair/merge").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                            val conn = (URL("$SETTINGS_SERVER/api/pair/merge").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                             conn.outputStream.write(json.toString().toByteArray())
                             val rc = conn.responseCode
                             val body = (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
@@ -940,7 +925,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                         withContext(Dispatchers.IO) {
                             val json = JSONObject().apply { put("user_id", userId); put("device_id", deviceId); put("platforms", org.json.JSONArray(platSel.toList())); put("label", "내 폰") }
-                            val conn = (URL("$SETTINGS_SERVER/api/devices/register").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                            val conn = (URL("$SETTINGS_SERVER/api/devices/register").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                             conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                         }
                         prefs.edit().putString("my_platforms", platSel.joinToString(",")).apply()
@@ -949,27 +934,6 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 }
             }) { Text("저장") } },
             dismissButton = { OutlinedButton(onClick = { showPlatDlg = false }) { Text("취소") } },
-            containerColor = AppTheme.card)
-    }
-
-    if (showCaptureConsent) {
-        // [v18] 화면캡처 사전 고지(Play 정책: prominent disclosure). 캡처 전에 용도·범위를 명확히 안내.
-        AlertDialog(onDismissRequest = { showCaptureConsent = false },
-            title = { Text("📸 화면 스샷 공유", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column {
-                Text("버튼을 누르면 지금 이 순간의 화면 1장을 캡처해 '📻 콜레이더' 워터마크를 붙여 공유해요.", fontSize = 13.sp, color = AppTheme.text)
-                Spacer(Modifier.height(10.dp))
-                Text("• 버튼을 누른 그 순간의 화면 한 장만 사용해요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 1.dp))
-                Text("• 백그라운드에서 화면을 관찰하거나 몰래 저장하지 않아요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 1.dp))
-                Text("• 캡처한 이미지는 공유가 끝나면 앱에 남기지 않아요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 1.dp))
-                Spacer(Modifier.height(8.dp))
-                Text("계속하면 안드로이드 화면 공유 동의창이 한 번 떠요.", fontSize = 11.sp, color = accent)
-            } },
-            confirmButton = { Button(onClick = {
-                showCaptureConsent = false
-                try { com.callradar.app.ScreenCapturePermissionActivity.start(context) } catch (e: Exception) {}
-            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("캡처해서 공유", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showCaptureConsent = false }) { Text("취소") } },
             containerColor = AppTheme.card)
     }
 
@@ -984,8 +948,8 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
 
 // ===== 아이콘형(격자) =====
 @Composable
-private fun MoreGrid(groups: List<MoreGroup>, accent: Color, muted: Color, card: Color) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp)) {
+private fun MoreGrid(groups: List<MoreGroup>, accent: Color, muted: Color, card: Color, scroll: ScrollState) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 12.dp, vertical = 6.dp)) {
         groups.forEach { g ->
             Text(g.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 8.dp))
             g.entries.chunked(4).forEach { rowItems ->
@@ -1017,8 +981,8 @@ private fun MoreGrid(groups: List<MoreGroup>, accent: Color, muted: Color, card:
 
 // ===== 목록형(게시판) =====
 @Composable
-private fun MoreList(groups: List<MoreGroup>, accent: Color, green: Color, red: Color, muted: Color, card: Color) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 6.dp)) {
+private fun MoreList(groups: List<MoreGroup>, accent: Color, green: Color, red: Color, muted: Color, card: Color, scroll: ScrollState) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 14.dp, vertical = 6.dp)) {
         groups.forEach { g ->
             Text(g.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1055,15 +1019,15 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
         Triple("card_platform", "🏷️", "플랫폼별 매출"),
         Triple("work_session_enabled", "⏱", "근무 세션"),
         Triple("work_dist_enabled", "📏", "거리(km) 미터"),
-        Triple("endfare_on", "🧾", "종료 시 금액인식"),
         Triple("quick_entry_enabled", "💬", "완료 후 팝업"),
+        Triple("card_notif", "💰", "금액 자동입력"),
         Triple("card_notice", "📢", "제보 배너")
     )
     val state = remember { mutableStateMapOf<String, Boolean>().apply { items.forEach { put(it.first, prefs.getBoolean(it.first, it.first != "card_platform")) } } }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
-            Text("🧩 기능 등록소", fontSize = 15.sp, color = AppTheme.text, fontWeight = FontWeight.Bold)
-            Text("안 쓰는 건 끄고, 필요한 것만 홈에 켜두세요 · 탭하면 바로 반영", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
+            Text("🏠 홈 편집", fontSize = 15.sp, color = AppTheme.text, fontWeight = FontWeight.Bold)
+            Text("홈에 표시할 항목을 고르세요 · '오늘 매출'과 '운행 기록 버튼'은 항상 고정 · 탭하면 바로 반영", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
             // [v21] 홈 스타일 프리셋 (골라 쓰는 홈) — 기존 온/오프 묶음 적용
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val presets = listOf(
@@ -1093,6 +1057,35 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
                                 Text(label, fontSize = 10.sp, lineHeight = 11.5.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 3.dp))
                                 Text(if (on) "켬" else "끔", fontSize = 9.sp, color = if (on) accent else muted, modifier = Modifier.padding(top = 2.dp))
                             }
+                        }
+                    }
+                    repeat(3 - rowItems.size) { Box(modifier = Modifier.weight(1f)) {} }
+                }
+            }
+            // [v44] 홈 하단 바로가기(액션)도 여기서 on/off — 켠 것만 홈 그리드에 표시(칸 밀림 방지).
+            Spacer(Modifier.height(4.dp))
+            Text("🔗 바로가기 (홈에 표시할 액션)", fontSize = 13.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            Text("켠 것만 홈 하단에 나와요 · 안 쓰는 건 꺼서 깔끔하게", fontSize = 10.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+            val actions = listOf(
+                "gas" to "⛽ 가스", "elec" to "🔌 전기", "expense" to "🧾 지출촬영", "track" to "🗺️ 운행궤적",
+                "import" to "📥 가져오기", "records" to "📋 기록", "airport" to "✈️ 공항", "namecard" to "📇 명함",
+                "ai" to "🤖 AI비서", "events" to "📅 이벤트", "bookings" to "🚕 예약", "stats" to "📊 분석",
+                "ranking" to "🏆 랭킹", "links" to "🌐 링크", "settings" to "⚙️ 기사설정", "more" to "⋯ 더보기"
+            )
+            var blocks by remember { mutableStateOf((prefs.getString("home_blocks", "gas,elec,expense,records,import,more") ?: "").split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()) }
+            actions.chunked(3).forEach { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowItems.forEach { (id, label) ->
+                        val on = blocks.contains(id)
+                        Box(modifier = Modifier.weight(1f).height(60.dp)
+                            .background(if (on) accent.copy(alpha = 0.14f) else AppTheme.surface2, RoundedCornerShape(12.dp))
+                            .border(1.5.dp, if (on) accent else Color(0xFF2A3B56), RoundedCornerShape(12.dp))
+                            .clickable {
+                                val l = blocks.toMutableList(); if (l.contains(id)) l.remove(id) else l.add(id)
+                                blocks = l; prefs.edit().putString("home_blocks", l.joinToString(",")).apply()
+                            }
+                            .padding(4.dp), contentAlignment = Alignment.Center) {
+                            Text(label + (if (on) "  ✓" else ""), fontSize = 11.sp, lineHeight = 13.sp, color = if (on) accent else AppTheme.text, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                         }
                     }
                     repeat(3 - rowItems.size) { Box(modifier = Modifier.weight(1f)) {} }
@@ -1148,7 +1141,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                         put("profit_share", profitShare); put("lpg_refund_rate", lpgRefundRate)
                         put("annual_leave", annualLeave); put("gas_price", prefs.getInt("lpg_price", 0))
                     }
-                    val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true }
+                    val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                     conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 }
             } catch (e: Exception) { }
@@ -1157,7 +1150,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
 
     LaunchedEffect(Unit) {
         try {
-            val resp = withContext(Dispatchers.IO) { val conn = (URL("$SETTINGS_SERVER/api/driver-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+            val resp = withContext(Dispatchers.IO) { val conn = (URL("$SETTINGS_SERVER/api/driver-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
             val j = JSONObject(resp)
             // [v17][#1] 로컬 우선·서버 병합: 서버에 '실제로 존재하는' 값만 반영한다.
             // (예전엔 서버에 없는 항목까지 기본값으로 덮어써서, 앱 업데이트/재로드 때 로컬 설정이 초기화되던 버그)
@@ -1422,7 +1415,10 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                 }
                 Text("💡 수수료·사납금은 아래 항목에서 직접 입력하세요", fontSize = 11.sp, color = muted)
             } },
-            confirmButton = { Button(onClick = { prefs.edit().putString("driver_type", driverType).putString("affiliation", affiliation).putInt("work_days", workDays).apply(); saveSettingsToServer(); showTypeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            confirmButton = { Button(onClick = {
+                val ed = prefs.edit().putString("driver_type", driverType).putString("affiliation", affiliation).putInt("work_days", workDays)
+                if (driverType == "personal") { ed.putInt("daily_sanap", 0); dailySanap = 0 }  // [개인/법인 분리] 개인택시 전환 시 잔존 법인 사납값 제거
+                ed.apply(); saveSettingsToServer(); showTypeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showTypeDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
     if (showShareDialog) {

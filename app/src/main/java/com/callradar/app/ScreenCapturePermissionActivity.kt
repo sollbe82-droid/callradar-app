@@ -42,7 +42,7 @@ class ScreenCapturePermissionActivity : Activity() {
             } else mpm.createScreenCaptureIntent()
             startActivityForResult(captureIntent, REQ)
         } catch (e: Exception) {
-            Toast.makeText(this, "화면 공유를 시작할 수 없어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "금액 인식용 화면 읽기를 시작할 수 없어요", Toast.LENGTH_SHORT).show()
             finish()
         }
     }
@@ -56,7 +56,7 @@ class ScreenCapturePermissionActivity : Activity() {
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(svc) else startService(svc)
         } else {
-            Toast.makeText(this, "화면 공유가 취소됐어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "금액 자동인식이 취소됐어요 (기록에서 직접 입력 가능)", Toast.LENGTH_SHORT).show()
         }
         finish()
     }

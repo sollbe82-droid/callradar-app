@@ -41,6 +41,10 @@ class ScreenCaptureService : Service() {
     private var vDisplay: VirtualDisplay? = null
     private var reader: ImageReader? = null
     private val handler = Handler(Looper.getMainLooper())
+    // [v29] Android 14: createVirtualDisplay는 projection당 1회만 허용(2회째 예외→재동의).
+    //  → 디스플레이를 근무 내내 1개만 살려두고, 캡처마다 setSurface로 새 프레임만 받아 재동의를 없앤다.
+    private var capW = 0; private var capH = 0; private var capDpi = 0
+    @Volatile private var pendingPurpose: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -57,20 +61,26 @@ class ScreenCaptureService : Service() {
         }
         // 퇴근 시 projection 완전 해제
         fun stopSession(ctx: Context) {
+            val wasAlive = sessionAlive
             sessionAlive = false
+            // 활성 projection이 없으면 서비스를 깨우지 않음 (mediaProjection FGS 승격 크래시 방지)
+            if (!wasAlive) return
             val i = Intent(ctx, ScreenCaptureService::class.java).setAction(ACTION_STOP)
             try { ctx.startService(i) } catch (e: Exception) {}
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // ACTION_STOP은 포그라운드 승격 없이 즉시 정리 (projection 없을 때 mediaProjection FGS 크래시 방지)
+        if (intent?.action == ACTION_STOP) { releaseProjection(); stopSelfSafe(); return START_NOT_STICKY }
         startAsForeground()
         when (intent?.action) {
             ACTION_STOP -> { releaseProjection(); stopSelfSafe(); return START_NOT_STICKY }
             ACTION_CAPTURE -> {
-                // 세션 유지된 projection 재사용 → 동의창 없이 캡처. 재사용 불가(기기 제약) 시 안전 폴백(다음엔 동의 경로).
-                if (projection != null) {
-                    try { captureOneFrame() } catch (e: Exception) { releaseProjection(); stopSelfSafe() }
+                // 살아있는 디스플레이에 setSurface로 새 프레임만 받음 (createVirtualDisplay 재호출 없음 → 재동의 없음)
+                if (projection != null && vDisplay != null) {
+                    val purpose = readAndClearPurpose().ifEmpty { "endfare" }
+                    requestCapture(purpose)
                 } else { sessionAlive = false; stopSelfSafe() }
                 return START_STICKY
             }
@@ -84,79 +94,84 @@ class ScreenCaptureService : Service() {
                     projection?.registerCallback(object : MediaProjection.Callback() {
                         override fun onStop() { releaseProjection() }
                     }, handler)
-                    captureOneFrame()   // finishCapture()가 근무중이면 projection 유지
-                } catch (e: Exception) { toast("화면 캡처 실패"); stopSelfSafe() }
+                    ensureDisplay()   // [v29] createVirtualDisplay 1회만 — 근무 내내 유지
+                    // 출근 확립 시엔 purpose 없음(세션만 확립). 종료가 동의를 부른 경우엔 purpose 있음 → 즉시 캡처.
+                    val purpose = readAndClearPurpose()
+                    if (purpose.isNotEmpty()) requestCapture(purpose)
+                } catch (e: Exception) { toast("화면 읽기를 시작할 수 없어요"); stopSelfSafe() }
                 return START_STICKY
             }
         }
     }
 
-    private fun captureOneFrame() {
+    private fun readAndClearPurpose(): String {
+        val p = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("capture_purpose", "") ?: ""
+        if (p.isNotEmpty()) getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
+        return p
+    }
+
+    // [v29] VirtualDisplay를 근무당 1회만 생성(Android 14 규칙). 이후 캡처는 setSurface로만.
+    private fun ensureDisplay() {
+        if (vDisplay != null) return
         val metrics = DisplayMetrics()
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(metrics)
-        val w = metrics.widthPixels
-        val h = metrics.heightPixels
-        val dpi = metrics.densityDpi
-
-        reader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2)
+        capW = metrics.widthPixels; capH = metrics.heightPixels; capDpi = metrics.densityDpi
+        reader = ImageReader.newInstance(capW, capH, PixelFormat.RGBA_8888, 2)
+        reader?.setOnImageAvailableListener({ r -> drainFrame(r) }, handler)
         vDisplay = projection?.createVirtualDisplay(
-            "callradar_cap", w, h, dpi,
+            "callradar_cap", capW, capH, capDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             reader?.surface, null, handler
         )
+        sessionAlive = true
+    }
 
-        reader?.setOnImageAvailableListener({ r ->
-            val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
-            val cropped: Bitmap
-            var fullForDetect: Bitmap? = null
-            try {
-                val planes = image.planes
-                val buffer = planes[0].buffer
-                val pixelStride = planes[0].pixelStride
-                val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * w
-                var bmp = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888)
-                bmp.copyPixelsFromBuffer(buffer)
-                if (bmp.width != w) bmp = Bitmap.createBitmap(bmp, 0, 0, w, h)
-                // [v24] 종료 금액 자동파싱 모드: 전체 프레임 OCR → 금액만 추출 (크롭/공유 없음)
-                val purpose0 = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("capture_purpose", "") ?: ""
-                if (purpose0 == "endfare") {
-                    getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
-                    val full = bmp.copy(Bitmap.Config.ARGB_8888, false)
-                    image.close(); releaseDisplay()
-                    parseFareAndStore(full)
-                    return@setOnImageAvailableListener
-                }
-                if (purpose0 == "platform") {
-                    // [v25] 시작 화면 OCR → 플랫폼(카카오/우버/티머니) 자동판별 저장
-                    getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("capture_purpose").apply()
-                    val full = bmp.copy(Bitmap.Config.ARGB_8888, false)
-                    image.close(); releaseDisplay()
-                    detectPlatformAndStore(full)
-                    return@setOnImageAvailableListener
-                }
-                // 미리보기용 원본(크롭 전) 저장 — 공유 설정에서 크롭 조절에 사용
-                try { val d = File(cacheDir, "shares").apply { mkdirs() }; FileOutputStream(File(d, "last_full.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 85, it) } } catch (e: Exception) {}
-                fullForDetect = bmp.copy(Bitmap.Config.ARGB_8888, false)   // [v24] 자동판별용 전체 프레임(독립 복사)
-                cropped = cropForShare(bmp)   // 폴백용 크롭(독립 복사본)
-            } catch (e: Exception) {
-                toast("이미지 처리 실패")
-                image.close(); finishCapture()
-                return@setOnImageAvailableListener
-            }
-            image.close()
-            releaseDisplay()   // display만 해제(projection 세션 유지, cropped는 독립 복사본)
-            val mode = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("share_mode", "screenshot") ?: "screenshot"
-            if (mode == "text") {
-                ocrAndShare(fullForDetect ?: cropped)   // [v24] 전체 프레임 OCR → 출발/목적지 추출
-            } else {
-                val full = fullForDetect
-                if (full != null) detectCropShare(full)   // [v24] 플랫폼 자동판별 → 크롭 → 공유
-                else { shareImage(watermark(cropped)); finishCapture() }
-            }
-        }, handler)
+    // [v29] 재동의 없이 새 프레임 1장 요청 — 새 ImageReader로 표면 교체(setSurface) → 현재 화면이 즉시 렌더됨.
+    private fun requestCapture(purpose: String) {
+        pendingPurpose = purpose
+        val vd = vDisplay ?: return
+        try {
+            val nr = ImageReader.newInstance(capW, capH, PixelFormat.RGBA_8888, 2)
+            nr.setOnImageAvailableListener({ r -> drainFrame(r) }, handler)
+            val old = reader
+            reader = nr
+            vd.setSurface(nr.surface)   // 표면 교체 → 새 프레임 푸시(정적 화면도 갱신)
+            try { old?.close() } catch (e: Exception) {}
+        } catch (e: Exception) {
+            // 폴백: 기존 리더에 버퍼된 최신 프레임 시도
+            try { drainFrame(reader) } catch (e2: Exception) {}
+        }
+    }
+
+    // 프레임 수신 — 캡처 대기 중이면 처리, 아니면 버려서 파이프라인만 유지(디스플레이는 계속 살림)
+    private fun drainFrame(r: ImageReader?) {
+        r ?: return
+        val image = try { r.acquireLatestImage() } catch (e: Exception) { null } ?: return
+        val p = pendingPurpose
+        if (p.isNullOrEmpty()) { try { image.close() } catch (e: Exception) {}; return }
+        pendingPurpose = null   // 단일 스레드(handler) → 한 프레임만 소비
+        var out: Bitmap? = null
+        try {
+            val planes = image.planes
+            val buffer = planes[0].buffer
+            val pixelStride = planes[0].pixelStride
+            val rowStride = planes[0].rowStride
+            val rowPadding = rowStride - pixelStride * capW
+            var bmp = Bitmap.createBitmap(capW + rowPadding / pixelStride, capH, Bitmap.Config.ARGB_8888)
+            bmp.copyPixelsFromBuffer(buffer)
+            if (bmp.width != capW) bmp = Bitmap.createBitmap(bmp, 0, 0, capW, capH)
+            out = bmp
+        } catch (e: Exception) { }
+        try { image.close() } catch (e: Exception) {}
+        val bmp = out ?: run { toast("화면을 읽지 못했어요"); return }
+        when (p) {
+            "endfare" -> parseFareAndStore(bmp)
+            "platform" -> detectPlatformAndStore(bmp)
+            else -> { /* 확립용/기타 — 처리 없음, 디스플레이 유지 */ }
+        }
+        // ★디스플레이/projection 해제하지 않음 — 근무 내내 재사용(재동의 없음)
     }
 
     /**
@@ -219,10 +234,10 @@ class ScreenCaptureService : Service() {
                     }
                     if (plat != null) getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit()
                         .putString("pending_platform", plat).putLong("pending_platform_ts", System.currentTimeMillis()).apply()
-                    finishCapture()
+                    // [v29] 디스플레이 유지 — 근무 세션 동안 재사용(재동의 없음)
                 }
-                .addOnFailureListener { finishCapture() }
-        } catch (e: Exception) { finishCapture() }
+                .addOnFailureListener { }
+        } catch (e: Exception) { }
     }
 
     // [v24] 스샷 공유: 전체 프레임 OCR → 플랫폼 자동판별 → 맞는 크롭 → 워터마크 → 공유
@@ -384,14 +399,17 @@ class ScreenCaptureService : Service() {
         val noti: Notification = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             Notification.Builder(this, CH) else @Suppress("DEPRECATION") Notification.Builder(this))
             .setContentTitle("콜레이더")
-            .setContentText("화면을 캡처해 공유하는 중…")
+            .setContentText("운행 요금 화면을 읽는 중…")
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTI_ID, noti, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-        } else {
-            startForeground(NOTI_ID, noti)
-        }
+        // Android 14+에선 활성 projection 없이 mediaProjection FGS 승격 시 SecurityException → 반드시 방어
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTI_ID, noti, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            } else {
+                startForeground(NOTI_ID, noti)
+            }
+        } catch (e: Throwable) { /* 승격 실패(projection 없음/FGS 제약) → 무시, 호출부가 정리 */ }
     }
 
     private fun toast(m: String) { handler.post { Toast.makeText(this, m, Toast.LENGTH_SHORT).show() } }
@@ -421,10 +439,10 @@ class ScreenCaptureService : Service() {
                     } catch (e: Exception) {}
                     if (fare > 0) toast("금액 인식: ${"%,d".format(fare)}원 — 기록에 자동 입력")
                     else toast("금액을 못 읽었어요 — 기록에서 직접 입력하세요")
-                    finishCapture()
+                    // [v29] 디스플레이 유지 — 근무 세션 동안 재사용(재동의 없음)
                 }
-                .addOnFailureListener { toast("금액 인식 실패"); finishCapture() }
-        } catch (e: Exception) { toast("금액 인식 실패"); finishCapture() }
+                .addOnFailureListener { toast("금액 인식 실패") }
+        } catch (e: Exception) { toast("금액 인식 실패") }
     }
 
     /** OCR 텍스트에서 택시 요금 추출 — 키워드(합계/요금/결제…) 라인 우선, 없으면 최댓값 */

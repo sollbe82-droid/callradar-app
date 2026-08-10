@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ import java.util.*
 class MainActivity : ComponentActivity() {
 
     private val SERVER_URL = Config.SERVER_URL
+    @Volatile private var backupRestored = false   // BackupSync.restore 완료 여부(완료 후에만 서버 백업 push → 부분데이터 덮어쓰기 방지)
     private val PREFS_NAME = "callradar_prefs"
     private val KEY_USER_ID = "user_id"
     private val KEY_NICKNAME = "nickname"
@@ -116,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 val deviceId = "guest_$androidId"
                 val json = org.json.JSONObject().apply { put("device_id", deviceId); put("user_id", uid) }
                 val conn = (URL("$SERVER_URL/api/auth/token").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 30000
                 }
                 conn.outputStream.write(json.toString().toByteArray())
                 if (conn.responseCode in 200..299) {
@@ -130,18 +132,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [알림 리스너 재바인딩] 앱 재설치/업데이트 후엔 알림접근 권한은 남지만 실제 바인딩이 끊긴다
+        //   (안드로이드 알려진 동작) → 카드승인 알림([택시승인]) 캡처가 조용히 멈춤. 시작 시 강제 재바인딩.
+        try {
+            android.service.notification.NotificationListenerService.requestRebind(
+                android.content.ComponentName(this, com.callradar.app.CallCaptureService::class.java)
+            )
+        } catch (e: Exception) {}
         com.callradar.app.Auth.load(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))  // [보안 v24] 저장된 토큰 로드
         ensureAuthToken()  // [보안 v24] 현재 계정 토큰 서버와 재동기화(자가치유)
+        com.callradar.app.BackupSync.restore(this) { backupRestored = true }  // [v32] 기변 첫 실행 복원(로컬에 없는 키만). 완료 표시 → onStop의 pushAll이 부분데이터로 서버백업 덮는 레이스 방지
         // [v22] 카카오맵 SDK 초기화 (네이티브 앱 키는 BuildConfig=local.properties). 키 없으면 지도 화면에서 안내.
         try { if (BuildConfig.KAKAO_NATIVE_KEY.isNotBlank()) com.kakao.vectormap.KakaoMapSdk.init(this, BuildConfig.KAKAO_NATIVE_KEY) } catch (e: Exception) {}
+        // [v43] 카카오 로그인 SDK 초기화(네이티브 1탭 로그인). 지도와 같은 네이티브 키 사용.
+        try { if (BuildConfig.KAKAO_NATIVE_KEY.isNotBlank()) com.kakao.sdk.common.KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_KEY) } catch (e: Exception) {}
         handleKakaoDeepLink(intent)  // [v12] 카카오 딥링크 로그인 수신
         checkAndStartServices()
         // [v13] 플로팅 버튼: 사용자가 켜뒀고 권한 있으면 재시작
         if (getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean("floating_on", false) && isOverlayGranted()) {
             try { startService(Intent(this, FloatingTripService::class.java)) } catch (e: Exception) {}
         }
-        // 서버 웜업 (슬립 깨우기)
-        Thread { try { URL("https://callradar-server.onrender.com/api/health").openConnection().getInputStream().close() } catch (e: Exception) {} }.start()
+        // 서버 웜업 (슬립 깨우기) — 타임아웃 없으면 무한 대기/소켓 누수
+        Thread { try { (URL("https://callradar-server.onrender.com/api/health").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }.getInputStream().close() } catch (e: Exception) {} }.start()
+        // [v31] 로컬에 남은 pending 트립·지출 재전송 — 앱 열 때마다. [A-Z] 로컬DB 읽기를 백그라운드로(메인스레드 I/O 제거).
+        Thread { try { val ldb = com.callradar.app.LocalTripDatabase.getInstance(this); ldb.syncPendingTrips(this); ldb.syncFareUpdates(); ldb.syncPendingExpenses(this) } catch (e: Exception) {} }.start()
+        com.callradar.app.TrackSync.uploadRecent(this)   // [v44] 최근 궤적 서버 백업(기기변경 대비)
         if (intent?.getBooleanExtra("openManualEntry", false) == true) {
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 manualEntryTrigger = true
@@ -162,6 +177,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // [v32] 앱을 벗어날 때 회사프로필·급여설정을 서버에 백업(기변 대비)
+    //  ★복원이 끝난 뒤에만 백업 — 복원 전에 push하면 아직 안 채워진 로컬(부분)로 서버 백업을 덮어 프로필 유실 위험.
+    override fun onStop() {
+        super.onStop()
+        if (!backupRestored) return
+        try { com.callradar.app.BackupSync.pushAll(this) } catch (e: Exception) {}
+    }
+
     // [v12] 브라우저(Custom Tabs)에서 callradar://auth?user_id=... 딥링크로 복귀 시 처리
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -173,11 +196,40 @@ class MainActivity : ComponentActivity() {
         if (data.scheme == "callradar" && data.host == "auth") {
             val uid = data.getQueryParameter("user_id") ?: return
             val nickname = data.getQueryParameter("nickname") ?: "기사님"
-            val prefsDl = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefsDl.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
-            com.callradar.app.Auth.save(prefsDl, data.getQueryParameter("token"))  // [보안 v24] 카카오 로그인 토큰 저장
-            sessionLoggedIn = true   // [v17] 방금 로그인 → 자동로그인 체크 여부와 무관하게 이번 세션은 진입
-            recreate()  // 저장 후 화면 재구성 → isLoggedIn=true 로 시작
+            val token = data.getQueryParameter("token")
+            // [보안] 딥링크는 외부(브라우저/타앱)에서도 던질 수 있다(BROWSABLE). user_id/token을 무검증 저장하면
+            //  임의 계정으로 세션이 바뀔 수 있음 → 서버 whoami로 "이 토큰의 실제 주인 = uid" 확인된 경우에만 저장.
+            if (token.isNullOrBlank()) return
+            Thread {
+                var okUid: String? = null
+                var mismatch = false   // 서버가 '다른 주인'이라고 명확히 답한 경우(진짜 실패)와 네트워크 오류 구분
+                // Render 콜드스타트(최대 30~50s) 대비 최대 2회 시도. 명확한 불일치면 즉시 중단.
+                for (attempt in 0 until 2) {
+                    try {
+                        val conn = (URL("$SERVER_URL/api/auth/whoami").openConnection().apply {
+                            setRequestProperty("Authorization", "Bearer $token")
+                        } as HttpURLConnection).apply { requestMethod = "GET"; connectTimeout = 8000; readTimeout = 45000 }
+                        val code = conn.responseCode
+                        if (code in 200..299) {
+                            val who = org.json.JSONObject(conn.inputStream.bufferedReader().readText()).optString("user_id", "")
+                            if (who.isNotBlank() && who == uid) okUid = who else mismatch = true
+                        } else if (code == 401 || code == 403) { mismatch = true }
+                        conn.disconnect()
+                    } catch (e: Exception) {}
+                    if (okUid != null || mismatch) break
+                }
+                runOnUiThread {
+                    if (okUid != null) {
+                        val prefsDl = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefsDl.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
+                        com.callradar.app.Auth.save(prefsDl, token)
+                        sessionLoggedIn = true
+                        recreate()
+                    } else {
+                        android.widget.Toast.makeText(this, "로그인 확인에 실패했어요. 다시 시도해 주세요.", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.start()
         }
     }
 
@@ -218,14 +270,8 @@ class MainActivity : ComponentActivity() {
                 sessionLoggedIn = true   // [v17] 게스트/페어링 로그인도 이번 세션 진입
                 userId = uid; userNickname = nickname; isLoggedIn = true
             })
-            !onboardingDone -> OnboardingScreen(nickname = userNickname, onDone = {
-                prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
-            })
-            !driverTypeChosen -> DriverTypePickScreen(onPicked = { type ->
-                if (type != null) prefs.edit().putString("driver_type", type).apply()
-                prefs.edit().putBoolean("driver_type_chosen", true).apply(); driverTypeChosen = true
-            })
             else -> {
+                // [v32] 온보딩·기사유형 선택을 전체화면 대신 홈 위 팝업으로. 홈이 뒤에 보여 갇힘 없음.
                 MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
                 stopService(Intent(this, LocationTrackingService::class.java)); finishAffinity()
             }, onLogout = {
@@ -241,7 +287,15 @@ class MainActivity : ComponentActivity() {
                 stopService(Intent(this, LocationTrackingService::class.java))
                 isLoggedIn = false; userNickname = ""; userId = ""
             })
-                if (showSetupPopup) com.callradar.app.screen.SetupPopup(onFinish = { showSetupPopup = false })
+                // 팝업은 한 번에 하나씩: 온보딩 → 기사유형 → 위치권한 설정
+                if (!onboardingDone) OnboardingPopup(nickname = userNickname, onDone = {
+                    prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
+                })
+                else if (!driverTypeChosen) DriverTypePopup(onPicked = { type ->
+                    if (type != null) prefs.edit().putString("driver_type", type).apply()
+                    prefs.edit().putBoolean("driver_type_chosen", true).apply(); driverTypeChosen = true
+                })
+                else if (showSetupPopup) com.callradar.app.screen.SetupPopup(onFinish = { showSetupPopup = false })
             }
         }
     }
@@ -264,6 +318,63 @@ class MainActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = { onPicked(null) }) { Text("나중에 선택할게요", fontSize = 14.sp, color = muted) }
+        }
+    }
+
+    // [v32] 온보딩 팝업 — 홈 위에 뜨는 카드형. 내용은 기존 OnboardingScreen과 동일.
+    @Composable
+    fun OnboardingPopup(nickname: String, onDone: () -> Unit) {
+        val card = AppTheme.card; val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+        var currentStep by remember { mutableStateOf(0) }
+        val steps = listOf(
+            OnboardingStep("👋", "${nickname}님, 환영해요!", "콜레이더는 택시 기사를 위한\n수입 관리 + 콜 정보 앱이에요.\n\n함께 만들어가는 기사 커뮤니티입니다.", "다음", false),
+            OnboardingStep("📊", "무료로 이런 걸 쓸 수 있어요", "· 수입·지출 기록과 통계\n· 인천공항 실시간 입국 정보\n· LPG·사납금 정산 계산\n· 급여명세서 스캔·예상급여\n· 기사 랭킹", "다음", false),
+            OnboardingStep("📡", "콜 제보로 함께 만드는 콜 지도", "\"여기 콜 많아요\" 한 번의 제보가\n모두의 실시간 콜 지도가 됩니다.\n\n제보 많은 기사님께는\n정보원 배지와 포인트를 드려요!", "다음", false),
+            OnboardingStep("🚀", "준비 완료!", "지금 바로 시작해보세요.\n\n운행 기록을 남기고,\n콜을 제보하고, 공항 정보를 확인하세요.", "시작하기", false)
+        )
+        androidx.compose.ui.window.Dialog(onDismissRequest = { /* 닫기 방지: 시작하기로만 종료 */ }, properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
+            Surface(shape = RoundedCornerShape(20.dp), color = card, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 20.dp)) {
+                        steps.forEachIndexed { i, _ -> Box(modifier = Modifier.height(4.dp).width(if (i == currentStep) 28.dp else 14.dp).background(if (i <= currentStep) accent else AppTheme.surface2, RoundedCornerShape(2.dp))) }
+                    }
+                    val step = steps[currentStep]
+                    Text(step.emoji, fontSize = 52.sp); Spacer(Modifier.height(16.dp))
+                    Text(step.title, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, textAlign = TextAlign.Center); Spacer(Modifier.height(12.dp))
+                    Text(step.desc, fontSize = 14.sp, color = muted, textAlign = TextAlign.Center, lineHeight = 22.sp)
+                    Spacer(Modifier.height(24.dp))
+                    Button(onClick = { if (currentStep == steps.size - 1) onDone() else currentStep++ },
+                        modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(14.dp)) {
+                        Text(step.buttonText, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    if (currentStep > 0) TextButton(onClick = { currentStep-- }) { Text("이전", color = muted) }
+                    else TextButton(onClick = { onDone() }) { Text("건너뛰기", color = muted, fontSize = 13.sp) }
+                }
+            }
+        }
+    }
+
+    // [v32] 기사 유형 선택 팝업 — 홈 위 카드형.
+    @Composable
+    fun DriverTypePopup(onPicked: (String?) -> Unit) {
+        val card = AppTheme.card; val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+        androidx.compose.ui.window.Dialog(onDismissRequest = { onPicked(null) }) {
+            Surface(shape = RoundedCornerShape(20.dp), color = card, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🚕", fontSize = 36.sp)
+                    Text("어떤 기사님이세요?", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.padding(top = 8.dp))
+                    Text("정산 방식이 달라져요 · 나중에 설정에서 바꿀 수 있어요", fontSize = 12.sp, color = muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+                    listOf(Triple("🚖 개인택시", "내 차, 내 매출", "personal"), Triple("🏢 법인택시", "회사 소속 · 사납금 정산", "corporate"), Triple("🤝 조합택시", "우선 법인과 동일 정산", "corporate")).forEach { (title, desc, type) ->
+                        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { onPicked(type) }, colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column { Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text(desc, fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp)) }
+                                Text("›", fontSize = 20.sp, color = accent)
+                            }
+                        }
+                    }
+                    TextButton(onClick = { onPicked(null) }, modifier = Modifier.padding(top = 6.dp)) { Text("나중에 선택할게요", fontSize = 13.sp, color = muted) }
+                }
+            }
         }
     }
 
@@ -348,7 +459,7 @@ class MainActivity : ComponentActivity() {
                         onLogout = {
                         scope.launch {
                             try {
-                                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 5000 }; conn.inputStream.bufferedReader().readText() }
+                                val response = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/today/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                                 val json = JSONObject(response)
                                 todaySummary = TodaySummary(json.optInt("tripCount", 0), json.optString("topDest", ""), json.optInt("todayFare", 0))
                             } catch (e: Exception) { todaySummary = TodaySummary(0, "", 0) }
@@ -381,98 +492,174 @@ class MainActivity : ComponentActivity() {
         val context = androidx.compose.ui.platform.LocalContext.current  // [v12] 브라우저 로그인용
         val loginPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         var autoLogin by remember { mutableStateOf(loginPrefs.getBoolean(KEY_AUTO_LOGIN, true)) }  // [v19] 기본 켜짐(업데이트해도 로그인 유지). 계정 전환은 '다른 계정으로 로그인'/로그아웃.
-        var showWebView by remember { mutableStateOf(false) }
-        if (false && showWebView) {  // [v12] WebView 로그인 비활성화 (브라우저 방식으로 대체)
-            AndroidView(factory = { context ->
-                WebView(context).apply {
-                    settings.javaScriptEnabled = true; settings.domStorageEnabled = true
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                            val url = request?.url?.toString() ?: return false
-                            if (url.startsWith("$SERVER_URL/auth/kakao/callback")) { val uri = Uri.parse(url); val userId = uri.getQueryParameter("user_id"); val nickname = uri.getQueryParameter("nickname") ?: "기사님"; if (userId != null) { onLoginSuccess(userId, nickname); return true } }
-                            return false
-                        }
+        var showPair by remember { mutableStateOf(false) }
+        var pairCode by remember { mutableStateOf("") }
+        var pairMsg by remember { mutableStateOf("") }
+        val pairScope = rememberCoroutineScope()
+        var guestLoading by remember { mutableStateOf(false) }
+        val guestScope = rememberCoroutineScope()
+        fun doGuest() {
+            if (guestLoading) return
+            guestLoading = true
+            guestScope.launch {
+                try {
+                    val androidId = try { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "" } catch (e: Exception) { "" }
+                    val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
+                    val resp = withContext(Dispatchers.IO) {
+                        val json = org.json.JSONObject().apply { put("device_id", deviceId); put("nickname", "기사님") }
+                        val conn = (URL("$SERVER_URL/api/auth/guest").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 30000 }
+                        conn.outputStream.write(json.toString().toByteArray())
+                        conn.inputStream.bufferedReader().readText()
                     }
-                    loadUrl("$SERVER_URL/auth/kakao")
-                }
-            }, modifier = Modifier.fillMaxSize())
-        } else {
-            Column(modifier = Modifier.fillMaxSize().background(bg).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("콜레이더", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = accent)
-                Text("택시 기사 수입 최적화", fontSize = 14.sp, color = muted, modifier = Modifier.padding(top = 8.dp, bottom = 40.dp))
-
-                // [v17][#10] 자동 로그인 체크박스 (기본 해제). 체크하면 다음 실행 때 로그인 화면 없이 바로 진입.
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        autoLogin = !autoLogin
+                    val j = org.json.JSONObject(resp)
+                    val uid = j.optString("user_id", ""); val nick = j.optString("nickname", "기사님")
+                    if (uid.isNotEmpty()) { com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", "")); onLoginSuccess(uid, nick) } else guestLoading = false
+                } catch (e: Exception) { guestLoading = false }
+            }
+        }
+        // [v43] 카카오 네이티브 SDK 로그인 — 크롬창 없이 카카오톡 1탭. 받은 액세스토큰을 서버가 검증→user_id/토큰 반환.
+        var kakaoLoading by remember { mutableStateOf(false) }
+        val kakaoScope = rememberCoroutineScope()
+        fun exchangeKakao(accessToken: String) {
+            kakaoScope.launch {
+                try {
+                    val resp = withContext(Dispatchers.IO) {
+                        val json = org.json.JSONObject().apply { put("access_token", accessToken) }
+                        val conn = (URL("$SERVER_URL/api/auth/kakao-native").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000; readTimeout = 30000 }
+                        conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8))
+                        val rc = conn.responseCode
+                        (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
+                    }
+                    val j = try { org.json.JSONObject(resp) } catch (e: Exception) { org.json.JSONObject() }
+                    val uid = j.optString("user_id", "")
+                    if (uid.isNotEmpty()) {
                         loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply()
-                    }.padding(bottom = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = autoLogin,
-                        onCheckedChange = { checked -> autoLogin = checked; loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, checked).apply() },
-                        colors = CheckboxDefaults.colors(checkedColor = accent, uncheckedColor = muted)
+                        com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", ""))
+                        onLoginSuccess(uid, j.optString("nickname", "기사님"))
+                    } else { kakaoLoading = false; android.widget.Toast.makeText(context, "카카오 로그인 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() }
+                } catch (e: Exception) { kakaoLoading = false; android.widget.Toast.makeText(context, "카카오 로그인 오류 · 네트워크 확인", android.widget.Toast.LENGTH_SHORT).show() }
+            }
+        }
+        fun doKakaoNative(forceAccount: Boolean = false) {
+            if (kakaoLoading) return
+            kakaoLoading = true
+            val act = this@MainActivity
+            val cb: (com.kakao.sdk.auth.model.OAuthToken?, Throwable?) -> Unit = { token, error ->
+                if (token != null) exchangeKakao(token.accessToken)
+                else { kakaoLoading = false }
+            }
+            try {
+                if (!forceAccount && com.kakao.sdk.user.UserApiClient.instance.isKakaoTalkLoginAvailable(act)) {
+                    com.kakao.sdk.user.UserApiClient.instance.loginWithKakaoTalk(act) { token, error ->
+                        if (error != null) com.kakao.sdk.user.UserApiClient.instance.loginWithKakaoAccount(act, callback = cb)
+                        else if (token != null) exchangeKakao(token.accessToken)
+                        else { kakaoLoading = false }
+                    }
+                } else {
+                    com.kakao.sdk.user.UserApiClient.instance.loginWithKakaoAccount(act, callback = cb)
+                }
+            } catch (e: Exception) { kakaoLoading = false }
+        }
+        // [테스트 전용 · 숨김] 로고를 길게 누르면 아이디 로그인 (일반 사용자에겐 노출 안 됨)
+        var showTestLogin by remember { mutableStateOf(false) }
+        var tId by remember { mutableStateOf("") }
+        var tPw by remember { mutableStateOf("") }
+        var tMsg by remember { mutableStateOf("") }
+        var tBusy by remember { mutableStateOf(false) }
+        val tScope = rememberCoroutineScope()
+        fun doTestLogin() {
+            if (tId.isBlank() || tPw.isBlank()) { tMsg = "아이디·비밀번호 입력"; return }
+            if (tBusy) return
+            tBusy = true; tMsg = ""
+            tScope.launch {
+                try {
+                    val androidId = try { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "" } catch (e: Exception) { "" }
+                    val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
+                    val resp = withContext(Dispatchers.IO) {
+                        val json = JSONObject().apply { put("login_id", tId.trim()); put("password", tPw); put("device_id", deviceId) }
+                        val conn = (URL("$SERVER_URL/api/auth/login").openConnection() as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 12000; readTimeout = 12000 }
+                        conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8))
+                        val rc = conn.responseCode
+                        val body = (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
+                        Pair(rc, body)
+                    }
+                    val j = try { JSONObject(resp.second) } catch (e: Exception) { JSONObject() }
+                    if (resp.first in 200..299 && j.optString("user_id", "").isNotEmpty()) {
+                        loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply()
+                        com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", ""))
+                        onLoginSuccess(j.optString("user_id", ""), j.optString("nickname", "테스트"))
+                    } else { tMsg = j.optString("error", "로그인 실패"); tBusy = false }
+                } catch (e: Exception) { tMsg = "네트워크 오류"; tBusy = false }
+            }
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(bg).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 28.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(24.dp))
+                Text("콜레이더", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = accent,
+                    modifier = Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { if (com.callradar.app.BuildConfig.DEBUG) showTestLogin = true }) })
+                Text("택시 기사 수입 최적화", fontSize = 13.sp, color = muted, modifier = Modifier.padding(top = 6.dp, bottom = 36.dp))
+
+                if (showTestLogin) {
+                    AlertDialog(
+                        onDismissRequest = { showTestLogin = false },
+                        title = { Text("테스트 로그인 (내부용)", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column {
+                                OutlinedTextField(value = tId, onValueChange = { tId = it }, singleLine = true, label = { Text("아이디") })
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(value = tPw, onValueChange = { tPw = it }, singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("비밀번호") })
+                                if (tMsg.isNotEmpty()) { Spacer(Modifier.height(6.dp)); Text(tMsg, fontSize = 12.sp, color = Color(0xFFEF4444)) }
+                            }
+                        },
+                        confirmButton = { Button(onClick = { doTestLogin() }) { Text(if (tBusy) "..." else "로그인") } },
+                        dismissButton = { OutlinedButton(onClick = { showTestLogin = false }) { Text("취소") } },
+                        containerColor = AppTheme.card
                     )
-                    Text("자동 로그인 (이 기기에서 계속 로그인 유지)", fontSize = 13.sp, color = AppTheme.text)
                 }
 
+                // 1순위: 카카오로 시작 — [v43] 네이티브 SDK 1탭(크롬창 없음)
                 Button(onClick = {
-                    // [v12] WebView 대신 외부 브라우저로 카카오 로그인 (입력 뒤집힘 해결 + 카카오톡 간편로그인 지원)
-                    // 로그인 완료 후 서버가 callradar://auth 딥링크로 앱에 복귀시킴
-                    loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply()  // [v17] 체크 상태 확정 저장
-                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$SERVER_URL/auth/kakao"))) } catch (e: Exception) {}
-                }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE812)), shape = RoundedCornerShape(12.dp)) { Text("카카오로 시작하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-
-                // [v17][#10] 다른 계정으로 로그인 — 카카오 재인증 강제(prompt=login)로 이전 계정 자동복귀 방지
-                TextButton(onClick = {
                     loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply()
-                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$SERVER_URL/auth/kakao?prompt=login"))) } catch (e: Exception) {}
-                }) { Text("다른 계정으로 로그인", fontSize = 13.sp, color = muted) }
+                    doKakaoNative()
+                }, enabled = !kakaoLoading, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE812)), shape = RoundedCornerShape(12.dp)) { Text(if (kakaoLoading) "로그인 중..." else "카카오로 시작하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                // [v18] 서브폰(2·3폰) 페어링 로그인 — 카카오 바로 아래. 주폰=카카오, 서브폰=이 버튼
-                var showPair by remember { mutableStateOf(false) }
-                var pairCode by remember { mutableStateOf("") }
-                var pairMsg by remember { mutableStateOf("") }
-                val pairScope = rememberCoroutineScope()
-                OutlinedButton(onClick = { showPair = true }, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.5.dp, accent)) {
-                    Text("📱 다른 폰 계정 연결 (2·3폰 서브폰)", color = accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                // 2순위: 게스트 둘러보기
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(onClick = { doGuest() }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))) {
+                    Text(if (guestLoading) "시작하는 중..." else "로그인 없이 둘러보기", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                // [v43] 게스트는 기기·스토어 변경 시 데이터가 옮겨지지 않음을 명확히 고지(카카오 로그인 유도)
+                Text("⚠️ 게스트는 폰을 바꾸거나 스토어(구글↔원스토어)를 옮기면 기록이 옮겨지지 않아요. 카카오로 로그인하면 어디서든 유지됩니다.", fontSize = 11.sp, color = Color(0xFF9CA3AF), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp))
+
+                // [디버그 전용] 테스트 로그인 버튼 — 릴리스/스토어 빌드엔 표시 안 됨
+                if (com.callradar.app.BuildConfig.DEBUG) {
+                    Spacer(Modifier.height(10.dp))
+                    Button(onClick = { showTestLogin = true }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)), shape = RoundedCornerShape(12.dp)) {
+                        Text("🔧 테스트 로그인 (내부용)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 게스트 로그인 (카카오 없이 바로 시작)
-                var guestLoading by remember { mutableStateOf(false) }
-                val guestScope = rememberCoroutineScope()
-                OutlinedButton(
-                    onClick = {
-                        if (guestLoading) return@OutlinedButton
-                        guestLoading = true
-                        guestScope.launch {
-                            try {
-                                val androidId = try { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "" } catch (e: Exception) { "" }
-                                val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
-                                val resp = withContext(Dispatchers.IO) {
-                                    val json = org.json.JSONObject().apply { put("device_id", deviceId); put("nickname", "기사님") }
-                                    val conn = (URL("$SERVER_URL/api/auth/guest").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
-                                    conn.outputStream.write(json.toString().toByteArray())
-                                    conn.inputStream.bufferedReader().readText()
-                                }
-                                val j = org.json.JSONObject(resp)
-                                val uid = j.optString("user_id", "")
-                                val nick = j.optString("nickname", "기사님")
-                                if (uid.isNotEmpty()) { com.callradar.app.Auth.save(getSharedPreferences(PREFS_NAME, MODE_PRIVATE), j.optString("token", "")); onLoginSuccess(uid, nick) } else guestLoading = false
-                            } catch (e: Exception) { guestLoading = false }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
-                ) {
-                    Text(if (guestLoading) "시작하는 중..." else "게스트로 시작하기", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                // 자동 로그인 (항상 표시)
+                Row(modifier = Modifier.fillMaxWidth().clickable { autoLogin = !autoLogin; loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply() }.padding(top = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = autoLogin, onCheckedChange = { checked -> autoLogin = checked; loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, checked).apply() }, colors = CheckboxDefaults.colors(checkedColor = accent, uncheckedColor = muted))
+                    Text("이 기기에서 자동 로그인", fontSize = 12.sp, color = AppTheme.text)
                 }
-                Text("로그인 없이 바로 사용해보세요", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 10.dp))
+
+                // [폐기] 아이디/비밀번호 로그인·회원가입 방식은 제거함.
+                //  이유: 카카오 계정과 아이디 계정이 서버상 별도(kakao_id vs device_id/login_id)라
+                //  섞어 쓰면 데이터가 갈리는 문제 + 복잡성. 카카오 + 게스트만 사용.
+
+                // 하단: 부가 진입점 (작게)
+                Spacer(Modifier.height(16.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFF1E2532)))
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Text("다른 폰 연결", fontSize = 12.sp, color = muted, modifier = Modifier.clickable { showPair = true })
+                    Text("   ·   ", fontSize = 12.sp, color = Color(0xFF334155))
+                    Text("다른 계정", fontSize = 12.sp, color = muted, modifier = Modifier.clickable {
+                        loginPrefs.edit().putBoolean(KEY_AUTO_LOGIN, autoLogin).apply()
+                        doKakaoNative(forceAccount = true)  // [v43] 카카오계정 화면으로 전환(다른 계정 로그인)
+                    })
+                }
 
                 // [v18] 서브폰 페어링 다이얼로그 (버튼은 위 카카오 로그인 아래로 이동)
                 if (showPair) {
@@ -497,7 +684,7 @@ class MainActivity : ComponentActivity() {
                                         val deviceId = if (androidId.isNotEmpty()) "guest_$androidId" else "guest_${System.currentTimeMillis()}"
                                         val resp = withContext(Dispatchers.IO) {
                                             val json = JSONObject().apply { put("device_id", deviceId); put("code", pairCode); put("label", "서브폰") }
-                                            val conn = (URL("$SERVER_URL/api/pair/claim").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000 }
+                                            val conn = (URL("$SERVER_URL/api/pair/claim").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 30000 }
                                             conn.outputStream.write(json.toString().toByteArray())
                                             val rc = conn.responseCode
                                             val body = (if (rc in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
@@ -520,7 +707,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-        }
     }
 
     private fun checkAndStartServices() {

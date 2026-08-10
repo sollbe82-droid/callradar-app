@@ -33,9 +33,10 @@ import kotlin.math.roundToInt
 private const val MAP_SERVER = Config.SERVER_URL
 
 @Composable
-fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = false) {
+fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = false, showTrack: Boolean = true) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    var mapRef by remember { mutableStateOf<com.kakao.vectormap.KakaoMap?>(null) }   // [궤적토글] 지도 준비되면 참조 저장 → showTrack 토글에 반응
     val accent = Color(0xFFF5A623)
     val muted = Color(0xFF9CA3AF)
 
@@ -74,6 +75,12 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
             }
         }
 
+        // [궤적토글] 지도 준비 후 showTrack에 따라 오늘 궤적 폴리라인 그림/지움 (레이더 🧭 버튼과 연동)
+        LaunchedEffect(mapRef, showTrack) {
+            val km = mapRef ?: return@LaunchedEffect
+            if (showTrack) drawTodayTrack(km, ctx, scope) else clearTrack(km)
+        }
+
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -85,6 +92,7 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                         },
                         object : com.kakao.vectormap.KakaoMapReadyCallback() {
                             override fun onMapReady(kakaoMap: com.kakao.vectormap.KakaoMap) {
+                                mapRef = kakaoMap   // [궤적토글] LaunchedEffect가 showTrack에 맞춰 궤적 그림/지움
                                 loadMyHeatmap(kakaoMap, userId, scope) { pts, cells, msg ->
                                     pointCount = pts; status = msg
                                 }
@@ -98,6 +106,8 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                 }
             )
 
+            // [v44] 레이더 임베드에선 '내 운행 밀도' 범례를 숨겨 지도 뷰 가림 방지. 단 지도 인증 실패 경고는 유지.
+            if (!embedded || authFailed)
             Card(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).fillMaxWidth(0.94f),
                 colors = CardDefaults.cardColors(containerColor = AppTheme.card.copy(alpha = 0.92f)),
@@ -195,6 +205,71 @@ private fun loadMyHeatmap(
             withContext(Dispatchers.Main) { onDone(0, 0, "불러오기 실패") }
         }
     }
+}
+
+// [궤적on지도] 오늘 영업일 시작(야간·일차 기사 dayStart 반영)
+private fun trackDayStart(ctx: android.content.Context): Long {
+    val prefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
+    val h = prefs.getInt("day_start_hour", 0)
+    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
+    return c.timeInMillis
+}
+
+// [궤적on지도] 오늘 근무 궤적(로컬 GPS 브레드크럼)을 레이더 지도 위에 폴리라인으로.
+//  실차=파랑 실선, 공차=회색. 10분 이상 끊긴 구간·실차/공차 전환은 세그먼트 분리. 시작(초록)·현재(주황) 마커.
+private fun drawTodayTrack(
+    kakaoMap: com.kakao.vectormap.KakaoMap,
+    ctx: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    scope.launch {
+        try {
+            val db = com.callradar.app.LocalTrackDatabase.getInstance(ctx)
+            val since = trackDayStart(ctx)
+            val pts = withContext(Dispatchers.IO) { db.pointsSince(since) }
+            if (pts.size < 2) return@launch
+            withContext(Dispatchers.Main) {
+                val mgr = kakaoMap.routeLineManager ?: return@withContext
+                val layer = mgr.layer ?: return@withContext
+                try { layer.removeAll() } catch (e: Exception) {}   // [궤적토글] 재그리기 전 기존 궤적 제거(중복 방지)
+                val dp = kakaoMap.mapDpScale.coerceAtLeast(1f)
+                val loadedStyles = com.kakao.vectormap.route.RouteLineStyles.from(com.kakao.vectormap.route.RouteLineStyle.from(6f * dp, 0xFF3B82F6.toInt()))
+                val emptyStyles = com.kakao.vectormap.route.RouteLineStyles.from(com.kakao.vectormap.route.RouteLineStyle.from(4f * dp, 0xFF9CA3AF.toInt()))
+                val segments = ArrayList<com.kakao.vectormap.route.RouteLineSegment>()
+                var run = ArrayList<com.kakao.vectormap.LatLng>()
+                var runLoaded = pts[0].loaded
+                run.add(com.kakao.vectormap.LatLng.from(pts[0].lat, pts[0].lng))
+                var minLat = pts[0].lat; var maxLat = pts[0].lat; var minLng = pts[0].lng; var maxLng = pts[0].lng
+                fun flush() { if (run.size >= 2) segments.add(com.kakao.vectormap.route.RouteLineSegment.from(run, if (runLoaded) loadedStyles else emptyStyles)) }
+                for (i in 1 until pts.size) {
+                    val p = pts[i]; val prev = pts[i - 1]
+                    minLat = minOf(minLat, p.lat); maxLat = maxOf(maxLat, p.lat); minLng = minOf(minLng, p.lng); maxLng = maxOf(maxLng, p.lng)
+                    if (p.loaded != runLoaded || (p.ts - prev.ts) > 10 * 60_000L) {
+                        flush(); run = ArrayList(); run.add(com.kakao.vectormap.LatLng.from(prev.lat, prev.lng)); runLoaded = p.loaded
+                    }
+                    run.add(com.kakao.vectormap.LatLng.from(p.lat, p.lng))
+                }
+                flush()
+                if (segments.isEmpty()) return@withContext
+                try { layer.addRouteLine(com.kakao.vectormap.route.RouteLineOptions.from(segments)) } catch (e: Exception) {}
+                // 카메라를 오늘 궤적으로 이동(히트맵 카메라보다 뒤에 실행되게 살짝 지연 → 오늘 경로 우선)
+                kotlinx.coroutines.delay(600)
+                try {
+                    val cLat = (minLat + maxLat) / 2; val cLng = (minLng + maxLng) / 2
+                    val span = maxOf(maxLat - minLat, maxLng - minLng)
+                    val zoom = when { span > 0.3 -> 10; span > 0.15 -> 11; span > 0.07 -> 12; span > 0.03 -> 13; span > 0.015 -> 14; else -> 15 }
+                    kakaoMap.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(com.kakao.vectormap.LatLng.from(cLat, cLng), zoom))
+                } catch (e: Exception) {}
+            }
+        } catch (e: Exception) {}
+    }
+}
+
+// [궤적토글] 지도에서 오늘 궤적 폴리라인 제거(🧭 끄기)
+private fun clearTrack(kakaoMap: com.kakao.vectormap.KakaoMap) {
+    try { kakaoMap.routeLineManager?.layer?.removeAll() } catch (e: Exception) {}
 }
 
 private fun circleBmp(color: Int, sizeDp: Int, density: Float): Bitmap {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  [원스토어 전용] v9 접근성 설정. 택시 기사앱 4종만 대상.
+  실제 이벤트/플래그는 NaviIntentReceiver.onServiceConnected()에서 프로그래밍적으로도 설정됨.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/accessibility_desc"
+    android:packageNames="com.kakao.taxi.driver,com.ubercab.driver,kr.co.tmoney.tia,com.thinkware.inaviair.tmoney"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:notificationTimeout="100"
+    android:canRetrieveWindowContent="true"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagIncludeNotImportantViews" />
