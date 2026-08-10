@@ -107,7 +107,10 @@ class WorkSessionService : Service() {
         val now = System.currentTimeMillis()
         if (now - lastTrackTs >= 4_000L) {
             lastTrackTs = now
-            val loaded = prefs().getBoolean("ride_active", false)
+            // [궤적 실차/공차] 수동 플로팅(ride_active) 또는 자동기록의 탑승 상태(activeTrip+autoBoarded)면 실차.
+            //   예전엔 ride_active만 봐서 자동기록 유저의 궤적이 전부 공차(회색)로 찍혔음.
+            val loaded = prefs().getBoolean("ride_active", false) ||
+                (com.callradar.app.NaviIntentReceiver.activeTripId > 0 && com.callradar.app.NaviIntentReceiver.autoBoarded)
             try { com.callradar.app.LocalTrackDatabase.getInstance(this).addPoint(lat, lng, now, loaded) } catch (e: Exception) {}
         }
         lastLat = lat; lastLng = lng; lastLocTs = nowMs

@@ -67,6 +67,9 @@ class NaviIntentReceiver : AccessibilityService() {
         // 대기시간 길이와 무관. ended_at/시간창에 의존하지 않음.
         @Volatile var activeTripId: Int = -1
         @Volatile var activeTripStartedAt: Long = 0L
+        // [궤적 실차/공차] 자동기록 트립에서 손님 탑승 상태. WorkSessionService가 읽어 GPS점을 실차(true)/공차로 태깅.
+        //   activeTripId>0 && autoBoarded=true 인 구간만 실차. (드라이브 투 픽업·트립간 이동은 공차)
+        @Volatile var autoBoarded: Boolean = false
     }
 
     private var lastPlatform = "알수없음"
@@ -81,6 +84,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastUberWrittenFare = 0  // [우버0원수정] 요금 본 순간 서버에 쓴 값 추적(중복 PUT 방지)
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
+    @Volatile private var boardedAtSent = false  // [#4 실차율] 탑승 순간 boarded_at 1회 전송했는지(근접 픽업도 실차시간 정확)
     @Volatile private var carryBoardToNextTrip = false  // [R1] 유령트립 마감 후 이어진 새 트립에 탑승상태 이어주기
     @Volatile private var forceNewTripOnNextScan = false // [R1] 새 탑승 감지 → 다음 스캔에서 유령 마감+새 트립(기존 force-end 경로 재사용, 레이스 방지)
     @Volatile private var originRestamped = false    // [정확도] 탑승 순간 출발지를 픽업지점으로 1회 재설정했는지
@@ -283,7 +287,7 @@ class NaviIntentReceiver : AccessibilityService() {
                         forceNewTripOnNextScan = true
                         carryBoardToNextTrip = true
                     }
-                    passengerBoarded = true; Log.d(TAG, "✅ 손님 탑승(클릭) → 취소방지 활성 + 출발지 재설정")
+                    passengerBoarded = true; autoBoarded = true; Log.d(TAG, "✅ 손님 탑승(클릭) → 취소방지 활성 + 출발지 재설정")
                     restampOriginAtBoarding()
                 }
                 clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
@@ -464,7 +468,7 @@ class NaviIntentReceiver : AccessibilityService() {
             if (!passengerBoarded && lastTripId > 0 && (
                     allText.contains("탑승 완료") ||
                     allText.contains("밀어서 운행종료"))) {
-                passengerBoarded = true
+                passengerBoarded = true; autoBoarded = true
                 Log.d(TAG, "✅ 화면에서 탑승 감지(운행상태) → 취소방지 활성 + 출발지 재설정")
                 restampOriginAtBoarding()
             }
@@ -530,8 +534,8 @@ class NaviIntentReceiver : AccessibilityService() {
         forceNewTripOnNextScan = false  // [R1] 소비(한 번만)
         isSendingTrip = true
         tripStartedAt = System.currentTimeMillis()
-        passengerBoarded = false  // 새 운행 시작 → 탑승 플래그 리셋
-        if (carryBoardToNextTrip) { passengerBoarded = true; carryBoardToNextTrip = false }  // [R1] 유령 마감 후 이어진 새 트립은 이미 탑승상태 → 취소방지 유지
+        passengerBoarded = false; autoBoarded = false; boardedAtSent = false  // 새 운행 시작 → 탑승 플래그 리셋(공차부터)
+        if (carryBoardToNextTrip) { passengerBoarded = true; autoBoarded = true; carryBoardToNextTrip = false }  // [R1] 유령 마감 후 이어진 새 트립은 이미 탑승상태 → 취소방지 유지
         originRestamped = false   // 새 운행 → 출발지 재설정 대기
         lastUberWrittenFare = 0   // [우버0원수정] 새 트립 → 서버기록값 추적 초기화
         recentFinalTripId = -1    // [#4116] 새 운행 시작 → 이전 마감 요금갱신 추적 종료(교차오염 방지)
@@ -629,10 +633,33 @@ class NaviIntentReceiver : AccessibilityService() {
         }.start()
     }
 
+    // [#4 실차율] 탑승 시각(boarded_at)만 즉시 서버에 기록 — 출발지 재설정(거리 조건)과 무관하게 실차 시작시각 확보.
+    private fun markBoardedAtNow(tripId: Int) {
+        Thread {
+            try {
+                val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                val userId = prefs.getString("user_id", null)
+                val json = JSONObject().apply {
+                    put("user_id", userId)
+                    put("boarded_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.format(java.util.Date()))
+                }
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 12000; readTimeout = 12000
+                }
+                conn.outputStream.write(json.toString().toByteArray()); conn.responseCode; conn.disconnect()
+                Log.d(TAG, "🕒 boarded_at 즉시기록: #$tripId")
+            } catch (e: Exception) {}
+        }.start()
+    }
+
     // [정확도] 실제 손님 탑승 순간 = 진짜 픽업 지점. 출발지(좌표+이름)를 여기로 1회 재설정.
     //   콜수락~탑승 사이 빈 이동이 출발지로 잘못 찍히던 문제(#4) 해결. 실차 궤적/배지의 출발동도 픽업 기준이 됨.
     private fun restampOriginAtBoarding() {
-        if (originRestamped || lastTripId <= 0) return
+        if (lastTripId <= 0) return
+        // [#4 실차율] 탑승 순간 boarded_at을 즉시 1회 전송 — 픽업이 코앞(<120m)이라 아래 출발지 재설정이 보류돼도
+        //   실차 시작시각은 반드시 남게(예전엔 120m 이동해야만 boarded_at이 나가 근접픽업은 실차=0으로 왜곡).
+        if (!boardedAtSent) { boardedAtSent = true; markBoardedAtNow(lastTripId) }
+        if (originRestamped) return
         val lat = LocationTrackingService.currentLat
         val lng = LocationTrackingService.currentLng
         if (lat == 0.0 && lng == 0.0) return   // GPS 아직 준비 안 됨 → 다음 프레임에 재시도(플래그 안 세움)
