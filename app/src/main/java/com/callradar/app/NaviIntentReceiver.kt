@@ -454,6 +454,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     && !allText.contains("밀어서 운행종료")
                     && !allText.contains("콜 대기") && !allText.contains("배차")
                     && !allText.contains("콜멈춤") && !allText.contains("수락")   // [#7 오탐] 가맹 콜노출/미수락(콜멈춤·수락 버튼) 화면은 트립 아님
+                    && !allText.contains("자동배차") && !allText.contains("목적지 부스터") && !allText.contains("자동노출")   // [#7-2] 가맹 자동배차 콜카드(목적지부스터/자동노출) 오탐 제외
             }
 
             if (!isActiveCallScreen) {
@@ -491,6 +492,7 @@ class NaviIntentReceiver : AccessibilityService() {
             if (lastTripId <= 0 || forceNewTripOnNextScan) {
                 tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
+                sendDebugLog("START_SCREEN", allText.take(220))   // [#7 진단] 트립 생성 트리거 화면 원문 — 가맹 콜멈춤 오탐 원인 추적(잡히면 제거)
                 createNewTripWithGps(curLat, curLng)
             } else {
                 // [v3.1x] 운행 중 플랫폼 전환 금지
