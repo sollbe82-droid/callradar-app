@@ -78,6 +78,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastTaxiPlatform = "카카오T"
     private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
     private var lastDetectedFare = 0  // 우버 금액 캐싱
+    private var lastUberWrittenFare = 0  // [우버0원수정] 요금 본 순간 서버에 쓴 값 추적(중복 PUT 방지)
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
     @Volatile private var carryBoardToNextTrip = false  // [R1] 유령트립 마감 후 이어진 새 트립에 탑승상태 이어주기
@@ -369,8 +370,10 @@ class NaviIntentReceiver : AccessibilityService() {
                 if (meterFare == 0) meterFare = extractFare(lines, pkg)  // 라벨 못 찾으면 폴백
                 if (meterFare > 0) {
                     lastDetectedFare = meterFare
+                    // [우버0원수정] 요금을 '본 순간' 서버 트립에 바로 기록 → 완료 감지가 어긋나도 요금 유실 안 됨.
+                    //   (finalize는 fare>0일 때만 덮으므로 이 값이 0으로 지워지지 않는다.)
+                    if (lastTripId > 0 && meterFare != lastUberWrittenFare) { lastUberWrittenFare = meterFare; updateTripFare(lastTripId, meterFare) }
                     Log.d(TAG, "💰 우버 미터요금 캐싱: ${meterFare}원")
-                    // 검증용: 화면 원문 동봉 (통행료 유무·배치 확인용)
                     sendDebugLog("FARE_CACHE", "우버 미터요금 | ${meterFare}원 | " + allText.take(100))
                 }
                 return  // 아직 완료 아님
@@ -395,7 +398,12 @@ class NaviIntentReceiver : AccessibilityService() {
                     allText.contains("결제 완료") || allText.contains("운행이 완료") ||
                     ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines, pkg) > 0) ||
                     ((allText.contains("콜 완료") || allText.contains("수금")) && extractFare(lines, pkg) > 0) ||
-                    (allText.contains("라이더") && allText.contains("평가해 주세요"))
+                    (allText.contains("라이더") && allText.contains("평가해 주세요")) ||
+                    // [우버 스톨 회복] 라이더평가 없이 idle 홈("온라인 상태입니다")으로 복귀 = 운행 끝났는데 종료 놓침.
+                    //   활성 트립화면 아니고, 60초+ 지난 트립만 → 짧은 오탐/장거리 오인 방지. 요금은 캐시/이미 기록된 값으로 마감.
+                    (allText.contains("온라인 상태입니다") && (allText.contains("마지막 운행") || allText.contains("수입 동향") || allText.contains("오늘 중"))
+                        && !allText.contains("미터 요금만 입력") && !allText.contains("승객 탑승") && !allText.contains("운행 시작")
+                        && System.currentTimeMillis() - tripStartedAt > 60000L)
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
                     // [티머니고] 완료화면이 결제방식별로 여러 버전 — 금액 미표시 → 마감만(ended_at). 금액은 카드알림이 채움.
                     //   ①카드결제기 결제 ②도착완료(미터기 지불 후) 두 변주 모두 잡는다.
@@ -525,6 +533,7 @@ class NaviIntentReceiver : AccessibilityService() {
         passengerBoarded = false  // 새 운행 시작 → 탑승 플래그 리셋
         if (carryBoardToNextTrip) { passengerBoarded = true; carryBoardToNextTrip = false }  // [R1] 유령 마감 후 이어진 새 트립은 이미 탑승상태 → 취소방지 유지
         originRestamped = false   // 새 운행 → 출발지 재설정 대기
+        lastUberWrittenFare = 0   // [우버0원수정] 새 트립 → 서버기록값 추적 초기화
         recentFinalTripId = -1    // [#4116] 새 운행 시작 → 이전 마감 요금갱신 추적 종료(교차오염 방지)
         ensureWorkStarted()       // [근무 자동출근] 자동기록만 써도 근무세션이 시작/재개되게
         originLat = lat
