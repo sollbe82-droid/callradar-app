@@ -53,6 +53,12 @@
 - **방이 바뀌어도 이 점검은 계속 돈다**(앱 닫혀 있으면 다음 실행 시 돎). 사라졌으면 다시 만들 것.
 - **Claude 능동성 원칙(대표 요청, 2026-08-10):** 콜레이더의 운영·엔지니어링 프로세스(커밋·버전관리·보안·모니터링·자동복구·문서화)는 Claude가 **시키기 전에 먼저** 세운다. 단 되돌릴 수 없는 조치(스토어 배포·삭제·송금)는 마지막에 대표 확인 1회.
 
+## ★ 릴리스 보관 (필수 · R8 난독화 이후)
+- **R8 난독화 켜짐**(`app/build.gradle.kts` release `isMinifyEnabled=true` + `app/proguard-rules.pro`). 릴리스 크래시 스택이 뭉개지므로 **버전마다 mapping.txt 보관 필수**(안 하면 크래시 로그 해독 불가).
+- 보관 위치: **`C:\CallRadar\_releases\vNN\`** — 여기에 `mapping-vNN-x.y.z.txt`(해독표) + APK + `README-vNN.txt`(내용/커밋)를 버전 태그로 복사해 둔다. (샌드박스 경로 `/sessions/.../mnt/CallRadar/_releases/`)
+- **다음 버전 빌드 절차:** versionCode 올리고(51→52+) 커밋 → `.bat`로 빌드(`assembleOnestoreRelease`) → BUILD SUCCESSFUL 확인 → **`app/build/outputs/mapping/onestoreRelease/mapping.txt`와 APK를 `_releases/vNN/`에 복사**.
+- **현재 최신: v51 / 2.5.1 (onestore, 난독화), 커밋 `dd57a5c`. `_releases/v51/`에 보관됨.** 원스토어 업로드 예정(2026-08-11). 내용: R1 유령트립회복·우버스톨/0원·성능팩(플로팅3초/로그경량/홈병렬/접근성딥링크)·R8난독화·지도필터(오늘/30k/50k+4단계색)·⑥궤적실차태깅·④boarded_at즉시·⑦가맹콜멈춤오탐제거·②③거리5m지터게이트·⑤플로팅숨김·①지도내위치중심. (다음 versionCode는 52+)
+
 ## ★ 서버 (배포)
 - **실제 배포 서버: `C:\CallRadar\server`** → GitHub `github.com/sollbe82-droid/callradar-server` → Render 자동배포(`callradar-server.onrender.com`). 수정·배포는 반드시 여기서.
 - `C:\CallRadarServer`(구폴더)는 **폐기됨** — 보지 말 것.

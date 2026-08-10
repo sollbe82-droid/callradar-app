@@ -17,3 +17,14 @@ _test/*.png
 _test/*.xml
 *.jks
 local.properties
+
+# [cleanup 2026-07-31] 빌드산출물·바이너리·node_modules 추적 제외
+node_modules/
+_manual/node_modules/
+*.mp4
+ffmpeg.exe
+release_backup/
+*.aab
+*.apk
+_test/*.jpg
+_releases/
