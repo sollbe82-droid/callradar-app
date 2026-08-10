@@ -75,6 +75,7 @@ class LocalTrackDatabase private constructor(context: Context) :
             Location.distanceBetween(a.lat, a.lng, b.lat, b.lng, d)
             val speed = d[0] / (dt / 1000f)              // m/s
             if (speed > 60f) continue                     // GPS 점프만 제외(거리 절대값 아닌 속도로)
+            if (d[0] < 5f) continue                        // [지터] 5m 미만 이동 = GPS 흔들림 → 거리 인플레(정차 중 700km 버그) 제외
             // 구간의 성격은 뒤 점(b)의 loaded로 판정
             if (b.loaded) { lm += d[0]; lMin += dt } else { em += d[0]; eMin += dt }
         }

@@ -89,6 +89,15 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
             loadMyHeatmap(km, userId, scope, mapFilter) { pts, _, msg -> pointCount = pts; status = msg }
         }
 
+        // [#1] 지도 열릴 때 내 위치로 중심 (GPS 준비되면 1회)
+        LaunchedEffect(mapRef) {
+            val km = mapRef ?: return@LaunchedEffect
+            kotlinx.coroutines.delay(600)
+            val la = com.callradar.app.LocationTrackingService.currentLat
+            val ln = com.callradar.app.LocationTrackingService.currentLng
+            if (la != 0.0 || ln != 0.0) km.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(com.kakao.vectormap.LatLng.from(la, ln), 14))
+        }
+
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -103,8 +112,13 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                                 mapRef = kakaoMap   // [궤적토글/지도필터] LaunchedEffect가 showTrack·mapFilter에 맞춰 그림
                             }
                             override fun getZoomLevel(): Int = 11
-                            override fun getPosition(): com.kakao.vectormap.LatLng =
-                                com.kakao.vectormap.LatLng.from(37.5665, 126.9780)
+                            override fun getPosition(): com.kakao.vectormap.LatLng {
+                                // [#1] 서울 하드코딩 대신 내 위치로 시작(없으면 서울 폴백)
+                                val la = com.callradar.app.LocationTrackingService.currentLat
+                                val ln = com.callradar.app.LocationTrackingService.currentLng
+                                return if (la != 0.0 || ln != 0.0) com.kakao.vectormap.LatLng.from(la, ln)
+                                       else com.kakao.vectormap.LatLng.from(37.5665, 126.9780)
+                            }
                         }
                     )
                     mapView
@@ -120,6 +134,21 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
                     .padding(horizontal = 13.dp, vertical = 7.dp)
             ) {
                 Text(when (mapFilter) { 1 -> "💰 30k↑"; 2 -> "💰 50k↑"; else -> "📍 오늘" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // [#1] 내 위치로 재중심 (우하단 · 네비앱처럼)
+            if (!authFailed)
+            Box(
+                Modifier.align(Alignment.BottomEnd).padding(12.dp)
+                    .background(Color(0xFF2563EB).copy(alpha = 0.92f), RoundedCornerShape(24.dp))
+                    .clickable {
+                        val la = com.callradar.app.LocationTrackingService.currentLat
+                        val ln = com.callradar.app.LocationTrackingService.currentLng
+                        if (la != 0.0 || ln != 0.0) mapRef?.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(com.kakao.vectormap.LatLng.from(la, ln), 15))
+                    }
+                    .padding(horizontal = 13.dp, vertical = 9.dp)
+            ) {
+                Text("📍 내 위치", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
             // [v44] 레이더 임베드에선 '내 운행 밀도' 범례를 숨겨 지도 뷰 가림 방지. 단 지도 인증 실패 경고는 유지.
@@ -223,7 +252,8 @@ private fun loadMyHeatmap(
                         layer.addLabel(com.kakao.vectormap.label.LabelOptions.from(pos).setStyles(style))
                         if (n > hottestN) { hottestN = n; hottest = pos }
                     }
-                    if (hottest != null) kakaoMap.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(hottest, 12))
+                    // [#1] 핫존 클러스터로 카메라 이동 제거 — 내 위치 중심 유지(필터 누를 때마다 공항 등으로 튀던 문제)
+                    if (hottest == null) { /* no-op */ }
                 }
                 val fname = when (filter) { 1 -> "30k↑ 장거리"; 2 -> "50k↑ 장거리"; else -> "오늘" }
                 onDone(pts, cells.size, if (pts == 0) "$fname · 표시할 운행 없음" else "$fname · ${pts}건 · ${cells.size}곳")

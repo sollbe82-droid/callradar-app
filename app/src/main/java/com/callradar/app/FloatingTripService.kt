@@ -167,14 +167,17 @@ class FloatingTripService : Service() {
         val d = toks.lastOrNull { it.endsWith("동") || it.endsWith("읍") || it.endsWith("면") || it.endsWith("가") || it.endsWith("리") }
         return d ?: toks.firstOrNull() ?: s.trim()
     }
+    private fun setFloatVisible(v: Boolean) { floatingView?.post { floatingView?.visibility = if (v) View.VISIBLE else View.GONE } }
     private fun updateAutoBadge() {
         // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
-        if (isRiding) return
+        if (isRiding) { setFloatVisible(true); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
         val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
         val armed = p.getBoolean("auto_record_on", false)
+        val floatingOn = p.getBoolean("floating_on", false)   // [#5] 수동 '운행 기록 버튼' 토글
         when {
-            active -> {   // 자동기록 운행 중 — 출발동→현재동
+            active -> {   // 자동기록 운행 중 — 켜든 끄든 항상 표시(기록되는 게 보이게)
+                setFloatVisible(true)
                 val o = dongOnly(p.getString("auto_origin_dong", "") ?: "")
                 val c = dongOnly(p.getString("auto_cur_dong", "") ?: "")
                 val body = when {
@@ -185,11 +188,14 @@ class FloatingTripService : Service() {
                 }
                 updateButtonSmall(body, "#EF4444"); startPulse()
             }
-            armed -> {    // 자동기록 켜짐·콜 대기 — 기록되는지 눈으로 확인되게 항상 표시
-                stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981")
+            floatingOn && armed -> {    // 운행 기록 버튼 ON + 자동 대기
+                setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981")
             }
-            else -> {     // 자동기록 꺼짐 = 수동 시작 버튼
-                stopPulse(); updateButton("시작", "#F59E0B")
+            floatingOn -> {             // 운행 기록 버튼만 ON = 수동 시작 버튼
+                setFloatVisible(true); stopPulse(); updateButton("시작", "#F59E0B")
+            }
+            else -> {                   // [#5] 운행 기록 버튼 OFF + 운행 아님 → 플로팅 숨김
+                stopPulse(); setFloatVisible(false)
             }
         }
     }

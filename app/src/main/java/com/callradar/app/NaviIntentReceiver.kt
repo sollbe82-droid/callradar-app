@@ -449,10 +449,11 @@ class NaviIntentReceiver : AccessibilityService() {
                     && !allText.contains("공지") && !allText.contains("미션")
                     && !allText.contains("Samsung") && !allText.contains("카카오톡")
                 // [v3.1 수정] "손님 탑승"/"손님탑승" 추가
-                else -> (allText.contains("길안내") && allText.contains("탑승"))
-                    || allText.contains("손님 탑승") || allText.contains("손님탑승")
+                else -> ((allText.contains("길안내") && allText.contains("탑승"))
+                    || allText.contains("손님 탑승") || allText.contains("손님탑승"))
                     && !allText.contains("밀어서 운행종료")
                     && !allText.contains("콜 대기") && !allText.contains("배차")
+                    && !allText.contains("콜멈춤") && !allText.contains("수락")   // [#7 오탐] 가맹 콜노출/미수락(콜멈춤·수락 버튼) 화면은 트립 아님
             }
 
             if (!isActiveCallScreen) {

@@ -29,6 +29,7 @@ class LocationTrackingService : Service() {
         var currentLat: Double = 0.0
         var currentLng: Double = 0.0
         var currentSpeed: Float = 0f
+        var currentBearing: Float = 0f  // [지도 화살표] 진행 방향(있을 때만 갱신)
         var isMoving: Boolean = false
         var lastLocationTime: Long = 0L  // 마지막 위치 업데이트 시간
     }
@@ -92,6 +93,7 @@ class LocationTrackingService : Service() {
         currentLat = location.latitude
         currentLng = location.longitude
         currentSpeed = location.speed * 3.6f
+        if (location.hasBearing()) currentBearing = location.bearing  // [지도 화살표] 방향
         lastLocationTime = System.currentTimeMillis()  // 타임스탬프 갱신
         isMoving = currentSpeed > IDLE_SPEED_KMH
 
