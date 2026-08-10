@@ -401,8 +401,8 @@ class NaviIntentReceiver : AccessibilityService() {
                     (allText.contains("라이더") && allText.contains("평가해 주세요")) ||
                     // [우버 스톨 회복] 라이더평가 없이 idle 홈("온라인 상태입니다")으로 복귀 = 운행 끝났는데 종료 놓침.
                     //   활성 트립화면 아니고, 60초+ 지난 트립만 → 짧은 오탐/장거리 오인 방지. 요금은 캐시/이미 기록된 값으로 마감.
-                    (allText.contains("온라인 상태입니다") && (allText.contains("마지막 운행") || allText.contains("수입 동향") || allText.contains("오늘 중"))
-                        && !allText.contains("미터 요금만 입력") && !allText.contains("승객 탑승") && !allText.contains("운행 시작")
+                    (allText.contains("온라인 상태입니다") && allText.contains("안전 도구 키트") && (allText.contains("마지막 운행") || allText.contains("수입 동향") || allText.contains("오늘 중"))
+                        && !allText.contains("미터 요금만 입력") && !allText.contains("승객 탑승") && !allText.contains("운행 시작") && !allText.contains("요금 입력하기")
                         && System.currentTimeMillis() - tripStartedAt > 60000L)
                 TMONEYGO, TMONEYGO_NAVI -> allText.contains("자동결제 완료") ||
                     // [티머니고] 완료화면이 결제방식별로 여러 버전 — 금액 미표시 → 마감만(ended_at). 금액은 카드알림이 채움.
