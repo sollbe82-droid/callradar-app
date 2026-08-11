@@ -729,27 +729,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                 }
             }
-            1 -> {
-                // [v54 4-c] 월급 탭 흡수 — 월별 상단에 실수령 요약카드(홈 캐시값), 아래 달력.
-                val mprefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
-                val cachedTake = mprefs.getInt("cached_takehome", 0)
-                val cachedMonth = mprefs.getInt("cached_takehome_month", 0)
-                val cachedCorp = mprefs.getBoolean("cached_is_corporate", false)
-                Column(modifier = Modifier.fillMaxSize()) {
-                    if (cachedTake != 0) {
-                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("💰 ${cachedMonth}월 " + (if (cachedCorp) "예상 실수령(월급)" else "예상 순수익"), fontSize = 12.sp, color = muted)
-                                    Text(String.format("%,d", cachedTake) + "원", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent)
-                                }
-                                TextButton(onClick = { onOpenSettings() }) { Text("명세서 입력", color = accent, fontSize = 13.sp) }
-                            }
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) { CalendarView(userId = userId) }
-                }
-            }
+            1 -> CalendarView(userId = userId)   // [v54] 월별 = 정산+달력. 실수령은 홈에만(중복 제거).
             2 -> {
                 // 지출 탭
                 val businessTotal = expenses.filter { it.expenseType == "business" }.sumOf { it.amount }
