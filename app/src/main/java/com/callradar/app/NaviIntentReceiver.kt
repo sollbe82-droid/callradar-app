@@ -70,6 +70,8 @@ class NaviIntentReceiver : AccessibilityService() {
         // [궤적 실차/공차] 자동기록 트립에서 손님 탑승 상태. WorkSessionService가 읽어 GPS점을 실차(true)/공차로 태깅.
         //   activeTripId>0 && autoBoarded=true 인 구간만 실차. (드라이브 투 픽업·트립간 이동은 공차)
         @Volatile var autoBoarded: Boolean = false
+        // [v53 #124] 플로팅 배지에서 수동 취소를 걸 수 있도록 서비스 인스턴스 참조.
+        @Volatile var instance: NaviIntentReceiver? = null
     }
 
     private var lastPlatform = "알수없음"
@@ -169,6 +171,7 @@ class NaviIntentReceiver : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        instance = this   // [v53 #124] 플로팅 수동취소용 인스턴스 등록
         serviceInfo = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
@@ -388,6 +391,19 @@ class NaviIntentReceiver : AccessibilityService() {
                     sendDebugLog("FARE_FIX", "#$tid | ${finFare}원 (수정결제)")
                     updateTripFare(tid, finFare)
                 }
+                // [v53 #124] 우버 0원 복구 — 완료를 홈 복귀로 늦게 잡아 미터화면을 놓친 트립을 홈의 '마지막 운행 ₩X'로 보정.
+                if (pkg == UBER && recentFinalFare == 0) {
+                    val idx = lines.indexOfFirst { it.contains("마지막 운행") }
+                    if (idx > 0) {
+                        val cand = Regex("([0-9,]{3,})").find(lines[idx - 1].replace("₩", "").trim())
+                            ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+                        if (cand in 1000..500000) {
+                            val tid = recentFinalTripId; recentFinalFare = cand
+                            sendDebugLog("FARE_FIX", "#$tid | ${cand}원 (우버 마지막운행 복구)")
+                            updateTripFare(tid, cand)
+                        }
+                    }
+                }
             }
 
             // 완료/결제 신호
@@ -531,6 +547,7 @@ class NaviIntentReceiver : AccessibilityService() {
         tripStartedAt = System.currentTimeMillis()
         passengerBoarded = false; autoBoarded = false; boardedAtSent = false  // 새 운행 시작 → 탑승 플래그 리셋(공차부터)
         if (carryBoardToNextTrip) { passengerBoarded = true; autoBoarded = true; carryBoardToNextTrip = false }  // [R1] 유령 마감 후 이어진 새 트립은 이미 탑승상태 → 취소방지 유지
+        if (lastPlatform == UBER) { passengerBoarded = true; autoBoarded = true }  // [v53 #124] 우버는 배차=이미 운행(픽업신호 없음) → 즉시 실차 태깅(회색 궤적/실차거리 누락 방지)
         originRestamped = false   // 새 운행 → 출발지 재설정 대기
         lastUberWrittenFare = 0   // [우버0원수정] 새 트립 → 서버기록값 추적 초기화
         recentFinalTripId = -1    // [#4116] 새 운행 시작 → 이전 마감 요금갱신 추적 종료(교차오염 방지)
@@ -576,6 +593,7 @@ class NaviIntentReceiver : AccessibilityService() {
                         db.markSynced(localId, lastTripId)
                         Log.d(TAG, "🚕 새 트립: #$lastTripId | $oName | $lastPlatform")
                         sendDebugLog("TRIP_START", "#$lastTripId | $lastPlatform | 출발 $oName")
+                        if (lastPlatform == UBER && !boardedAtSent) { boardedAtSent = true; markBoardedAtNow(lastTripId) }  // [v53 #124] 우버 실차 시작시각 즉시 기록(실차율 정확도)
                     }
                     conn.disconnect()
                 } catch (e: Exception) {
@@ -757,6 +775,13 @@ class NaviIntentReceiver : AccessibilityService() {
     // [자동기록 배지] 트립 종료/취소 시 배지용 동 prefs 정리 → 플로팅이 '시작'으로 복귀.
     private fun clearAutoBadgePrefs() {
         try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("auto_origin_dong").remove("auto_cur_dong").apply() } catch (e: Exception) {}
+    }
+
+    // [v53 #124] 플로팅 배지에서 기사가 직접 거는 수동 취소 — 가맹 자동취소 놓침·유령콜 안전망.
+    fun cancelActiveTripManually() {
+        if (lastTripId <= 0) return
+        sendDebugLog("CANCEL_MANUAL", "#$lastTripId | $lastPlatform | 배지 수동취소")
+        deleteCurrentTrip()
     }
 
     // 취소 시 트립 삭제 (0원 유령기록 방지)

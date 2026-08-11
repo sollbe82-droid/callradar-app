@@ -39,6 +39,10 @@ class FloatingTripService : Service() {
     private val SERVER_URL = "https://callradar-server.onrender.com"
     private lateinit var windowManager: WindowManager
     private var floatingView: TextView? = null
+    // [v53 #124] 자동 운행 수동취소 — 배지 길게누름으로 '취소?' 무장 → 탭하면 취소.
+    private var autoCancelArmed = false
+    private val autoCancelHandler = android.os.Handler(Looper.getMainLooper())
+    private var autoCancelRun: Runnable? = null
     private lateinit var fusedClient: FusedLocationProviderClient
 
     // 운행 상태
@@ -125,7 +129,9 @@ class FloatingTripService : Service() {
                     initX = params.x; initY = params.y
                     touchX = event.rawX; touchY = event.rawY; moved = false
                     longPressed = false
-                    // [v26] 길게누름 공유 제거 — 종료 탭이 공유로 오인되던 문제 원천 차단. 버튼은 시작/종료 전용. (공유는 별도 방법)
+                    // [v53 #124] 자동 운행 중 길게누름 → 수동취소 무장(가맹 자동취소 놓침·유령콜 안전망). 그 외엔 무동작.
+                    lpRun = Runnable { if (!moved) { longPressed = true; armAutoCancel() } }
+                    lpHandler.postDelayed(lpRun!!, 700)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -168,7 +174,25 @@ class FloatingTripService : Service() {
         return d ?: toks.firstOrNull() ?: s.trim()
     }
     private fun setFloatVisible(v: Boolean) { floatingView?.post { floatingView?.visibility = if (v) View.VISIBLE else View.GONE } }
+    // [v53 #124] 자동 운행 수동취소 무장: 배지를 빨간 '취소?'로 바꾸고 4초 안에 탭하면 취소.
+    private fun armAutoCancel() {
+        if (com.callradar.app.NaviIntentReceiver.activeTripId <= 0) { toast("취소할 자동 운행이 없어요"); return }
+        autoCancelArmed = true
+        floatingView?.post {
+            floatingView?.textSize = 12f
+            floatingView?.setTextColor(Color.WHITE)
+            floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
+            floatingView?.text = "취소?\n탭"
+            floatingView?.background = ovalBg("#DC2626")
+        }
+        toast("이 운행을 취소하려면 배지를 한 번 더 탭하세요")
+        autoCancelRun?.let { autoCancelHandler.removeCallbacks(it) }
+        autoCancelRun = Runnable { autoCancelArmed = false; try { updateAutoBadge() } catch (e: Exception) {} }
+        autoCancelHandler.postDelayed(autoCancelRun!!, 4000)
+    }
+
     private fun updateAutoBadge() {
+        if (autoCancelArmed) return   // [v53 #124] 취소 무장중엔 배지 갱신 보류(빨간 '취소?' 유지)
         // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
         if (isRiding) { setFloatVisible(true); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
@@ -285,6 +309,15 @@ class FloatingTripService : Service() {
 
     // 버튼 탭: 탑승 → 완료(취소대기 3초) → 확정
     private fun onButtonTap() {
+        // [v53 #124] 자동 운행 수동취소 무장 상태에서 탭 → 취소 실행.
+        if (autoCancelArmed) {
+            autoCancelArmed = false
+            autoCancelRun?.let { autoCancelHandler.removeCallbacks(it) }
+            com.callradar.app.NaviIntentReceiver.instance?.cancelActiveTripManually()
+            toast("자동 운행 기록을 취소했어요")
+            try { updateAutoBadge() } catch (e: Exception) {}
+            return
+        }
         // [안전장치 3] 취소 대기중 다시 누르면 → 취소
         if (pendingConfirm) {
             pendingConfirm = false
