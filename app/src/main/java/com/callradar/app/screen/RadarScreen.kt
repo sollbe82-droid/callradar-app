@@ -232,14 +232,10 @@ fun RadarScreen(userId: String) {
                     val a = JSONObject(s).optJSONArray("rows")
                     return (0 until (a?.length() ?: 0)).map { val o = a!!.getJSONObject(it); Triple(o.optString("dest"), o.optDouble("median_wait_min", 0.0), o.optInt("samples")) }.filter { it.first.isNotBlank() }
                 }
-                // [v54] 내 기록 + 전체 기사 종합 — 개인이 얇아도 전체로 풍부하게. 중복 목적지는 내 기록 우선, 나머지는 전체로 보강.
-                val mine = parseDr(rget("/api/radar/dest-risk?user_id=$userId"))
-                val all = parseDr(rget("/api/radar/dest-risk"))
-                val merged = LinkedHashMap<String, Triple<String, Double, Int>>()
-                for (r in mine) merged[r.first] = r
-                for (r in all) if (!merged.containsKey(r.first)) merged[r.first] = r
-                val rows = merged.values.sortedBy { it.second }.take(6)   // 다음 콜까지 대기 짧은 순
-                val basis = when { mine.isEmpty() -> "all"; all.size > mine.size -> "mix"; else -> "me" }
+                // 내 기록 우선. 얇으면(2곳 미만) 전체 기사로 폴백. (전체 호출은 실패해도 내 기록 유지되게 개별 try)
+                var rows = parseDr(rget("/api/radar/dest-risk?user_id=$userId"))
+                var basis = "me"
+                if (rows.size < 2) { rows = try { parseDr(rget("/api/radar/dest-risk")) } catch (e: Exception) { emptyList() }; basis = "all" }
                 destRisk = rows; destBasis = if (rows.isEmpty()) "" else basis
             } catch (ex: Exception) {}
         }
