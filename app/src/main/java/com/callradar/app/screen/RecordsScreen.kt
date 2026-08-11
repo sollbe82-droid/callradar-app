@@ -734,6 +734,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 // 지출 탭
                 val businessTotal = expenses.filter { it.expenseType == "business" }.sumOf { it.amount }
                 val personalTotal = expenses.filter { it.expenseType == "personal" }.sumOf { it.amount }
+                // [v53 4-b] LPG 총 리터·회사 할인(리터당) 요약 — 도급·법인 기사용. 할인단가는 지출추가 창에서 저장한 값 사용.
+                val lpgLiters = expenses.filter { it.category == "LPG" }.sumOf { it.liters }
+                val lpgDiscountPerL = expensePrefs.getInt("lpg_discount", 0)
+                val companyDiscount = (lpgLiters * lpgDiscountPerL).toInt()
                 if (businessTotal > 0 || personalTotal > 0) {
                     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -741,6 +745,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                             if (personalTotal > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("개인지출", fontSize = 13.sp, color = muted); Text("-${String.format("%,d", personalTotal)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316)) } }
                             HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 지출", fontSize = 13.sp, color = AppTheme.text); Text("-${String.format("%,d", businessTotal + personalTotal)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red) }
+                            if (lpgLiters > 0) {
+                                HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("⛽ LPG 총 리터", fontSize = 13.sp, color = muted); Text("${String.format("%.1f", lpgLiters)}L", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent) }
+                                if (companyDiscount > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("회사 할인 (리터당 ${lpgDiscountPerL}원)", fontSize = 12.sp, color = muted); Text("-${String.format("%,d", companyDiscount)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green) } }
+                            }
                         }
                     }
                 }
@@ -919,11 +928,11 @@ private fun CalendarView(userId: String) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0 until 7) {
                         val cellIndex = row * 7 + col; val day = cellIndex - firstDayOfWeek + 1
-                        if (day < 1 || day > daysInMonth) { Box(modifier = Modifier.weight(1f).aspectRatio(0.8f)) }
+                        if (day < 1 || day > daysInMonth) { Box(modifier = Modifier.weight(1f).aspectRatio(0.72f)) }
                         else {
                             val dateStr = "$yearMonth-${day.toString().padStart(2, '0')}"; val dayData = dailyMap[dateStr]; val isSelected = selectedDate == dateStr; val isToday = dateStr == today
                             val hasData = dayData != null && (dayData.totalFare > 0 || dayData.expense > 0)
-                            Box(modifier = Modifier.weight(1f).aspectRatio(0.8f).padding(1.dp).background(if (isSelected) accent else if (hasData) AppTheme.surface2 else Color.Transparent, RoundedCornerShape(6.dp)).border(0.7.dp, AppTheme.surface2, RoundedCornerShape(6.dp)).clickable { selectedDate = dateStr; loadDayTrips(dateStr) }, contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.weight(1f).aspectRatio(0.72f).padding(1.dp).background(if (isSelected) accent else if (hasData) AppTheme.surface2 else Color.Transparent, RoundedCornerShape(6.dp)).border(0.7.dp, AppTheme.surface2, RoundedCornerShape(6.dp)).clickable { selectedDate = dateStr; loadDayTrips(dateStr) }, contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("$day", fontSize = 10.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else AppTheme.text)
                                     if (dayData != null && dayData.totalFare > 0) { Text("${dayData.totalFare / 10000}만", fontSize = 12.sp, color = if (isSelected) Color.Black else green, fontWeight = FontWeight.Bold, maxLines = 1) }
