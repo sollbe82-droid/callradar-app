@@ -298,7 +298,7 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             Text("표에서 날짜(일)·수입·지출을 확인·수정하세요. 위의 연·월이 이 표의 기준이에요.", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text("${month}월 일", fontSize = 12.sp, color = muted, modifier = Modifier.width(56.dp))
-                Text("수입", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
+                if (importMode != "expense") Text("수입", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))   // [v53] 지출 컨텍스트에선 수입칸 숨김
                 Text("지출", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(32.dp))
             }
@@ -310,10 +310,12 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                             modifier = Modifier.width(56.dp), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = AppTheme.text),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                         Spacer(Modifier.width(6.dp))
+                        if (importMode != "expense") {   // [v53] 지출 컨텍스트에선 수입 입력칸 숨김
                         OutlinedTextField(value = r.income, onValueChange = { v -> rows = rows.toMutableList().also { it[idx] = r.copy(income = v.filter { c -> c.isDigit() }) } },
                             modifier = Modifier.weight(1f), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = green),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                         Spacer(Modifier.width(6.dp))
+                        }
                         OutlinedTextField(value = r.expense, onValueChange = { v -> rows = rows.toMutableList().also { it[idx] = r.copy(expense = v.filter { c -> c.isDigit() }) } },
                             modifier = Modifier.weight(1f), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = red),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))

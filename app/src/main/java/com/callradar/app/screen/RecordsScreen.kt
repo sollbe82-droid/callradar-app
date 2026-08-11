@@ -159,7 +159,7 @@ private fun shareDayRecordsImage(context: android.content.Context, dateLabel: St
 
 data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "", val rawDate: String = "", val tip: Int = 0, val promo: Int = 0, val promoType: String = "")
 data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int, val cardFare: Int = 0, val cashFare: Int = 0, val expense: Int = 0)
-data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String)
+data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String, val liters: Double = 0.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -508,7 +508,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     val obj = arr.getJSONObject(i)
                     val rawTime = obj.optString("created_at", "")
                     val formattedDate = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("MM/dd (E)", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
-                    list.add(ExpenseRecord(obj.optInt("id", 0), obj.optString("category", ""), obj.optInt("amount", 0), obj.optString("expense_type", "business"), obj.optString("memo", ""), formattedDate))
+                    list.add(ExpenseRecord(obj.optInt("id", 0), obj.optString("category", ""), obj.optInt("amount", 0), obj.optString("expense_type", "business"), obj.optString("memo", ""), formattedDate, obj.optDouble("liters", 0.0)))
                 }
                 expenses = list
             } catch (e: Exception) { }
@@ -557,7 +557,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     val netPrice = ((lpgPrice.toIntOrNull() ?: 0) - (lpgDiscount.toIntOrNull() ?: 0)).coerceAtLeast(0)
                     val calcAmt = ((expenseLiters.toDoubleOrNull() ?: 0.0) * netPrice).toInt()
                     val discTotal = ((expenseLiters.toDoubleOrNull() ?: 0.0) * (lpgDiscount.toIntOrNull() ?: 0)).toInt()
-                    Text("금액: ${String.format("%,d", calcAmt)}원" + if (discTotal > 0) "  (할인 -${String.format("%,d", discTotal)}원)" else "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green, modifier = Modifier.padding(vertical = 2.dp))
+                    // [v53] 고정 높이·단일 줄 — 금액이 바뀔 때마다 레이아웃 높이가 변해 다이얼로그가 흔들리던 것 방지.
+                    Box(modifier = Modifier.fillMaxWidth().height(30.dp), contentAlignment = Alignment.CenterStart) {
+                        Text("금액: ${String.format("%,d", calcAmt)}원" + if (discTotal > 0) "  (할인 -${String.format("%,d", discTotal)}원)" else "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = green, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    }
                 } else {
                     OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) { listOf(5000, 10000, 30000, 50000, 100000).forEach { amount -> OutlinedButton(onClick = { expenseAmount = amount.toString() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text(if (amount >= 10000) "${amount/10000}만" else "${amount/1000}천", fontSize = 11.sp) } } }
@@ -635,7 +638,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "달력", "지출", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "월별", "지출", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
@@ -752,6 +755,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(when(exp.category) { "LPG" -> "⛽"; "식비" -> "🍚"; "세차" -> "🚿"; "주차" -> "🅿️"; else -> "📝" }, fontSize = 16.sp)
                                             Text(exp.category, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                            if (exp.liters > 0) Text("${String.format("%.1f", exp.liters)}L", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)   // [v53] 리터 표시(도급·법인 기사)
                                             Card(colors = CardDefaults.cardColors(containerColor = if (exp.expenseType == "business") Color(0xFF7F1D1D) else Color(0xFF78350F)), shape = RoundedCornerShape(4.dp)) { Text(if (exp.expenseType == "business") "사업" else "개인", fontSize = 9.sp, color = AppTheme.text, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) }
                                         }
                                         Text("${exp.date}${if (exp.memo.isNotEmpty()) " · ${exp.memo}" else ""}", fontSize = 11.sp, color = muted)
@@ -921,9 +925,9 @@ private fun CalendarView(userId: String) {
                             val hasData = dayData != null && (dayData.totalFare > 0 || dayData.expense > 0)
                             Box(modifier = Modifier.weight(1f).aspectRatio(0.8f).padding(1.dp).background(if (isSelected) accent else if (hasData) AppTheme.surface2 else Color.Transparent, RoundedCornerShape(6.dp)).border(0.7.dp, AppTheme.surface2, RoundedCornerShape(6.dp)).clickable { selectedDate = dateStr; loadDayTrips(dateStr) }, contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$day", fontSize = 12.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else AppTheme.text)
-                                    if (dayData != null && dayData.totalFare > 0) { Text("${dayData.totalFare / 10000}만", fontSize = 9.sp, color = if (isSelected) Color.Black else green, fontWeight = FontWeight.Bold) }
-                                    if (dayData != null && dayData.expense > 0) { Text("-${dayData.expense / 10000}만", fontSize = 8.sp, color = if (isSelected) Color(0xFF7F1D1D) else red, fontWeight = FontWeight.Medium) }
+                                    Text("$day", fontSize = 10.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.Black else if (isToday) accent else if (col == 0) Color(0xFFEF4444) else AppTheme.text)
+                                    if (dayData != null && dayData.totalFare > 0) { Text("${dayData.totalFare / 10000}만", fontSize = 12.sp, color = if (isSelected) Color.Black else green, fontWeight = FontWeight.Bold, maxLines = 1) }
+                                    if (dayData != null && dayData.expense > 0) { Text("-${dayData.expense / 10000}만", fontSize = 11.sp, color = if (isSelected) Color(0xFF7F1D1D) else red, fontWeight = FontWeight.Bold, maxLines = 1) }
                                 }
                             }
                         }
