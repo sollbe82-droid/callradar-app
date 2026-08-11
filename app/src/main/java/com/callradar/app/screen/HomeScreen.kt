@@ -735,6 +735,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             if (com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)) run {
                 var autoRec by remember(refreshKey) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
                 var showAutoSetup by remember { mutableStateOf(false) }
+                // [v53 #103/#124] 업데이트 후 삼성 '제한된 설정'으로 접근성이 꺼진 경우 자동 감지 → 설정 안내 자동 표시.
+                LaunchedEffect(refreshKey) {
+                    val accNow = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
+                    if (autoRec && !accNow) showAutoSetup = true
+                }
                 Card(colors = CardDefaults.cardColors(containerColor = if (autoRec) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -1342,6 +1347,19 @@ fun AutoRecordSetupDialog(context: Context, onDone: () -> Unit) {
                             .putExtra(":settings:show_fragment_args", b)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } catch (e: Exception) { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                }
+                // [v53 #103/#124] 삼성 '제한된 설정' — 원스토어/사이드로드 앱은 업데이트 후 접근성이 막혀 안 켜짐.
+                //   앱 정보 ⋮ → '제한된 설정 허용'을 먼저 눌러야 ①접근성 스위치가 켜진다. (접근성 꺼져있을 때만 안내)
+                if (android.os.Build.MANUFACTURER.contains("samsung", true) && !accOn) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text("🔒", fontSize = 18.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("①-1 접근성이 안 켜지면: '제한된 설정 허용'", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE24B4A))
+                            Text("앱 정보 우측 상단 ⋮ → '제한된 설정 허용' 누른 뒤 ①접근성을 켜세요 (삼성 업데이트 후 필수)", fontSize = 11.sp, color = Color.Gray)
+                        }
+                        TextButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) }) { Text("앱정보 열기") }
+                    }
                 }
                 AutoSetupRow("② 화면 위 표시", "플로팅 배지·버튼", overlayOn) { open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri)) }
                 AutoSetupRow("③ 위치 (항상 허용)", "GPS 운행 자동기록", locOn) { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) }
