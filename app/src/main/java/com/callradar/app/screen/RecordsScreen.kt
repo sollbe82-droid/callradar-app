@@ -638,7 +638,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
         Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "월별", "지출", "월급").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "월별", "지출").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입
                 TextButton(onClick = { com.callradar.app.ImageImportActivity.start(ctx) }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📥 가져오기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
@@ -729,7 +729,27 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                 }
             }
-            1 -> CalendarView(userId = userId)
+            1 -> {
+                // [v54 4-c] 월급 탭 흡수 — 월별 상단에 실수령 요약카드(홈 캐시값), 아래 달력.
+                val mprefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
+                val cachedTake = mprefs.getInt("cached_takehome", 0)
+                val cachedMonth = mprefs.getInt("cached_takehome_month", 0)
+                val cachedCorp = mprefs.getBoolean("cached_is_corporate", false)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (cachedTake != 0) {
+                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("💰 ${cachedMonth}월 " + (if (cachedCorp) "예상 실수령(월급)" else "예상 순수익"), fontSize = 12.sp, color = muted)
+                                    Text(String.format("%,d", cachedTake) + "원", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = accent)
+                                }
+                                TextButton(onClick = { onOpenSettings() }) { Text("명세서 입력", color = accent, fontSize = 13.sp) }
+                            }
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f)) { CalendarView(userId = userId) }
+                }
+            }
             2 -> {
                 // 지출 탭
                 val businessTotal = expenses.filter { it.expenseType == "business" }.sumOf { it.amount }
@@ -778,42 +798,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                 }
             }
-            3 -> {
-                // [v21 재설계] 월급 · 정산 탭 — 홈에서 계산된 실수령을 동일하게 표시(캐시)
-                val mprefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
-                val cachedTake = mprefs.getInt("cached_takehome", 0)
-                val cachedNet = mprefs.getInt("cached_net_income", 0)
-                val cachedFare = mprefs.getInt("cached_month_fare", 0)
-                val cachedMonth = mprefs.getInt("cached_takehome_month", 0)
-                val cachedCorp = mprefs.getBoolean("cached_is_corporate", false)
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    Text("💰 월급 · 정산", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                    Spacer(Modifier.height(10.dp))
-                    if (cachedTake != 0 || cachedFare != 0) {
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("${cachedMonth}월 " + (if (cachedCorp) "예상 실수령(월급)" else "예상 순수익"), fontSize = 13.sp, color = muted)
-                                Text(String.format("%,d", cachedTake) + "원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = accent)
-                                HorizontalDivider(color = AppTheme.surface2)
-                                Text("월 매출: " + String.format("%,d", cachedFare) + "원", fontSize = 13.sp, color = AppTheme.text)
-                                if (cachedCorp) Text("사납금·가스·지출 차감 후: " + String.format("%,d", cachedNet) + "원", fontSize = 13.sp, color = AppTheme.text)
-                                Text("사납금·4대보험·조합비·기타공제가 모두 반영된 값입니다(홈과 동일).", fontSize = 11.sp, color = muted)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                    }
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(12.dp)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (cachedTake == 0 && cachedFare == 0) Text("홈 화면을 한 번 열면 이번 달 실수령이 여기 표시됩니다.", fontSize = 13.sp, color = AppTheme.text)
-                            Text("회사마다 명세서가 다르니, 명세서 사진/수동으로 공제(사납금·4대보험·조합비 등)를 입력하면 실수령이 정확해져요.", fontSize = 12.sp, color = muted)
-                            Button(onClick = { onOpenSettings() }, modifier = Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp)) {
-                                Text("📋 회사 명세서 입력 · 역산 열기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            }
-                            Text("• 이번 달 매출·카드·현금·지출 상세: '달력' 탭", fontSize = 13.sp, color = accent)
-                        }
-                    }
-                }
-            }
+            // [v54 4-c] 월급 탭 제거 — 실수령 요약은 월별(index 1) 상단 카드로 이동, 상세 입력은 명세서 버튼.
         }
     }
 }
