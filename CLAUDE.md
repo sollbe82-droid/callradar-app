@@ -57,8 +57,9 @@
 - **R8 난독화 켜짐**(`app/build.gradle.kts` release `isMinifyEnabled=true` + `app/proguard-rules.pro`). 릴리스 크래시 스택이 뭉개지므로 **버전마다 mapping.txt 보관 필수**(안 하면 크래시 로그 해독 불가).
 - 보관 위치: **`C:\CallRadar\_releases\vNN\`** — 여기에 `mapping-vNN-x.y.z.txt`(해독표) + APK + `README-vNN.txt`(내용/커밋)를 버전 태그로 복사해 둔다. (샌드박스 경로 `/sessions/.../mnt/CallRadar/_releases/`)
 - **다음 버전 빌드 절차:** versionCode 올리고(51→52+) 커밋 → `.bat`로 빌드(`assembleOnestoreRelease`) → BUILD SUCCESSFUL 확인 → **`app/build/outputs/mapping/onestoreRelease/mapping.txt`와 APK를 `_releases/vNN/`에 복사**.
-- **현재 최신: v52 / 2.5.2 (onestore, 난독화). `_releases/v52/`에 보관됨.** v51 심사 중 101(가맹) 콜멈춤 오탐 제보로 **심사 취소 후 v52 재업로드**(2026-08-11). v52 = v51 전체 + #7-2 가맹 자동배차 콜카드 오탐 강화("자동배차/목적지 부스터/자동노출" 제외) + START_SCREEN 진단로그(트립생성 트리거 화면 원문, 원인 잡히면 제거). v51 내용: R1 유령트립회복·우버스톨/0원·성능팩·R8난독화·지도필터(오늘/30k/50k+4단계색)·⑥궤적실차·④boarded_at즉시·⑦콜멈춤오탐·②③거리5m지터·⑤플로팅숨김·①지도내위치중심. (다음 versionCode는 53+)
-- **★ START_SCREEN 진단로그는 임시**: 가맹 콜멈춤 오탐 원인(트리거 화면 문구) 잡히면 제거할 것. TRIP_START마다 화면원문 220자 찍음.
+- **현재 작업중: v53 / 2.5.3 (onestore, 난독화). 미업로드 — 4-c 탭리뉴얼 결정 대기.** 로컬 커밋 완료(단계별): 1abb0d1(주소GPS화·우버유령콜제거·진단로그제거), adfc7b5(우버실차태그·0원복구·수동취소), d0ff8eb(삼성 제한된설정 접근성안내), 55ae3d1(달력→월별·셀글자·지출흔들림·리터표시·가져오기수입칸숨김), 83a3a3c(지출요약 총리터/회사할인·셀높이). **서버 배포완료(b3a7227)**: import 0건버그·gas_liters·big_events(대형행사) 테이블+관리자등록+레이더조회 라이브. 본폰(삼성 R5KL/S26U) 설치·검증 통과.
+- **v53 남은 것**: 4-c 탭 구조 리뉴얼(내역+달력→월별 드릴다운, 월급→요약카드, 공항→레이더 모드칩+지오펜스) — 제일 큰 개편, 미착수. 보류: 가져오기 리터OCR+체크박스, 미터기 소스삭제(이미 CORE_ONLY로 숨김+MediaProjection v30제거라 위험대비이득0 → 삭제 비권장), 가맹 자동취소감지(화면샘플 필요). **업로드 전: mapping.txt+APK를 `_releases/v53/`에 보관 + START_SCREEN 진단로그는 이미 제거함.**
+- v52 = v51 전체 + #7-2 가맹 자동배차 콜카드 오탐강화 + START_SCREEN 진단로그. v51: R1 유령트립회복·우버스톨/0원·성능팩·R8난독화·지도필터·⑥궤적실차·④boarded_at·⑦콜멈춤오탐·②③거리지터·⑤플로팅숨김·①지도내위치. (다음 versionCode는 54+)
 
 ## ★ 서버 (배포)
 - **실제 배포 서버: `C:\CallRadar\server`** → GitHub `github.com/sollbe82-droid/callradar-server` → Render 자동배포(`callradar-server.onrender.com`). 수정·배포는 반드시 여기서.
