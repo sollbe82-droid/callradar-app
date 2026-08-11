@@ -98,6 +98,29 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
             if (la != 0.0 || ln != 0.0) km.moveCamera(com.kakao.vectormap.camera.CameraUpdateFactory.newCenterPosition(com.kakao.vectormap.LatLng.from(la, ln), 14))
         }
 
+        // [v54 ④] 내 위치 마커 — 파란 점을 현재 GPS에 찍고 2초마다 따라 이동(네비처럼). 핫존 필터가 레이어를 비우면 다음 틱에 재생성.
+        LaunchedEffect(mapRef) {
+            val km = mapRef ?: return@LaunchedEffect
+            val mgr = km.labelManager ?: return@LaunchedEffect
+            val layer = mgr.layer ?: return@LaunchedEffect
+            val density = km.mapDpScale.coerceAtLeast(1f)
+            val myStyle = mgr.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFF2563EB.toInt(), 22, density))))
+            var myLoc: com.kakao.vectormap.label.Label? = null
+            while (true) {
+                val la = com.callradar.app.LocationTrackingService.currentLat
+                val ln = com.callradar.app.LocationTrackingService.currentLng
+                if (la != 0.0 || ln != 0.0) {
+                    val pos = com.kakao.vectormap.LatLng.from(la, ln)
+                    try {
+                        val lbl = myLoc
+                        if (lbl == null) myLoc = layer.addLabel(com.kakao.vectormap.label.LabelOptions.from(pos).setStyles(myStyle))
+                        else lbl.moveTo(pos)
+                    } catch (e: Exception) { myLoc = null }
+                }
+                kotlinx.coroutines.delay(2000)
+            }
+        }
+
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
