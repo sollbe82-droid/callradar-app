@@ -71,6 +71,7 @@ fun RadarScreen(userId: String) {
     var pDests by remember { mutableStateOf<List<Triple<String, Int, Int>>>(emptyList()) }
     var pPersonalized by remember { mutableStateOf(false) }
     var pNearby by remember { mutableStateOf(false) }        // [v26] 위치기반 결과 여부
+    var pDestPooled by remember { mutableStateOf(false) }    // [v54 ⑤⑥] 돈되는 목적지가 전체기사 통합 폴백인지
     var curLat by remember { mutableStateOf(0.0) }
     var curLng by remember { mutableStateOf(0.0) }
 
@@ -83,7 +84,7 @@ fun RadarScreen(userId: String) {
         val sb = StringBuilder()
         if (pOrigins.isNotEmpty()) sb.append("지금 내 근처 ${pOrigins.first().name}에서 콜이 잘 잡혔어요. ")
         if (pHours.isNotEmpty()) sb.append("제일 잘 버는 시간은 ${pHours.first().first}시예요. ")
-        if (pDests.isNotEmpty()) sb.append("돈 되는 목적지는 ${pDests.first().first}입니다.")
+        if (pDests.isNotEmpty()) sb.append(if (pDestPooled) "이 근처 전체 기사 기준, 돈 되는 목적지는 ${pDests.first().first}입니다." else "지금 위치에서 돈 되는 목적지는 ${pDests.first().first}입니다.")
         val msg = if (sb.isEmpty()) "아직 데이터가 부족해요. 운행이 쌓이면 맞춤 안내를 해드릴게요." else sb.toString()
         try { radarTts.speak(msg, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "radar") } catch (e: Exception) {}
     }
@@ -119,6 +120,7 @@ fun RadarScreen(userId: String) {
             val o = JSONObject(resp)
             pPersonalized = o.optBoolean("personalized", false)
             pNearby = o.optBoolean("nearby", false)
+            pDestPooled = o.optBoolean("destPooled", false)
             val oa = o.optJSONArray("topOrigins")
             pOrigins = (0 until (oa?.length() ?: 0)).map { val x = oa!!.getJSONObject(it); RSpot(x.optString("name"), x.optInt("cnt"), x.optInt("avg_fare"), x.optDouble("dist_km", -1.0)) }.filter { it.name.isNotBlank() && !it.name.startsWith("TEST") }
             val da = o.optJSONArray("topDestinations")
