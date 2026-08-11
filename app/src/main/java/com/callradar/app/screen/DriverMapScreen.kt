@@ -102,7 +102,8 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
         LaunchedEffect(mapRef) {
             val km = mapRef ?: return@LaunchedEffect
             val mgr = km.labelManager ?: return@LaunchedEffect
-            val layer = mgr.layer ?: return@LaunchedEffect
+            // [v54 ④] 전용 레이어 — 핫존 필터가 기본 레이어를 removeAll 해도 내 위치 마커는 안 지워지게.
+            val layer = (try { mgr.addLayer(com.kakao.vectormap.label.LabelLayerOptions.from("cr_myloc")) } catch (e: Exception) { null }) ?: mgr.layer ?: return@LaunchedEffect
             val density = km.mapDpScale.coerceAtLeast(1f)
             val myStyle = mgr.addLabelStyles(com.kakao.vectormap.label.LabelStyles.from(com.kakao.vectormap.label.LabelStyle.from(circleBmp(0xFF2563EB.toInt(), 22, density))))
             var myLoc: com.kakao.vectormap.label.Label? = null
