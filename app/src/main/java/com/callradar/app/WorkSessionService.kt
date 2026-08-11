@@ -93,7 +93,9 @@ class WorkSessionService : Service() {
             // [km멈춤 버그] 예전엔 절대거리 5~400m만 누적 → 업데이트 간격이 벌어지는 장거리·고속 주행에서
             //  한 구간이 400m를 넘어 '전부 GPS점프로 오판·폐기' → 누적이 멈춤(예: 60km에서 정지, 300km 달려도 그대로).
             //  이제 '순간속도'로 판정: 5m 이상 이동 + 60m/s(216km/h) 이하 + 단일구간 20km 이하면 정상 이동으로 누적.
-            if (d >= 5f && speed <= 60.0 && d <= 20000f) {
+            // [v54 거리버그] dtSec 게이트 추가 — 도즈/GPS 공백 뒤 멀리 튄 점은 dt가 커서 '저속'으로 보여 속도게이트를 통과,
+            //   정지 중에도 20km씩 붙어 하루 900km까지 누적되던 버그. 연속 업데이트(≤60초)만 실이동으로 인정.
+            if (d >= 5f && speed <= 60.0 && d <= 20000f && dtSec <= 60.0) {
                 val cur = prefs().getFloat("work_distance_m", 0f)
                 val nv = cur + d
                 prefs().edit().putFloat("work_distance_m", nv).apply()
