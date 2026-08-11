@@ -319,14 +319,8 @@ class NaviIntentReceiver : AccessibilityService() {
             val allText = lines.joinToString("\n")
             Log.d(TAG, "택시앱($lastPlatform) 화면:\n${allText.take(500)}")
 
-            // [v50 화면주소] 네비 헤더의 실제 주소(POI/도로명)를 긁어 픽업/목적지에 반영.
-            //   탑승 전 = 픽업(출발)로, 탑승 후 = 목적지로 귀속. GPS 지오코딩보다 정확.
-            extractScreenAddress(lines)?.let { addr ->
-                if (addr.isNotBlank()) {
-                    if (passengerBoarded) screenAddrDest = addr else screenAddrPickup = addr
-                    if (addr != lastLoggedScreenAddr) { lastLoggedScreenAddr = addr }  // [perf] SCREEN_ADDR 서버로그 제거(과다). 주소는 TRIP_START/BOARDING에 이미 포함됨
-                }
-            }
+            // [v53] 화면주소 파싱 제거 — 가맹 화면 라벨('출발/도착')을 POI로 오긁는 회귀(#101).
+            //   주소는 전부 GPS 역지오코딩(탑승·완료 순간)만 사용한다. extractScreenAddress는 더 이상 호출하지 않음.
 
             if (lastTripId <= 0 && allText.contains("라이더") && allText.contains("평가")) return
 
@@ -442,8 +436,7 @@ class NaviIntentReceiver : AccessibilityService() {
             // 활성 콜 화면 판단 — v3 원본 그대로 + "손님 탑승" 추가
             val isActiveCallScreen = when (pkg) {
                 UBER -> allText.contains("탑승 완료") || allText.contains("승객 탑승") ||
-                    allText.contains("운행 시작") || allText.contains("요금 입력하기") ||
-                    (allText.contains("목적지") && allText.contains("도착"))
+                    allText.contains("운행 시작") || allText.contains("요금 입력하기")   // [v53 #124-2] '목적지+도착' 단독조건 제거 — 우버 내비 잔여알림('목적지 도착/안내종료') 유령콜 방지
                 TMONEYGO, TMONEYGO_NAVI -> (allText.contains("출발지 길안내") || allText.contains("목적지 길안내"))
                     && !allText.contains("밀어서 운행종료")
                     && !allText.contains("공지") && !allText.contains("미션")
@@ -492,7 +485,6 @@ class NaviIntentReceiver : AccessibilityService() {
             if (lastTripId <= 0 || forceNewTripOnNextScan) {
                 tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
-                sendDebugLog("START_SCREEN", allText.take(220))   // [#7 진단] 트립 생성 트리거 화면 원문 — 가맹 콜멈춤 오탐 원인 추적(잡히면 제거)
                 createNewTripWithGps(curLat, curLng)
             } else {
                 // [v3.1x] 운행 중 플랫폼 전환 금지
@@ -547,9 +539,8 @@ class NaviIntentReceiver : AccessibilityService() {
         originLng = lng
         Thread {
             try {
-                // [v50] 화면에서 긁은 픽업 주소 우선, 없으면 GPS 지오코딩
-                val scr = screenAddrPickup
-                val oName = if (scr.isNotBlank()) scr else (reverseGeocode(lat, lng) ?: "")
+                // [v53] 화면주소 파싱 제거 — 트립 생성 위치 GPS 역지오코딩(탑승 순간 restamp로 픽업 확정).
+                val oName = reverseGeocode(lat, lng) ?: ""
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null)
                 // [자동기록 배지] 출발/현재 동을 prefs에 저장 → 플로팅이 읽어 '출발동→현재동' 표시(추가 네트워크 0).
@@ -608,9 +599,8 @@ class NaviIntentReceiver : AccessibilityService() {
         tripDestUpdateInFlight = true
         Thread {
             try {
-                // [v50] 화면에서 긁은 목적지 주소 우선, 없으면 GPS 지오코딩
-                val scr = screenAddrDest
-                val destName = if (scr.isNotBlank()) scr else reverseGeocode(lat, lng)
+                // [v53] 화면주소 파싱 제거 — GPS 역지오코딩만.
+                val destName = reverseGeocode(lat, lng)
                 if (destName.isNullOrEmpty()) return@Thread
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null)
@@ -679,9 +669,8 @@ class NaviIntentReceiver : AccessibilityService() {
         val tripId = lastTripId
         Thread {
             try {
-                // [v50] 탑승 순간의 픽업 주소 = 화면에서 긁은 픽업 주소 우선, 없으면 GPS
-                val scr = screenAddrPickup
-                val oName = if (scr.isNotBlank()) scr else (reverseGeocode(lat, lng) ?: "")
+                // [v53] 화면주소 파싱 제거 — 탑승 순간 GPS = 진짜 픽업지점.
+                val oName = reverseGeocode(lat, lng) ?: ""
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 // 배지 출발동도 픽업 기준으로 교정
                 prefs.edit().putString("auto_origin_dong", oName).apply()
@@ -818,10 +807,10 @@ class NaviIntentReceiver : AccessibilityService() {
                     put("ended_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
                         timeZone = java.util.TimeZone.getTimeZone("UTC")
                     }.format(java.util.Date()))
-                    // [v50] 화면 목적지 주소가 있으면 항상 반영, 없으면 기존대로 이동거리>300m일 때 GPS 지오코딩
+                    // [v53] 화면주소 파싱 제거 — 완료 순간 GPS(하차점)만. 이동>300m일 때 지오코딩.
                     val hasGps = lat != 0.0 || lng != 0.0
                     val dist = if (hasGps) distanceMeters(originLat, originLng, lat, lng) else 0.0
-                    val destName = if (destScr.isNotBlank()) destScr else if (hasGps && dist > 300) reverseGeocode(lat, lng) else null
+                    val destName = if (hasGps && dist > 300) reverseGeocode(lat, lng) else null
                     if (!destName.isNullOrEmpty()) {
                         put("destination", destName)
                         if (hasGps) { put("dest_lat", lat); put("dest_lng", lng) }
@@ -836,7 +825,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 Log.d(TAG, "✅ 트립 마감: #$tripId (요금: ${actualFare}원)")
                 conn.disconnect()
                 if (lastLocalTripId > 0) {
-                    val destName = if (destScr.isNotBlank()) destScr else (reverseGeocode(lat, lng) ?: "")
+                    val destName = reverseGeocode(lat, lng) ?: ""
                     LocalTripDatabase.getInstance(this).updateDestination(lastLocalTripId, destName, lat, lng, fare)
                 }
             } catch (e: Exception) {
