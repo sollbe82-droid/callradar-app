@@ -1263,15 +1263,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         accScored = sc; if (sc >= 5) accPct = ((co * 100.0) / sc).toInt()
                     } catch (e: Exception) {}
                 }
-                if (accPct >= 0) {
+                // [v54] '정확도 %'는 우버 0원 등으로 낮게 나와 고장처럼 보였음 → 학습이 실제로 쌓이는 '누적 교정 건수'로 표시(정직·안심).
+                if (accScored >= 20) {
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("🤖", fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("앱이 스스로 학습 중", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Text("금액 인식 정확도 ${accPct}% · 교정 ${accScored}건 반영", fontSize = 12.sp, color = muted)
+                                Text("누적 교정 ${String.format("%,d", accScored)}건을 반영해 인식을 개선하고 있어요", fontSize = 12.sp, color = muted)
                             }
-                            Text("${accPct}%", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = green)
+                            Text("${String.format("%,d", accScored)}건", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = green)
                         }
                     }
                     Spacer(Modifier.height(8.dp))

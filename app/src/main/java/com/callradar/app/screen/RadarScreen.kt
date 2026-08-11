@@ -232,9 +232,14 @@ fun RadarScreen(userId: String) {
                     val a = JSONObject(s).optJSONArray("rows")
                     return (0 until (a?.length() ?: 0)).map { val o = a!!.getJSONObject(it); Triple(o.optString("dest"), o.optDouble("median_wait_min", 0.0), o.optInt("samples")) }.filter { it.first.isNotBlank() }
                 }
-                var rows = parseDr(rget("/api/radar/dest-risk?user_id=$userId"))   // 내 기록 우선
-                var basis = "me"
-                if (rows.size < 2) { rows = parseDr(rget("/api/radar/dest-risk")); basis = "all" }   // 부족하면 전체 기사(유저 늘수록 정확)
+                // [v54] 내 기록 + 전체 기사 종합 — 개인이 얇아도 전체로 풍부하게. 중복 목적지는 내 기록 우선, 나머지는 전체로 보강.
+                val mine = parseDr(rget("/api/radar/dest-risk?user_id=$userId"))
+                val all = parseDr(rget("/api/radar/dest-risk"))
+                val merged = LinkedHashMap<String, Triple<String, Double, Int>>()
+                for (r in mine) merged[r.first] = r
+                for (r in all) if (!merged.containsKey(r.first)) merged[r.first] = r
+                val rows = merged.values.sortedBy { it.second }.take(6)   // 다음 콜까지 대기 짧은 순
+                val basis = when { mine.isEmpty() -> "all"; all.size > mine.size -> "mix"; else -> "me" }
                 destRisk = rows; destBasis = if (rows.isEmpty()) "" else basis
             } catch (ex: Exception) {}
         }
@@ -321,7 +326,7 @@ fun RadarScreen(userId: String) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("🎯 손님 내리면 — 콜 빨리 잡히는 곳", color = AppTheme.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     if (destRisk.isNotEmpty()) {
-                        Text(if (destBasis == "me") "📍 내 운행 기록 기준" else "📍 전체 기사 기준 · 기사 늘수록 정확해져요", color = muted, fontSize = 10.sp)
+                        Text(when (destBasis) { "me" -> "📍 내 운행 기록 기준"; "mix" -> "📍 내 기록 + 전체 기사 종합"; else -> "📍 전체 기사 기준 · 기사 늘수록 정확해져요" }, color = muted, fontSize = 10.sp)
                         destRisk.take(5).forEach { (d, m, n) ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text(d, color = AppTheme.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)

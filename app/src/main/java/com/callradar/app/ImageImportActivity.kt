@@ -64,8 +64,8 @@ class ImageImportActivity : ComponentActivity() {
     }
 }
 
-// 미리보기 행: 일(day) + 수입 + 지출 (문자열로 편집)
-private data class ImpRow(var day: Int, var income: String, var expense: String)
+// 미리보기 행: 일(day) + 수입 + 지출 (문자열로 편집) + [v54] LPG 리터(수량, 소수2자리)
+private data class ImpRow(var day: Int, var income: String, var expense: String, var liters: Double = 0.0)
 
 // [v19] 가져오기 파싱 규칙 — 서버(/api/import/rules)에서 받아 파서에 적용. 못 받으면 이 기본값 사용.
 //  서버→앱 단방향(유저 데이터 수집 X). 새 양식은 서버 규칙만 고치면 앱 업데이트 없이 전 유저 반영.
@@ -333,7 +333,7 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                     val inc = r.income.toIntOrNull() ?: 0; val exp = r.expense.toIntOrNull() ?: 0
                     if (r.day in 1..31 && (inc > 0 || exp > 0)) {
                         val mm = month.toString().padStart(2, '0'); val dd = r.day.toString().padStart(2, '0')
-                        JSONObject().apply { put("date", "$year-$mm-$dd"); put("income", inc); put("expense", exp) }
+                        JSONObject().apply { put("date", "$year-$mm-$dd"); put("income", inc); put("expense", exp); if (r.liters > 0) put("liters", r.liters) }
                     } else null
                 }
                 scope.launch {
@@ -415,7 +415,20 @@ private fun parseReceipt(raw: String, month: Int, rules: ImportRules = ImportRul
     for (m in full.findAll(raw)) { val mm = m.groupValues[2].toIntOrNull(); val dd = m.groupValues[3].toIntOrNull(); if (mm == month && dd != null && dd in 1..31) { day = dd; break } }
     if (day == 0) for (m in full.findAll(raw)) { val dd = m.groupValues[3].toIntOrNull(); if (dd != null && dd in 1..31) { day = dd; break } }
     if (day == 0) { val md = Regex("(?<![0-9])(\\d{1,2})[./\\-](\\d{1,2})(?![0-9])"); for (m in md.findAll(raw)) { val mm = m.groupValues[1].toIntOrNull(); val dd = m.groupValues[2].toIntOrNull(); if (mm == month && dd != null && dd in 1..31) { day = dd; break } } }
-    return ImpRow(day, income.toString(), if (expense > 0) expense.toString() else "")
+    // [v54] LPG 가스영수증 리터(수량) — 소수 2자리. '수량'/L 라벨 또는 소수점값 중 3~200L(단가 1000+·금액은 소수없어 제외).
+    var liters = 0.0
+    if (isFuel) {
+        // 리터(수량)=소수점 '정확히 3자리'(25.394/49.160). 단가·판매시각(01:26.14)은 2자리, 금액은 콤마 천단위(30,447)라 제외됨.
+        //  콤마 뒤도 제외(1,199.00의 199.00 방지). 3~200L 범위. 반올림 안 함(원값).
+        val litRe = Regex("(?<![0-9,])(\\d{1,3}\\.\\d{3})(?![0-9])")
+        for (ln in lines) {
+            if (norm(ln).contains("수량") || Regex("\\d\\.\\d{3}\\s*[Ll]").containsMatchIn(ln)) {
+                litRe.findAll(ln).forEach { val v = it.groupValues[1].toDoubleOrNull() ?: 0.0; if (v in 3.0..200.0 && v > liters) liters = v }
+            }
+        }
+        if (liters == 0.0) litRe.findAll(raw).forEach { val v = it.groupValues[1].toDoubleOrNull() ?: 0.0; if (v in 3.0..200.0 && v > liters) liters = v }
+    }
+    return ImpRow(day, income.toString(), if (expense > 0) expense.toString() else "", liters)
 }
 
 private fun parseCsv(raw: String): List<ImpRow> {
