@@ -58,7 +58,9 @@
 - 보관 위치: **`C:\CallRadar\_releases\vNN\`** — 여기에 `mapping-vNN-x.y.z.txt`(해독표) + APK + `README-vNN.txt`(내용/커밋)를 버전 태그로 복사해 둔다. (샌드박스 경로 `/sessions/.../mnt/CallRadar/_releases/`)
 - **다음 버전 빌드 절차:** versionCode 올리고(51→52+) 커밋 → `.bat`로 빌드(`assembleOnestoreRelease`) → BUILD SUCCESSFUL 확인 → **`app/build/outputs/mapping/onestoreRelease/mapping.txt`와 APK를 `_releases/vNN/`에 복사**.
 - **현재 작업중: v53 / 2.5.3 (onestore, 난독화). 미업로드 — 4-c 탭리뉴얼 결정 대기.** 로컬 커밋 완료(단계별): 1abb0d1(주소GPS화·우버유령콜제거·진단로그제거), adfc7b5(우버실차태그·0원복구·수동취소), d0ff8eb(삼성 제한된설정 접근성안내), 55ae3d1(달력→월별·셀글자·지출흔들림·리터표시·가져오기수입칸숨김), 83a3a3c(지출요약 총리터/회사할인·셀높이). **서버 배포완료(b3a7227)**: import 0건버그·gas_liters·big_events(대형행사) 테이블+관리자등록+레이더조회 라이브. 본폰(삼성 R5KL/S26U) 설치·검증 통과.
-- **v53 남은 것**: 4-c 탭 구조 리뉴얼(내역+달력→월별 드릴다운, 월급→요약카드, 공항→레이더 모드칩+지오펜스) — 제일 큰 개편, 미착수. 보류: 가져오기 리터OCR+체크박스, 미터기 소스삭제(이미 CORE_ONLY로 숨김+MediaProjection v30제거라 위험대비이득0 → 삭제 비권장), 가맹 자동취소감지(화면샘플 필요). **업로드 전: mapping.txt+APK를 `_releases/v53/`에 보관 + START_SCREEN 진단로그는 이미 제거함.**
+- **v53는 원스토어 심사 제출완료(2026-08-11). `_releases/v53/` 보관.**
+- **v54 / 2.5.4 작업중 (미업로드, `_releases/v54/` 보관).** 커밋 6174bb0(월급탭→월별흡수·상단탭 [내역·월별·지출] 3개), 54c4f16(★근무 이동거리 900km 버그: WorkSessionService dtSec<=60 게이트 추가 — 도즈/GPS공백 뒤 튄점이 저속으로 보여 속도게이트 통과 정지중 900km 누적되던 것 차단), 4132516(월별 실수령 중복카드 제거·홈에만). 본폰(삼성)에서 월급탭 제거·월별 확인.
+- **v54 남은 것(대표 피드백 순서)**: ① 홈 근무카드 위로(근무 블록 300줄+ 상태·다이얼로그라 컴포넌트 분리 리팩터 필요-신중), ④ 레이더 지도 내 GPS 위치 화살표/아이콘(currentBearing 이미 있음), ⑤⑥ 안내 GPS/지역기준+개인→유저통합 폴백(음성 '돈되는목적지'가 개인기록 pDests 기준이라 인천/연수구만 나옴 - RadarScreen speakGuide L82). 후순위: 학습정확도 채점버그(amount correct≈11/1559, 홈카드가 0%로 오해 - /api/feedback/accuracy·feedback.js), 영수증OCR 실검증+가스영수증 학습(영수증가스·가스비영수증 폴더에 대표가 10장 제공). ② 자동회전=앱무관(코드클린 확인). 미터기 소스삭제=이미 CORE_ONLY숨김+MediaProjection v30제거라 삭제 비권장.
 - v52 = v51 전체 + #7-2 가맹 자동배차 콜카드 오탐강화 + START_SCREEN 진단로그. v51: R1 유령트립회복·우버스톨/0원·성능팩·R8난독화·지도필터·⑥궤적실차·④boarded_at·⑦콜멈춤오탐·②③거리지터·⑤플로팅숨김·①지도내위치. (다음 versionCode는 54+)
 
 ## ★ 서버 (배포)
