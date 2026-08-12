@@ -332,9 +332,11 @@ class FloatingTripService : Service() {
 
         if (!isRiding) {
             val p0 = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
-            // [v44 Fix A] 자동기록이 플랫폼 콜을 이미 기록 중이면 플로팅 시작 차단 → 중복 트립 방지. (플로팅은 길빵 전용)
+            // [v55 #124] 자동기록이 플랫폼 콜을 기록 중일 때 탭 → (길빵 시작 대신) 수동취소 무장.
+            //  기존엔 무의미 토스트만 떠서 "탭해도 안 꺼짐=먹통"으로 오해했음(취소는 길게누름에만 숨어있었음).
+            //  이제 탭하면 바로 '취소?\n탭'이 떠서, 방법 몰라도 취소 가능. 한 번 더 탭해야 실제 취소 + 4~5초 뒤 자동 원복(실수 방지).
             if (p0.getBoolean("auto_record_on", false) && com.callradar.app.NaviIntentReceiver.activeTripId > 0) {
-                toast("자동기록이 플랫폼 운행을 기록 중이에요 — 길빵일 때만 시작하세요")
+                armAutoCancel()
                 return
             }
             // [v44 Fix B] 이전 트립의 카드금액(pending_fare)이 이 운행에 새는 것 방지 → 탑승 순간 초기화.

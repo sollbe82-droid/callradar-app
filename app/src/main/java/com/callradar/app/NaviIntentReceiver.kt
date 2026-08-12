@@ -975,9 +975,13 @@ class NaviIntentReceiver : AccessibilityService() {
         if (pkg == UBER && !isUberFareScreen(allTextRaw)) return 0
 
         // 평가화면/홈화면 누적수입 방어 (우버 외 플랫폼 및 pkg 미지정 호출 대비)
+        // [v55 #468] 홈 대시보드의 '오늘 누적 수입(예 ₩267,519)'을 요금으로 오긁는 것 차단.
+        //  '홈+오늘' 조합만으론 "홈 ₩251,293 안전 도구 키트…"(오늘 글자 없는 변형)를 놓침 → 대시보드 고유 마커도 추가.
         val isRatingOrHome = (allTextRaw.contains("라이더") && allTextRaw.contains("평가")) ||
             (allTextRaw.contains("별점") && allTextRaw.contains("탭하세요")) ||
             (allTextRaw.contains("홈") && allTextRaw.contains("오늘")) ||
+            allTextRaw.contains("안전 도구 키트") || allTextRaw.contains("운행 리스트") ||
+            allTextRaw.contains("운행 명세서") || allTextRaw.contains("운행 플래너") ||
             allTextRaw.contains("수입 동향") || allTextRaw.contains("Uber Pro")
         if (isRatingOrHome) return 0
 
