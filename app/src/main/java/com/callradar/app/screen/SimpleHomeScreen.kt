@@ -102,8 +102,15 @@ fun SimpleHomeScreen(
         }
     }
     // 라이브 타이머 + 거리 갱신
+    // [버그수정] 예전엔 매초 nowTick을 갱신해 히어로 전체가 초당 재구성 → 근무중 '일시정지/퇴근' 버튼 탭이
+    //  재구성 프레임에 씹혀 반응 안 하던 문제. 이제 '분'이 바뀔 때만(=표시값 변할 때만) 갱신 → 재구성 분당 1회로 급감.
     LaunchedEffect(active, paused) {
-        while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); delay(1000) }
+        while (active && !paused) {
+            val now = System.currentTimeMillis()
+            if ((now - workStart) / 60000L != (nowTick - workStart) / 60000L) nowTick = now
+            val d = prefs.getFloat("work_distance_m", 0f); if (d != workDist) workDist = d
+            delay(1000)
+        }
     }
     // 투폰 근무세션 pull (classic과 동일 30초 가드)
     LaunchedEffect(Unit) {
