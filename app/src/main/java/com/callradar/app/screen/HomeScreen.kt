@@ -810,6 +810,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var pauseStart by remember { mutableStateOf(prefs.getLong("work_pause_start", 0L)) }
                 var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
                 var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
+                // [v59] 로컬 출근/일시정지/재개/퇴근 직후 시각 — 20초 투폰 pull이 아직 서버에 반영 안 된 옛 상태로 로컬 일시정지를 덮어써 재개시키던 버그 방지.
+                var lastLocalWorkChange by remember { mutableStateOf(0L) }
                 val distEnabled = prefs.getBoolean("work_dist_enabled", true)
                 var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }  // [v23] 근무 최대시간 자동마감(0=끔)
                 val active = workStart > 0L
@@ -824,6 +826,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
                 // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
                 fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
+                    lastLocalWorkChange = System.currentTimeMillis()   // [v59] 로컬 변경 표시 → 30초간 pull이 서버로 덮지 않음
                     if (userId.isEmpty()) return
                     scope.launch {
                         try {
@@ -928,7 +931,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         try {
                             val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
                             val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
-                            if (rws != workStart || rpt != pausedTotal || rps != pauseStart) {
+                            if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
                                 workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                                 prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
                                 if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()

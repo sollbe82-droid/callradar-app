@@ -95,7 +95,8 @@ class WorkSessionService : Service() {
             //  이제 '순간속도'로 판정: 5m 이상 이동 + 60m/s(216km/h) 이하 + 단일구간 20km 이하면 정상 이동으로 누적.
             // [v54 거리버그] dtSec 게이트 추가 — 도즈/GPS 공백 뒤 멀리 튄 점은 dt가 커서 '저속'으로 보여 속도게이트를 통과,
             //   정지 중에도 20km씩 붙어 하루 900km까지 누적되던 버그. 연속 업데이트(≤60초)만 실이동으로 인정.
-            if (d >= 5f && speed <= 60.0 && d <= 20000f && dtSec <= 60.0) {
+            // [v59 거리버그] 게이트 강화(548km 오누적): 속도 60→40m/s(144km/h·택시현실), 단일구간 20km→3km(dt≤60s×40m/s=2.4km라 3km면 충분). GPS 튐·드리프트 차단.
+            if (d >= 5f && speed <= 40.0 && d <= 3000f && dtSec <= 60.0) {
                 val cur = prefs().getFloat("work_distance_m", 0f)
                 val nv = cur + d
                 prefs().edit().putFloat("work_distance_m", nv).apply()
