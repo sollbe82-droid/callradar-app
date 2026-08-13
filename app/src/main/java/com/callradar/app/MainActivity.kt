@@ -431,7 +431,11 @@ class MainActivity : ComponentActivity() {
         }
         Box(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
             when (route) {
-                "home" -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
+                "home" -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard,
+                    onToggleFloating = { on -> if (on) startFloatingButton() else stopFloatingButton() },
+                    isOverlayGranted = { isOverlayGranted() },
+                    onToggleNotifCapture = { on -> if (on && !isNotifAccessGranted()) openNotifAccessSettings() },
+                    isNotifAccessGranted = { isNotifAccessGranted() })
                 "menu" -> com.callradar.app.screen.SimpleMenuScreen(onBack = { route = "home" }, onOpen = openCard, onFullMenu = { route = "full" }, onSwitchClassic = switchClassic)
                 "records" -> SimpleWrap("기록", { route = "home" }) { com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showSettle = true }, onOpenSettings = { route = "full" }) }
                 "radar" -> SimpleWrap("레이더", { route = "home" }) { com.callradar.app.screen.RadarScreen(userId = userId) }
