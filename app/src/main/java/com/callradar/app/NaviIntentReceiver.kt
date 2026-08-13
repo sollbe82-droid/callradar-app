@@ -86,6 +86,7 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastUberWrittenFare = 0  // [우버0원수정] 요금 본 순간 서버에 쓴 값 추적(중복 PUT 방지)
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
+    @Volatile private var lastTollTripId = -1  // [v57] 통행료 지출 중복기록 방지 — 트립당 1회만
     @Volatile private var boardedAtSent = false  // [#4 실차율] 탑승 순간 boarded_at 1회 전송했는지(근접 픽업도 실차시간 정확)
     @Volatile private var carryBoardToNextTrip = false  // [R1] 유령트립 마감 후 이어진 새 트립에 탑승상태 이어주기
     @Volatile private var forceNewTripOnNextScan = false // [R1] 새 탑승 감지 → 다음 스캔에서 유령 마감+새 트립(기존 force-end 경로 재사용, 레이스 방지)
@@ -449,6 +450,13 @@ class NaviIntentReceiver : AccessibilityService() {
                     Log.d(TAG, "✅ 운행 종료 신호 ($lastPlatform), 마감 (요금: ${loggedFare}원)")
                     sendDebugLog("TRIP_END", "#$lastTripId | ${loggedFare}원")
                     sendDebugLog("END_SCREEN", allText.take(300))
+                    // [v57] 통행료 → 지출 자동 분리: 결제화면에 '통행 요금 Y'(Y>0)가 있으면 기사 실비이므로 지출(통행료)로 1회 기록. 매출은 미터만.
+                    val toll = extractToll(allText)
+                    if (toll > 0 && lastTripId != lastTollTripId) {
+                        lastTollTripId = lastTripId
+                        sendDebugLog("TOLL_EXPENSE", "#$lastTripId | ${toll}원 → 지출(통행료)")
+                        postTollExpense(lastTripId, toll)
+                    }
                     finalizeCurrentTrip(fare)
                 }
                 return
@@ -759,6 +767,34 @@ class NaviIntentReceiver : AccessibilityService() {
         } catch (e: Exception) { Log.e(TAG, "자동출근 실패: ${e.message}") }
     }
 
+    // [v57] 결제화면 텍스트에서 '통행 요금 Y' 금액 추출 (Y>0만). 미터요금/기타 숫자와 구분하려 '통행 요금' 라벨 뒤 숫자만.
+    private fun extractToll(allText: String): Int {
+        val m = Regex("통행\\s*요금\\s*([0-9,]{1,9})").find(allText) ?: return 0
+        val v = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
+        return if (v in 100..100000) v else 0
+    }
+
+    // [v57] 통행료를 지출(category=통행료)로 서버 기록. client_uuid로 멱등(트립당 1건) → 화면 갱신·재전송 중복 방지.
+    private fun postTollExpense(tripId: Int, amount: Int) {
+        Thread {
+            try {
+                val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                val userId = prefs.getString("user_id", null) ?: return@Thread
+                val json = JSONObject().apply {
+                    put("user_id", userId); put("category", "통행료"); put("amount", amount)
+                    put("expense_type", "business"); put("memo", "자동 기록(통행료)"); put("tax_deductible", true)
+                    put("client_uuid", "toll-$userId-$tripId")
+                }
+                val conn = (URL("$SERVER_URL/api/expenses").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 15000; readTimeout = 20000
+                }
+                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
+                conn.responseCode; conn.disconnect()
+                Log.d(TAG, "🧾 통행료 지출 기록: #$tripId ${amount}원")
+            } catch (e: Exception) { Log.e(TAG, "통행료 지출 실패: ${e.message}") }
+        }.start()
+    }
+
     // [#4116] 마감된 트립의 요금을 서버에서 갱신(수정결제 최종금액 반영).
     private fun updateTripFare(tripId: Int, fare: Int) {
         Thread {
@@ -837,6 +873,14 @@ class NaviIntentReceiver : AccessibilityService() {
                     put("ended_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
                         timeZone = java.util.TimeZone.getTimeZone("UTC")
                     }.format(java.util.Date()))
+                    // [v57] 자정 날짜귀속: day_start_hour를 설정한 유저면 완료시각 기준 영업일을 business_date로 보냄(서버가 출근일 대신 이 값 사용).
+                    //  미설정 유저는 안 보냄 → 기존 '출근일 귀속' 유지(야간기사 회귀 방지).
+                    if (prefs.getBoolean("day_start_set", false)) {
+                        val dsh = prefs.getInt("day_start_hour", 0)
+                        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+                        if (cal.get(java.util.Calendar.HOUR_OF_DAY) < dsh) cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                        put("business_date", String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH)))
+                    }
                     // [v53] 화면주소 파싱 제거 — 완료 순간 GPS(하차점)만. 이동>300m일 때 지오코딩.
                     val hasGps = lat != 0.0 || lng != 0.0
                     val dist = if (hasGps) distanceMeters(originLat, originLng, lat, lng) else 0.0

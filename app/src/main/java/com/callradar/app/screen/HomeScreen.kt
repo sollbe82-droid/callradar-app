@@ -713,81 +713,80 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
             }
 
-            // [v23] 홈 상단 — 운행 자동 기록(플로팅) 토글. "버튼만 누르면 자동" 약속 실현 + 첫 운행 넛지(활성화)
+            // [v57] 기록 설정 — 운행기록버튼·자동기록·금액자동입력 3개 토글을 카드 하나로 합침(홈 세로공간 절약).
             run {
                 var floatingOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
-                Card(colors = CardDefaults.cardColors(containerColor = if (floatingOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(if (floatingOn) "🟢 운행 기록 버튼 켜짐" else "🚕 운행 기록 버튼", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Text(if (floatingOn) "시작 한 번 · 내릴 때 금액 한 번 — 두 번이면 기록 끝" else "시작 버튼 한 번, 내릴 때 금액 한 번이면 기록 끝. 첫 운행부터 켜보세요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
-                        }
-                        Switch(checked = floatingOn, onCheckedChange = { on ->
-                            onToggleFloating(on)
-                            floatingOn = if (on) isOverlayGranted() else false  // 권한 없으면 설정창 열리고 아직 꺼짐 유지
-                            com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "home")
-                        })
-                    }
-                }
-            }
-
-            // [자동기록 시작/종료] 관리자·원스토어 전용 인앱 토글. 접근성은 켜둔 채 이 값으로 실제 기록 on/off (앱이 접근성 자체를 못 끔).
-            if (com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)) run {
+                val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
                 var autoRec by remember(refreshKey) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
                 var showAutoSetup by remember { mutableStateOf(false) }
                 // [v53 #103/#124] 업데이트 후 삼성 '제한된 설정'으로 접근성이 꺼진 경우 자동 감지 → 설정 안내 자동 표시.
                 LaunchedEffect(refreshKey) {
-                    val accNow = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
-                    if (autoRec && !accNow) showAutoSetup = true
+                    if (showAuto) {
+                        val accNow = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
+                        if (autoRec && !accNow) showAutoSetup = true
+                    }
                 }
-                Card(colors = CardDefaults.cardColors(containerColor = if (autoRec) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Text(if (autoRec) "카카오T·우버·티머니고 운행·요금이 자동 기록돼요. (탭하면 설정 점검)" else "택시앱 화면을 읽어 운행·요금 자동 기록. 켜면 필요한 설정을 순서대로 잡아줘요.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp).clickable { showAutoSetup = true })
-                        }
-                        Switch(checked = autoRec, onCheckedChange = { on ->
-                            autoRec = on
-                            // [v56] auto_record_touched: 유저가 토글을 한 번이라도 만지면 그 선택이 유일 기준(auto_free_open 무시) → OFF면 진짜 OFF.
-                            prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()
-                            if (on) {
-                                showAutoSetup = true   // 켜면 설정 체크리스트 표시(감지+원탭 켜기)
-                            } else {
-                                try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
+                val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
+                var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
+                val anyOn = floatingOn || (showAuto && autoRec) || (showNotif && capOn)
+                fun divider() = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp)
+                Card(colors = CardDefaults.cardColors(containerColor = if (anyOn) green.copy(alpha = 0.10f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        // ── 운행 기록 버튼
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(if (floatingOn) "🟢 운행 기록 버튼 켜짐" else "🚕 운행 기록 버튼", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text("시작·완료 두 번이면 기록 끝", fontSize = 11.sp, color = muted)
                             }
-                            com.callradar.app.Telemetry.log(context, if (on) "auto_record_on" else "auto_record_off", "home")
-                        })
+                            Switch(checked = floatingOn, onCheckedChange = { on ->
+                                onToggleFloating(on)
+                                floatingOn = if (on) isOverlayGranted() else false
+                                com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "home")
+                            })
+                        }
+                        // ── 자동 기록 (관리자)
+                        if (showAuto) {
+                            Box(modifier = divider().background(AppTheme.surface2))
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f).clickable { showAutoSetup = true }) {
+                                    Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
+                                }
+                                Switch(checked = autoRec, onCheckedChange = { on ->
+                                    autoRec = on
+                                    // [v56] auto_record_touched: 유저가 토글을 한 번이라도 만지면 그 선택이 유일 기준(auto_free_open 무시) → OFF면 진짜 OFF.
+                                    prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()
+                                    if (on) showAutoSetup = true
+                                    else try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
+                                    com.callradar.app.Telemetry.log(context, if (on) "auto_record_on" else "auto_record_off", "home")
+                                })
+                            }
+                        }
+                        // ── 금액 자동 입력 (베타)
+                        if (showNotif) {
+                            Box(modifier = divider().background(AppTheme.surface2))
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f).clickable {
+                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=택시투데이")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                    catch (e: Exception) { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/search?q=택시투데이&c=apps")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) {} }
+                                }) {
+                                    Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    Text("카드결제 알림 금액 자동 입력 (탭: 택시투데이 설치)", fontSize = 11.sp, color = muted)
+                                }
+                                Switch(checked = capOn, onCheckedChange = { on ->
+                                    prefs.edit().putBoolean("notif_capture_on", on).apply()
+                                    onToggleNotifCapture(on)
+                                    capOn = if (on) isNotifAccessGranted() else false
+                                    com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "home")
+                                })
+                            }
+                        }
                     }
                 }
                 if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {
                     showAutoSetup = false
-                    // 접근성이 켜졌으면 위치 추적 서비스 기동
                     val acc = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
                     if (acc) try { ContextCompat.startForegroundService(context, Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
-                }
-            }
-
-            // [v23] 금액 자동 입력(알림 캡처) — "손 안 가는 앱"의 핵심. 자동화 차수(phase-2)에서만 노출(첫 심사 리스크 회피).
-            if (Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)) run {
-                var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
-                Card(colors = CardDefaults.cardColors(containerColor = if (capOn) green.copy(alpha = 0.14f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Text(if (capOn) "카카오T·우버 완료 알림에서 금액이 자동 입력돼요" else "카카오T·우버 알림을 읽어 금액을 자동 입력 — 손 안 가게. (알림 접근 권한 필요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
-                            // [택시투데이 안내] 직접결제·길빵 카드결제 금액은 '[택시승인]' 카드 알림에서 읽음 → 택시투데이 설치 필요.
-                            Text("📲 택시투데이 설치 ▸ 직접결제·길빵 카드결제 금액 자동 읽기 (교통카드·폰결제는 알림이 조금 늦을 수 있어요)", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable {
-                                try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=택시투데이")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                                catch (e: Exception) { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/search?q=택시투데이&c=apps")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) {} }
-                            })
-                        }
-                        Switch(checked = capOn, onCheckedChange = { on ->
-                            prefs.edit().putBoolean("notif_capture_on", on).apply()
-                            onToggleNotifCapture(on)
-                            capOn = if (on) isNotifAccessGranted() else false
-                            com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "home")
-                        })
-                    }
                 }
             }
 
@@ -1108,6 +1107,20 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Text("🛌 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
                                     Text(if (maxHours > 0) "${maxHours}시간 후" else "꺼짐 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (maxHours > 0) accent else muted)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // [v57] 영업일 시작시각 — 자정 넘긴 운행을 어느 날에 귀속할지 기준. 탭하면 순환(자정/새벽4·5·6시). 설정하면 완료시각 기준 귀속 활성화.
+                            run {
+                                var dsh by remember { mutableStateOf(prefs.getInt("day_start_hour", 0)) }
+                                val opts = listOf(0, 4, 5, 6)
+                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
+                                    val idx = opts.indexOf(dsh).let { if (it < 0) 0 else it }
+                                    val nv = opts[(idx + 1) % opts.size]
+                                    dsh = nv; prefs.edit().putInt("day_start_hour", nv).putBoolean("day_start_set", true).apply()
+                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("📅 영업일 시작시각(자정 넘김 귀속)", fontSize = 12.sp, color = muted)
+                                    Text(if (prefs.getBoolean("day_start_set", false)) (if (dsh == 0) "자정(0시)" else "새벽 ${dsh}시") + " · 탭변경" else "미설정 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (prefs.getBoolean("day_start_set", false)) accent else muted)
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
