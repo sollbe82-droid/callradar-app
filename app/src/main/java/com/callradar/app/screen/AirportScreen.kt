@@ -160,6 +160,9 @@ fun AirportScreen() {
     var newPhraseKorean by remember { mutableStateOf("") }
     var isTranslating by remember { mutableStateOf(false) }
     var expandedPhraseId by remember { mutableStateOf<String?>(null) }
+    // [공항 도착 예측] 내 이동시간(분) — '앞으로 도착 손님' 30분 버킷에서 내가 도착할 칸 강조용. prefs 저장.
+    val airportPrefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    var airportTravelMin by remember { mutableStateOf(airportPrefs.getInt("airport_travel_min", 45)) }
     var ttsGender by remember { mutableStateOf(0) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -434,6 +437,66 @@ fun AirportScreen() {
                 if (isLoading) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = accent) } }
                 else {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // [공항 도착 예측] 앞으로 도착 손님 — 30분 단위(향후 3시간). 도착 항공편의 예정시각+인원을 버킷팅.
+                        //  "지금"이 아니라 "내가 도착할 때"를 보게: 이동시간 칩으로 내 도착 칸 강조. 과거편은 인원0이라 안전.
+                        run {
+                            val cal0 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+                            val nowMin0 = cal0.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal0.get(java.util.Calendar.MINUTE)
+                            val paxBk = IntArray(6); val flBk = IntArray(6)
+                            (curData?.flights ?: emptyList()).forEach { f ->
+                                val et = f.estimatedTime
+                                val ps = et.split(":")
+                                val fh = ps.getOrNull(0)?.trim()?.toIntOrNull(); val fm = ps.getOrNull(1)?.trim()?.take(2)?.toIntOrNull()
+                                if (fh != null && fm != null) {
+                                    var mm = (fh * 60 + fm) - nowMin0
+                                    if (mm < -180) mm += 1440   // 자정 직전 현재 → 새벽 도착편 보정
+                                    if (mm in 0 until 180) { val bi = (mm / 30).coerceIn(0, 5); paxBk[bi] += f.total; flBk[bi] += 1 }
+                                }
+                            }
+                            val maxBk = (paxBk.maxOrNull() ?: 0).coerceAtLeast(1)
+                            val myBk = (airportTravelMin / 30).coerceIn(0, 5)
+                            val totalAhead = paxBk.sum()
+                            val bkLabels = listOf("지금~30분", "30~60분", "60~90분", "90~120분", "120~150분", "150~180분")
+                            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
+                                Column(Modifier.padding(20.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("🛬", fontSize = 18.sp); Text("$tn 앞으로 도착 손님 (30분 단위)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    }
+                                    Text("내 이동시간을 고르면 도착할 때 손님 규모가 강조돼요", fontSize = 11.sp, color = muted)
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        listOf(30, 45, 60).forEach { v ->
+                                            FilterChip(selected = airportTravelMin == v, onClick = { airportTravelMin = v; airportPrefs.edit().putInt("airport_travel_min", v).apply() },
+                                                label = { Text(if (airportTravelMin == v) "${v}분 · 내 도착" else "${v}분", fontSize = 11.sp) },
+                                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
+                                        }
+                                    }
+                                    Spacer(Modifier.height(14.dp))
+                                    if (totalAhead == 0) {
+                                        Text("앞으로 3시간 도착 예정 손님이 거의 없어요.\n(심야엔 항공편이 적어요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 6.dp))
+                                    } else {
+                                        for (i in 0 until 6) {
+                                            val pax = paxBk[i]; val isMine = i == myBk
+                                            val strong = pax >= maxBk * 0.75f
+                                            val barCol = if (isMine) accent else if (strong) Color(0xFFFBBF24) else Color(0xFF3A4256)
+                                            val frac = (pax.toFloat() / maxBk).coerceIn(0.03f, 1f)
+                                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Text(bkLabels[i], fontSize = 11.sp, color = if (isMine) accent else muted, fontWeight = if (isMine) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.width(64.dp))
+                                                Box(Modifier.weight(1f).height(20.dp).background(Color(0xFF1B2233), RoundedCornerShape(5.dp))) {
+                                                    Box(Modifier.fillMaxWidth(frac).height(20.dp).background(barCol, RoundedCornerShape(5.dp)))
+                                                }
+                                                Column(Modifier.width(66.dp), horizontalAlignment = Alignment.End) {
+                                                    Text(String.format("%,d명", pax), fontSize = 12.sp, color = AppTheme.text, fontWeight = FontWeight.Medium)
+                                                    Text("${flBk[i]}편", fontSize = 10.sp, color = muted)
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                        Text("도착편 예정시각 기준 · 노란 줄이 내가 도착할 시간대", fontSize = 11.sp, color = muted)
+                                    }
+                                }
+                            }
+                        }
                         // [v16] 시간대별 입국 예고 — 승객예고(passengers)가 있으면 그걸, 비면 도착항공편 기반 hourly로 폴백. 둘 다 없으면 안내.
                         run {
                             val nowHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul")).get(java.util.Calendar.HOUR_OF_DAY)
@@ -472,27 +535,7 @@ fun AirportScreen() {
                                 }
                             }
                         }
-                        // 30분 내 도착 예정 카드
-                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
-                            Column(Modifier.padding(20.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("🕐", fontSize = 18.sp); Text("$tn 30분 내 도착 예정", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                }
-                                Spacer(Modifier.height(16.dp)); HorizontalDivider(color = AppTheme.surface2); Spacer(Modifier.height(16.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("도착 편수", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)); Spacer(Modifier.height(10.dp))
-                                        Text("${curData?.upcomingCount ?: 0}", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text("편", fontSize = 11.sp, color = muted)
-                                    }
-                                    Box(Modifier.width(1.dp).height(70.dp).background(AppTheme.surface2))
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("예상 입국 인원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green); Spacer(Modifier.height(10.dp))
-                                        val pax = curData?.upcomingPax ?: 0
-                                        Text("${String.format("%,d", pax)}", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = if(pax>300) red else if(pax>150) accent else AppTheme.text); Text("명", fontSize = 11.sp, color = muted)
-                                    }
-                                }
-                            }
-                        }
+                        // (기존 '30분 내 도착 예정' 단일 카드는 위 '앞으로 도착 손님' 30분 버킷 카드로 대체됨)
                         // 다음 도착 편 카드
                         curData?.nextFlight?.let { nf ->
                             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
