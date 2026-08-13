@@ -32,6 +32,9 @@ class TmoneyNotificationService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
+        // [v56] '금액 자동 입력' 토글(notif_capture_on) OFF면 티머니/택시승인 금액 캡처도 정지.
+        //  기존엔 CallCaptureService만 게이트돼 이 서비스가 토글을 무시하고 계속 캡처하던 반쪽 버그 수정.
+        if (!getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getBoolean("notif_capture_on", false)) return
 
         val extras = sbn.notification?.extras ?: return
         val title = extras.getString(Notification.EXTRA_TITLE) ?: ""

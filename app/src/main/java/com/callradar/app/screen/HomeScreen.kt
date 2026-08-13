@@ -748,7 +748,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         }
                         Switch(checked = autoRec, onCheckedChange = { on ->
                             autoRec = on
-                            prefs.edit().putBoolean("auto_record_on", on).apply()
+                            // [v56] auto_record_touched: 유저가 토글을 한 번이라도 만지면 그 선택이 유일 기준(auto_free_open 무시) → OFF면 진짜 OFF.
+                            prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()
                             if (on) {
                                 showAutoSetup = true   // 켜면 설정 체크리스트 표시(감지+원탭 켜기)
                             } else {

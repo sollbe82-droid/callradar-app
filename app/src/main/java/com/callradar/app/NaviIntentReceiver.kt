@@ -220,7 +220,12 @@ class NaviIntentReceiver : AccessibilityService() {
     private fun isAdmin(): Boolean = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).let { it.getBoolean("is_admin", false) || it.getBoolean("acct_entitled", false) || it.getBoolean("auto_free_open", false) }
     // [자동기록 시작/종료] 앱 인앱 토글. 접근성은 켜둔 채 이 값으로 실제 기록 on/off (앱이 접근성 자체를 못 끔).
     // [근본해결] free_open(전원 개방) 켜지면 별도 토글 없이도 자동기록 ON — "접근성만 켜고 토글 안 켜서 안 되는" 함정 제거.
-    private fun autoOn(): Boolean = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).let { it.getBoolean("auto_record_on", false) || it.getBoolean("auto_free_open", false) }
+    // [v56] 자동기록 on/off는 토글(auto_record_on)이 유일 기준. 유저가 토글을 만진 적 있으면(auto_record_touched) auto_free_open이 켜져 있어도 OFF면 진짜 OFF.
+    //  아직 안 만진 유저는 기존대로 자격(auto_free_open)으로 기본 동작 → 회귀 방지.
+    private fun autoOn(): Boolean = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).let {
+        if (it.getBoolean("auto_record_touched", false)) it.getBoolean("auto_record_on", false)
+        else it.getBoolean("auto_record_on", false) || it.getBoolean("auto_free_open", false)
+    }
     @Volatile private var locStarted = false   // [관리자 게이트] GPS 서비스 지연 시작 여부
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
