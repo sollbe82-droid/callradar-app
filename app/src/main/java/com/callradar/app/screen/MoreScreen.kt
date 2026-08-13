@@ -674,6 +674,12 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
         )),
         MoreGroup("화면 · 기능", listOf(
             MoreEntry("🏠", "홈 편집", "홈에 표시할 카드·바로가기 고르기", chevron = true) { onNavigate(R_REGISTRY) },
+            MoreEntry("✨", "홈 모드 (베타)", "심플(카카오식 무탭) 홈 켜기/끄기 · 되돌리기 쉬움",
+                right = if ((prefs.getString("home_mode", "classic") ?: "classic") == "simple") "심플" else "기본", rightKind = 0) {
+                val cur = prefs.getString("home_mode", "classic") ?: "classic"
+                prefs.edit().putString("home_mode", if (cur == "simple") "classic" else "simple").apply()
+                (context as? android.app.Activity)?.recreate()
+            },
             MoreEntry("🎨", "화면 테마", "밝게/어둡게 전환 (앱 전체)",
                 right = if (isDark) "🌙 다크" else "☀️ 라이트", rightKind = 0,
                 badge = if (isDark) "다크" else "라이트", badgeKind = 0) {

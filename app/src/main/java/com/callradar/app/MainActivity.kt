@@ -272,21 +272,24 @@ class MainActivity : ComponentActivity() {
             })
             else -> {
                 // [v32] 온보딩·기사유형 선택을 전체화면 대신 홈 위 팝업으로. 홈이 뒤에 보여 갇힘 없음.
-                MainWithTabs(nickname = userNickname, userId = userId, onEndShift = {
-                stopService(Intent(this, LocationTrackingService::class.java)); finishAffinity()
-            }, onLogout = {
-                // [v17][#10] 완전 로그아웃 = 자동로그인 플래그 + 계정 자격정보만 제거 → 로그인 화면.
-                // 설정·기록(SharedPreferences 그 외 키·로컬 DB)은 보존해 데이터가 꼬이지 않게 한다.
-                prefs.edit()
-                    .remove(KEY_USER_ID)
-                    .remove(KEY_NICKNAME)
-                    .putBoolean(KEY_AUTO_LOGIN, false)
-                    .apply()
-                com.callradar.app.Auth.clear(prefs)  // [보안 v24] 로그아웃 시 토큰 제거(옛 토큰으로 403 방지)
-                sessionLoggedIn = false
-                stopService(Intent(this, LocationTrackingService::class.java))
-                isLoggedIn = false; userNickname = ""; userId = ""
-            })
+                val onEndShiftCb: () -> Unit = {
+                    stopService(Intent(this, LocationTrackingService::class.java)); finishAffinity()
+                }
+                val onLogoutCb: () -> Unit = {
+                    // [v17][#10] 완전 로그아웃 = 자동로그인 플래그 + 계정 자격정보만 제거 → 로그인 화면.
+                    prefs.edit().remove(KEY_USER_ID).remove(KEY_NICKNAME).putBoolean(KEY_AUTO_LOGIN, false).apply()
+                    com.callradar.app.Auth.clear(prefs)
+                    sessionLoggedIn = false
+                    stopService(Intent(this, LocationTrackingService::class.java))
+                    isLoggedIn = false; userNickname = ""; userId = ""
+                }
+                // [심플 홈 · 옵트인] home_mode=simple이면 무탭 심플 UI, 아니면 기존 탭 UI. 전환은 recreate()로 재읽기.
+                val homeMode = prefs.getString("home_mode", "classic") ?: "classic"
+                if (homeMode == "simple") {
+                    SimpleMain(nickname = userNickname, userId = userId, onEndShift = onEndShiftCb, onLogout = onLogoutCb)
+                } else {
+                    MainWithTabs(nickname = userNickname, userId = userId, onEndShift = onEndShiftCb, onLogout = onLogoutCb)
+                }
                 // 팝업은 한 번에 하나씩: 온보딩 → 기사유형 → 위치권한 설정
                 if (!onboardingDone) OnboardingPopup(nickname = userNickname, onDone = {
                     prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
@@ -406,6 +409,55 @@ class MainActivity : ComponentActivity() {
             ) { Text(step.buttonText, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             if (currentStep > 0) { Spacer(Modifier.height(12.dp)); TextButton(onClick = { currentStep-- }) { Text("이전", color = muted) } }
             Spacer(Modifier.height(20.dp))
+        }
+    }
+
+    // [심플 홈 · 옵트인 B안] 무탭 모드 라우팅. 기존 화면 composable을 재사용(기능 무손상) + B 뒤로가기 헤더로 감쌈.
+    @Composable
+    fun SimpleMain(nickname: String, userId: String, onEndShift: () -> Unit, onLogout: () -> Unit) {
+        var route by remember { mutableStateOf("home") }
+        var showSettle by remember { mutableStateOf(false) }
+        val switchClassic: () -> Unit = {
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString("home_mode", "classic").apply()
+            recreate()
+        }
+        BackHandler(enabled = route != "home" || showSettle) { if (showSettle) showSettle = false else route = "home" }
+        val openCard: (String) -> Unit = { id ->
+            when (id) {
+                "track" -> try { com.callradar.app.TrackActivity.start(this@MainActivity) } catch (e: Exception) {}
+                "settlement" -> showSettle = true
+                else -> route = id
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
+            when (route) {
+                "home" -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
+                "menu" -> com.callradar.app.screen.SimpleMenuScreen(onBack = { route = "home" }, onOpen = openCard, onFullMenu = { route = "full" }, onSwitchClassic = switchClassic)
+                "records" -> SimpleWrap("기록", { route = "home" }) { com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showSettle = true }, onOpenSettings = { route = "full" }) }
+                "radar" -> SimpleWrap("레이더", { route = "home" }) { com.callradar.app.screen.RadarScreen(userId = userId) }
+                "airport" -> SimpleWrap("공항", { route = "home" }) { com.callradar.app.screen.AirportScreen() }
+                "stats" -> SimpleWrap("분석", { route = "home" }) { com.callradar.app.screen.StatsScreen(userId = userId) }
+                "ranking" -> SimpleWrap("랭킹", { route = "home" }) { com.callradar.app.screen.RankingScreen(userId = userId) }
+                "full" -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showSettle = true })
+                else -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
+            }
+            if (showSettle) {
+                Box(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
+                    com.callradar.app.screen.DailySettlementScreen(userId = userId, onClose = { showSettle = false })
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun SimpleWrap(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+        Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
+            Row(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 40.dp, start = 10.dp, end = 16.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("‹", fontSize = 24.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold); Spacer(Modifier.width(4.dp)); Text("홈", fontSize = 14.sp, color = Color(0xFFF59E0B)) }
+                Spacer(Modifier.width(4.dp))
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            }
+            Box(modifier = Modifier.weight(1f)) { content() }
         }
     }
 
