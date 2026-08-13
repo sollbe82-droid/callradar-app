@@ -119,7 +119,7 @@ private fun shareDayRecordsImage(context: android.content.Context, dateLabel: St
         c.drawText(dateLabel, padL, 148f, paint(34f, "#9aa6b6"))
         val first = tripsChrono.first().time; val last = tripsChrono.last().time
         val range = if (first.isNotEmpty() && last.isNotEmpty()) "  ·  $first~$last" else ""
-        val total = tripsChrono.sumOf { it.fare }
+        val total = tripsChrono.sumOf { it.fare + it.tip + it.promo }
         val cntLabel = "총 ${tripsChrono.size}건$range" + if (includeAmount) "  ·  ${String.format("%,d", total)}원" else ""
         c.drawText(cntLabel, padL, 210f, paint(40f, "#5DCAA5", true))
         // 컬럼 헤더 + 구분선
@@ -659,9 +659,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 }
                 // 요약 (홈 스타일)
                 if (dateFilter != "전체" && trips.isNotEmpty()) {
-                    val totalFare = trips.sumOf { it.fare }
+                    // [v58] 홈(/api/today)과 동일하게 총매출 = fare+팁+프로모(보너스). 예전 fare만 합산 → 홈과 불일치(124 6,000원차) 해소.
+                    val totalFare = trips.sumOf { it.fare + it.tip + it.promo }
+                    val bonus = trips.sumOf { it.tip + it.promo }   // 프로모션·호출료 등 보너스
                     // [v7] 현금 별도 집계 — 현금은 회사 미납부(기사 실수입), 카드/플랫폼과 분리해 보여줌
-                    val cashFare = trips.filter { it.paymentType == "cash" }.sumOf { it.fare }
+                    val cashFare = trips.filter { it.paymentType == "cash" }.sumOf { it.fare + it.tip + it.promo }
                     val cardFare = totalFare - cashFare
                     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
@@ -674,6 +676,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                             Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB3 ${String.format("%,d", cardFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)); Text("카드/플랫폼", fontSize = 9.sp, color = muted) }
                                 if (cashFare > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("\uD83D\uDCB5 ${String.format("%,d", cashFare)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24)); Text("현금(내 몫)", fontSize = 9.sp, color = muted) } }
+                                if (bonus > 0) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("🎁 ${String.format("%,d", bonus)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent); Text("보너스(프로모·호출료)", fontSize = 9.sp, color = muted) } }
                             }
                             // [v21] #4 지출·운행 통합: 같은 기간 지출·순수익
                             run {
@@ -718,8 +721,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                         val timeDisplay = if (trip.endTime.isNotEmpty()) "${trip.time}~${trip.endTime}" else trip.time
                                         Text("${trip.platform} $payLabel \u00B7 ${trip.date} \u00B7 $timeDisplay", fontSize = 11.sp, color = muted)
                                     }
-                                    if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
-                                    else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; quickFarePlatform = ""; showQuickFare = true }) }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
+                                        else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; quickFarePlatform = ""; showQuickFare = true }) }
+                                        if (trip.tip + trip.promo > 0) Text("+${String.format("%,d", trip.tip + trip.promo)} ${trip.promoType.ifBlank { "보너스" }}", fontSize = 10.sp, color = accent)
+                                    }
                                     Spacer(Modifier.width(8.dp))
                                     TextButton(onClick = { shareTrip(ctx, trip.origin, trip.destination, trip.time.split(":").getOrElse(0) { "" }, trip.time.split(":").getOrElse(1) { "" }, if (trip.fare > 0) trip.fare.toString() else "") }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("🔗", fontSize = 14.sp) }
                                     TextButton(onClick = { deletingTrip = trip; showDeleteConfirm = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("\uD83D\uDDD1", fontSize = 13.sp) }
@@ -920,8 +926,8 @@ private fun CalendarView(userId: String) {
                 }
                 // [v19] 그날 수입·지출·순수익 요약 (마감 관리용)
                 run {
-                    val dayIncome = selectedTrips.sumOf { it.fare }
-                    val dayCash = selectedTrips.filter { it.paymentType == "cash" }.sumOf { it.fare }
+                    val dayIncome = selectedTrips.sumOf { it.fare + it.tip + it.promo }
+                    val dayCash = selectedTrips.filter { it.paymentType == "cash" }.sumOf { it.fare + it.tip + it.promo }
                     val dayCard = dayIncome - dayCash
                     val dayNet = dayIncome - dayExpense
                     Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
