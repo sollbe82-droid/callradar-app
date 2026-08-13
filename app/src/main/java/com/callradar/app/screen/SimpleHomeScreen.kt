@@ -138,6 +138,7 @@ fun SimpleHomeScreen(
     val doEnd = {
         try {
             val now = System.currentTimeMillis()
+            val startedAtMs = workStart   // 리셋 전 시작시각 보존(서버 요약용)
             val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
             val grossMs = (now - workStart).coerceAtLeast(0L)
             val dayKey = workDayKey(); val sameDay = prefs.getLong("work_day_key", 0L) == dayKey
@@ -155,7 +156,7 @@ fun SimpleHomeScreen(
             com.callradar.app.Telemetry.log(context, "shift_end", "simple_home", meta = sFare.toString())
             // 서버 근무세션 요약 저장 (classic과 동일)
             if (userId.isNotEmpty()) scope.launch { try { withContext(Dispatchers.IO) {
-                val j = JSONObject().apply { put("user_id", userId); put("started_at", workStart); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", sFare); put("per_hour", pH) }
+                val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", sFare); put("per_hour", pH) }
                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
             } } catch (e: Exception) {} }
