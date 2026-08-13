@@ -885,6 +885,18 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
                         prefs.edit().putString("work_session_log", trimmed.toString()).apply()
                     } catch (e: Exception) {}
+                    // [v56] 근무세션 요약(시간·km·매출) 서버 저장 — 퇴근 시 1회. 진단·크로스디바이스용, 좌표 아닌 집계값이라 부담 거의 없음.
+                    run {
+                        val sStart = workStart; val sEnd = now
+                        val gMin = sumGrossMin; val nMin = sumNetMin; val dKm = sumDistKm; val sF = sFare; val pH = sumPerHour
+                        if (userId.isNotEmpty()) scope.launch {
+                            try { withContext(Dispatchers.IO) {
+                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", sF); put("per_hour", pH) }
+                                val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
+                                conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
+                            } } catch (e: Exception) {}
+                        }
+                    }
                     // 이어가기용 스냅샷 저장(잘못 퇴근 시 복구)
                     prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
                     workStart = 0L; pausedTotal = 0L; pauseStart = 0L
