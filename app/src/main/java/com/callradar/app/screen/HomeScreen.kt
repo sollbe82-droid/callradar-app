@@ -585,6 +585,371 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 }
             }
 
+            // [v18] 근무 세션 (핸들링 스타일: 시간 카운팅 + 일시정지/재개 + 시간당 매출) — 순수 prefs, 앱 죽어도 이어짐
+            run {
+                val sessionEnabled = prefs.getBoolean("work_session_enabled", true)
+                var workStart by remember { mutableStateOf(prefs.getLong("work_start", 0L)) }
+                var pausedTotal by remember { mutableStateOf(prefs.getLong("work_paused_total", 0L)) }
+                var pauseStart by remember { mutableStateOf(prefs.getLong("work_pause_start", 0L)) }
+                var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+                var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
+                // [v59] 로컬 출근/일시정지/재개/퇴근 직후 시각 — 20초 투폰 pull이 아직 서버에 반영 안 된 옛 상태로 로컬 일시정지를 덮어써 재개시키던 버그 방지.
+                var lastLocalWorkChange by remember { mutableStateOf(0L) }
+                val distEnabled = prefs.getBoolean("work_dist_enabled", true)
+                var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }  // [v23] 근무 최대시간 자동마감(0=끔)
+                val active = workStart > 0L
+                val paused = pauseStart > 0L
+                // [v41] 영업일(day_start_hour 기준) 키 — 하루 안 여러 출퇴근을 하나로 누적하기 위한 기준.
+                fun workDayKey(): Long {
+                    val h = prefs.getInt("day_start_hour", 0)
+                    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+                    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
+                    return c.timeInMillis
+                }
+                // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
+                fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
+                    lastLocalWorkChange = System.currentTimeMillis()   // [v59] 로컬 변경 표시 → 30초간 pull이 서버로 덮지 않음
+                    if (userId.isEmpty()) return
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val json = JSONObject().apply { put("user_id", userId); put("work_start", ws); put("paused_total", pt); put("pause_start", ps); put("start_fare", sf) }
+                                val conn = (URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
+                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
+                // [v17][#5] 퇴근 요약 카드
+                var showEndSummary by remember { mutableStateOf(false) }
+                var showDistReset by remember { mutableStateOf(false) }   // [거리초기화] 오염된 세션거리(548km 등) 수동 리셋
+                var showPastSessions by remember { mutableStateOf(false) }   // [v41] 지난 근무 기록 보기/공유
+                var showEndConfirm by remember { mutableStateOf(false) }   // [v23] 실수 퇴근 방지 확인
+                var sumGrossMin by remember { mutableStateOf(0L) }
+                var sumNetMin by remember { mutableStateOf(0L) }
+                var sumDistKm by remember { mutableStateOf(0f) }
+                var sumFare by remember { mutableStateOf(0) }
+                var sumPerHour by remember { mutableStateOf(0) }
+                var sumFixedCost by remember { mutableStateOf(0) }   // [v24 진화②] 일 유류비+사납금
+                var sumNetProfit by remember { mutableStateOf(0) }   // [v24 진화②] 교대 예상 순수익
+                fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
+                fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
+                // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
+                // [원스토어 반려수정] 어떤 예외가 나도 '퇴근'으로 앱이 죽지 않도록 전체를 안전망으로 감쌈.
+                val endShiftNow = {
+                  try {
+                    val now = System.currentTimeMillis()
+                    val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
+                    val grossMs = (now - workStart).coerceAtLeast(0L)
+                    // [v41] 하루(영업일) 누적 — 오전·오후 여러 출퇴근을 하나로 합쳐 영수증을 '하루 총합'으로.
+                    //  이번 세션분을 당일 누적(work_day_net_ms/gross_ms)에 더하고, 매출·거리는 당일 첫 출근 기준으로 계산.
+                    val dayKey = workDayKey()
+                    val sameDay = prefs.getLong("work_day_key", 0L) == dayKey
+                    // [버그수정] 16시간 초과 세션 = 퇴근 깜빡한 유령 → 하루 누적에 더하지 않음(25시간 오염 방지)
+                    val realSession = grossMs < 16L * 3600000L
+                    val dayNetMs = (if (sameDay) prefs.getLong("work_day_net_ms", 0L) else 0L) + (if (realSession) netMs else 0L)
+                    val dayGrossMs = (if (sameDay) prefs.getLong("work_day_gross_ms", 0L) else 0L) + (if (realSession) grossMs else 0L)
+                    val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
+                    prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
+                    val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
+                    val hrs = dayNetMs / 3600000.0
+                    sumGrossMin = dayGrossMs / 60000L
+                    sumNetMin = dayNetMs / 60000L
+                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f   // 당일 누적 거리(출근마다 리셋 안 함)
+                    sumFare = sFare
+                    sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
+                    // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
+                    // [개인/법인 분리] 개인택시는 사납금이 없음 → 고정비=유류만. 법인만 사납 포함(잔존 사납값 누출 방지).
+                    val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
+                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + effShiftSanap
+                    sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
+                    com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
+                    try {
+                        val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
+                        log.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
+                        val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
+                        prefs.edit().putString("work_session_log", trimmed.toString()).apply()
+                    } catch (e: Exception) {}
+                    // [v56] 근무세션 요약(시간·km·매출) 서버 저장 — 퇴근 시 1회. 진단·크로스디바이스용, 좌표 아닌 집계값이라 부담 거의 없음.
+                    run {
+                        val sStart = workStart; val sEnd = now
+                        val gMin = sumGrossMin; val nMin = sumNetMin; val dKm = sumDistKm; val sF = sFare; val pH = sumPerHour
+                        if (userId.isNotEmpty()) scope.launch {
+                            try { withContext(Dispatchers.IO) {
+                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", sF); put("per_hour", pH) }
+                                val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
+                                conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
+                            } } catch (e: Exception) {}
+                        }
+                    }
+                    // 이어가기용 스냅샷 저장(잘못 퇴근 시 복구)
+                    prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
+                    workStart = 0L; pausedTotal = 0L; pauseStart = 0L
+                    prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    pushWorkSession(0L, 0L, 0L, 0)
+                    stopMeter()
+                    com.callradar.app.TrackSync.uploadRecent(context)   // [v44] 퇴근 시 오늘 궤적 서버 백업
+                    com.callradar.app.WorkAutoEnd.cancel(context)
+                    com.callradar.app.ScreenCaptureService.stopSession(context)   // [v24] 퇴근 시 화면권한 해제
+                    com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
+                    showEndSummary = true
+                  } catch (e: Exception) {
+                    // 안전망: 예상치 못한 예외에도 세션은 종료 상태로 만들고 요약을 띄운다(강제종료 방지).
+                    try {
+                        workStart = 0L; pausedTotal = 0L; pauseStart = 0L
+                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    } catch (e2: Exception) {}
+                    try { stopMeter() } catch (e2: Exception) {}
+                    showEndSummary = true
+                  }
+                }
+                LaunchedEffect(Unit) { if (workStart > 0L) com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)) }  // [v23] 앱 재시작 시 예약 복원
+                LaunchedEffect(active, paused) {
+                    while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
+                }
+                // [v2] 투폰 근무세션 pull — 20초마다 서버 세션을 확인해 다른 폰의 출근/일시정지/퇴근을 반영
+                LaunchedEffect(Unit) {
+                    if (userId.isEmpty()) return@LaunchedEffect
+                    while (true) {
+                        try {
+                            val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
+                            val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
+                            if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
+                                workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
+                                prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
+                                if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
+                                if (rws > 0L) com.callradar.app.WorkAutoEnd.schedule(context, rws, maxHours) else com.callradar.app.WorkAutoEnd.cancel(context)
+                            }
+                        } catch (e: Exception) {}
+                        kotlinx.coroutines.delay(20000)
+                    }
+                }
+                // [v23] 퇴근 확인 — 실수로 눌러 세션이 초기화되는 것 방지
+                if (showEndConfirm) {
+                    val nowC = System.currentTimeMillis()
+                    val netMsC = ((nowC - workStart) - pausedTotal - (if (paused) nowC - pauseStart else 0L)).coerceAtLeast(0L)
+                    val hC = netMsC / 3600000L; val mC = (netMsC / 60000L) % 60
+                    AlertDialog(
+                        onDismissRequest = { showEndConfirm = false },
+                        title = { Text("퇴근할까요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = { Text("지금까지 근무 ${hC}시간 ${mC}분. 퇴근하면 이 세션이 끝나고 시간·평균이 초기화돼요. 실수로 누른 거면 '계속 근무'를 누르세요.", fontSize = 13.sp, color = muted) },
+                        confirmButton = { Button(onClick = { showEndConfirm = false; endShiftNow() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
+                        dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
+                        containerColor = AppTheme.card
+                    )
+                }
+                // [거리초기화] 오염된 세션 거리(예: GPS 튐으로 548km)를 근무 중 수동 리셋. 확인 다이얼로그로 실수 방지.
+                if (showDistReset) {
+                    AlertDialog(
+                        onDismissRequest = { showDistReset = false },
+                        title = { Text("이동 거리 초기화?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = { Text("이번 근무의 누적 이동 거리를 0km로 되돌려요. GPS 튐 등으로 거리가 비정상적으로 크게 잡혔을 때 사용하세요. (근무 시간·매출은 그대로예요.)", fontSize = 13.sp, color = muted) },
+                        confirmButton = { Button(onClick = {
+                            prefs.edit().putFloat("work_distance_m", 0f).apply(); workDist = 0f; showDistReset = false
+                        }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("초기화", color = Color.Black, fontWeight = FontWeight.Bold) } },
+                        dismissButton = { OutlinedButton(onClick = { showDistReset = false }) { Text("취소") } },
+                        containerColor = AppTheme.card
+                    )
+                }
+                // [v17][#5] 퇴근 요약 — [v2] 영수증 스타일 카드 + 공유
+                if (showEndSummary) {
+                    val gh = sumGrossMin / 60; val gm = sumGrossMin % 60
+                    val nh = sumNetMin / 60; val nm = sumNetMin % 60
+                    val mono = androidx.compose.ui.text.font.FontFamily.Monospace
+                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd (E)", java.util.Locale.KOREA).format(java.util.Date())
+                    val dash = "─".repeat(22)
+                    val receiptText = buildString {
+                        append("📻 콜레이더 · 근무 영수증\n"); append("$dash\n")
+                        append("날짜   $dateStr\n")
+                        append("근무   ${gh}시간 ${gm}분 (순 ${nh}:${String.format("%02d", nm)})\n")
+                        append("거리   ${String.format("%.1f", sumDistKm)} km\n")
+                        append("매출   ${String.format("%,d", sumFare)}원\n")
+                        append("시간당 ${String.format("%,d", sumPerHour)}원\n")
+                        if (sumFixedCost > 0) { append("고정비(유류+사납) -${String.format("%,d", sumFixedCost)}원\n"); append("예상 순수익 ${String.format("%,d", sumNetProfit)}원\n") }
+                        append("$dash\n수고하셨습니다!")
+                    }
+                    AlertDialog(
+                        onDismissRequest = { showEndSummary = false },
+                        title = { Text("🧾 근무 영수증", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text("📻 콜레이더 · 근무 영수증", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text(dateStr, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${gh}시간 ${gm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("순 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${nh}시간 ${nm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("이동 거리", fontSize = 13.sp, fontFamily = mono, color = muted); Text(String.format("%.1f km", sumDistKm), fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("운행 매출", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumFare)}원", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
+                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("시간당", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumPerHour)}원", fontSize = 17.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = accent) }
+                                if (sumFixedCost > 0) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("고정비(유류+사납)", fontSize = 12.sp, fontFamily = mono, color = muted); Text("-${String.format("%,d", sumFixedCost)}원", fontSize = 12.sp, fontFamily = mono, color = red) }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("예상 순수익", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumNetProfit)}원", fontSize = 16.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
+                                }
+                                Text("수고하셨습니다!", fontSize = 11.sp, fontFamily = mono, color = muted, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        },
+                        confirmButton = { Button(onClick = { showEndSummary = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("확인", color = Color.Black) } },
+                        dismissButton = { OutlinedButton(onClick = {
+                            try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receiptText) }, "영수증 공유")) } catch (e: Exception) {}
+                        }) { Text("📤 공유") } },
+                        containerColor = card
+                    )
+                }
+                // [v41] 지난 근무 기록 목록 + 각 건 공유 — 자정이 지나도 과거 근무 영수증을 다시 공유 가능.
+                if (showPastSessions) {
+                    val logArr = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
+                    val fmtP = java.text.SimpleDateFormat("M/d(E) HH:mm", java.util.Locale.KOREA).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+                    AlertDialog(
+                        onDismissRequest = { showPastSessions = false },
+                        title = { Text("📋 지난 근무 기록", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = {
+                            if (logArr.length() == 0) {
+                                Text("아직 퇴근 기록이 없어요. 퇴근하면 여기에 쌓여요.", fontSize = 13.sp, color = muted)
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    for (i in logArr.length() - 1 downTo 0) {
+                                        val o = logArr.optJSONObject(i) ?: continue
+                                        val endMs = o.optLong("end", 0L)
+                                        val nmP = o.optLong("netMin", 0L); val nhP = nmP / 60; val nmmP = nmP % 60
+                                        val fareP = o.optInt("fare", 0)
+                                        val phP = o.optInt("perHour", 0)
+                                        val dkP = o.optDouble("distKm", 0.0)
+                                        val dateP = if (endMs > 0) fmtP.format(java.util.Date(endMs)) else "-"
+                                        Column(Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(12.dp)) {
+                                            Text(dateP, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                            Text("근무 ${nhP}시간 ${nmmP}분 · ${String.format("%.1f", dkP)}km", fontSize = 12.sp, color = muted)
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                                Text("매출 ${String.format("%,d", fareP)}원 · 시간당 ${String.format("%,d", phP)}원", fontSize = 12.sp, color = green)
+                                                TextButton(onClick = {
+                                                    val dashP = "─".repeat(22)
+                                                    val txtP = buildString {
+                                                        append("📻 콜레이더 · 근무 영수증\n"); append("$dashP\n")
+                                                        append("날짜   $dateP\n")
+                                                        append("근무   ${nhP}시간 ${nmmP}분\n")
+                                                        append("거리   ${String.format("%.1f", dkP)} km\n")
+                                                        append("매출   ${String.format("%,d", fareP)}원\n")
+                                                        append("시간당 ${String.format("%,d", phP)}원\n")
+                                                        append("$dashP\n수고하셨습니다!")
+                                                    }
+                                                    try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txtP) }, "영수증 공유")) } catch (e: Exception) {}
+                                                }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("📤 공유", fontSize = 12.sp, color = accent) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = { Button(onClick = { showPastSessions = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("닫기", color = Color.Black) } },
+                        containerColor = card
+                    )
+                }
+                if (sessionEnabled) {
+                    // [v41] 라이브 카드도 '하루 누적'으로 — 당일 완료 세션분 + 현재 세션분을 이어서 표시.
+                    val sameDayLive = prefs.getLong("work_day_key", 0L) == workDayKey()
+                    // [버그수정] '퇴근 깜빡' 등으로 비현실적(>16h) 누적이 박히면 오염값 → 무시하고 자가치유(pref 정리).
+                    //  (25시간처럼 말이 안 되는 근무시간이 출근해도 계속 뜨던 문제 해결)
+                    val rawDayNet = if (sameDayLive) prefs.getLong("work_day_net_ms", 0L) else 0L
+                    val dayNetPrev = if (rawDayNet > 16L * 3600000L) {
+                        prefs.edit().putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).apply(); 0L
+                    } else rawDayNet
+                    val curNet = if (!active) 0L else ((nowTick - workStart) - pausedTotal - (if (paused) nowTick - pauseStart else 0L)).coerceAtLeast(0L)
+                    val workedMs = dayNetPrev + curNet
+                    val workedMin = workedMs / 60000L
+                    val hh = workedMin / 60; val mm = workedMin % 60
+                    val workedHours = workedMs.toDouble() / 3600000.0
+                    // [버그수정] 시간당/㎞당 매출은 '하루 매출(당일 첫 출근 기준)'을 '하루 근무시간'으로 나눔.
+                    // (짧은 세션 하나로 나눠 시간당 수백만원 나오던 버그는 하루 누적시간으로 방지)
+                    val sStartFare = if (sameDayLive) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
+                    val sessionFare = (todayFare - sStartFare).coerceAtLeast(0)
+                    val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
+                    val distKm = workDist / 1000f
+                    val perKm = if (distKm > 0.3f) (sessionFare / distKm).toInt() else 0
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text(if (!active) "근무 세션" else if (paused) "근무 일시정지 ⏸" else "근무 중 🟢", fontSize = 12.sp, color = muted)
+                                    Text(if (!active) "출근을 눌러 시작" else String.format("%d시간 %02d분", hh, mm), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (!active) muted else AppTheme.text)
+                                }
+                                if (active) Column(horizontalAlignment = Alignment.End) {
+                                    Text("시간당 매출", fontSize = 11.sp, color = muted)
+                                    Text("${String.format("%,d", perHour)}원", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent)
+                                }
+                            }
+                            if (active && distEnabled) {
+                                Spacer(Modifier.height(10.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable { showDistReset = true }.padding(vertical = 8.dp, horizontal = 10.dp)) {
+                                        Column {
+                                            Text("이동 거리 · 탭 초기화", fontSize = 10.sp, color = muted)
+                                            Text(String.format("%.1f km", distKm), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                        }
+                                    }
+                                    Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(vertical = 8.dp, horizontal = 10.dp)) {
+                                        Column {
+                                            Text("km당 매출", fontSize = 10.sp, color = muted)
+                                            Text(if (perKm > 0) "${String.format("%,d", perKm)}원" else "—", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green)
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            // [v23] 근무시간 자동마감 설정 — 탭하면 프리셋 순환(꺼짐/10/12/15/18/24시간)
+                            run {
+                                val presets = listOf(0, 10, 12, 15, 18, 24)
+                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
+                                    val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
+                                    val nv = presets[(idx + 1) % presets.size]
+                                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
+                                    if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
+                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("🛌 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
+                                    Text(if (maxHours > 0) "${maxHours}시간 후" else "꺼짐 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (maxHours > 0) accent else muted)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // [v57] 영업일 시작시각 — 자정 넘긴 운행을 어느 날에 귀속할지 기준. 탭하면 순환(자정/새벽4·5·6시). 설정하면 완료시각 기준 귀속 활성화.
+                            run {
+                                var dsh by remember { mutableStateOf(prefs.getInt("day_start_hour", 0)) }
+                                val opts = listOf(0, 4, 5, 6)
+                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
+                                    val idx = opts.indexOf(dsh).let { if (it < 0) 0 else it }
+                                    val nv = opts[(idx + 1) % opts.size]
+                                    dsh = nv; prefs.edit().putInt("day_start_hour", nv).putBoolean("day_start_set", true).apply()
+                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("📅 영업일 시작시각(자정 넘김 귀속)", fontSize = 12.sp, color = muted)
+                                    Text(if (prefs.getBoolean("day_start_set", false)) (if (dsh == 0) "자정(0시)" else "새벽 ${dsh}시") + " · 탭변경" else "미설정 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (prefs.getBoolean("day_start_set", false)) accent else muted)
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            if (!active) {
+                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
+                                    // [v41] 같은 영업일 재출근이면 당일 누적(거리·시작요금·시간) 유지 → 이어서 근무. 새 영업일이면 리셋.
+                                    val dayKey = workDayKey(); val newDay = prefs.getLong("work_day_key", 0L) != dayKey
+                                    val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare)
+                                    if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
+                                    e.apply()
+                                    workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
+                                    pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(onClick = {
+                                        val t = System.currentTimeMillis()
+                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
+                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
+                                    }, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(10.dp)) { Text(if (paused) "▶ 재개" else "⏸ 일시정지", color = accent, fontWeight = FontWeight.Bold) }
+                                    Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
+                                }
+                            }
+                            // [v41] 지난 근무 기록 보기/공유 진입 — 퇴근 후 자정이 지나도 과거 세션을 다시 공유
+                            TextButton(onClick = { showPastSessions = true }, modifier = Modifier.align(Alignment.CenterHorizontally), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("📋 지난 근무 기록", fontSize = 12.sp, color = muted) }
+                        }
+                    }
+                }
+            }
+
             // [v32] 🏢 회사 프로필 기반 예상 기사몫 (법인 + 활성 프로필 있을 때만). 홈 순수익 계산과 별개 표시(무손상).
             // [4-A] 개인택시(personal)는 사납금이 없으므로 이 카드를 표시하지 않는다(정관 도메인 규칙).
             // [금액중복 정리] 예상 기사몫 금액은 아래 '예상 월급 수령액' 카드와 사실상 동일값(총매출−사납) → 큰 금액 중복.
@@ -798,357 +1163,6 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         Spacer(Modifier.width(10.dp))
                         Text("금액 안 넣은 운행 ${noFareCount}건 있어요", fontSize = 13.sp, color = AppTheme.text, modifier = Modifier.weight(1f))
                         Text("채우기 ›", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            // [v18] 근무 세션 (핸들링 스타일: 시간 카운팅 + 일시정지/재개 + 시간당 매출) — 순수 prefs, 앱 죽어도 이어짐
-            run {
-                val sessionEnabled = prefs.getBoolean("work_session_enabled", true)
-                var workStart by remember { mutableStateOf(prefs.getLong("work_start", 0L)) }
-                var pausedTotal by remember { mutableStateOf(prefs.getLong("work_paused_total", 0L)) }
-                var pauseStart by remember { mutableStateOf(prefs.getLong("work_pause_start", 0L)) }
-                var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
-                var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
-                // [v59] 로컬 출근/일시정지/재개/퇴근 직후 시각 — 20초 투폰 pull이 아직 서버에 반영 안 된 옛 상태로 로컬 일시정지를 덮어써 재개시키던 버그 방지.
-                var lastLocalWorkChange by remember { mutableStateOf(0L) }
-                val distEnabled = prefs.getBoolean("work_dist_enabled", true)
-                var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }  // [v23] 근무 최대시간 자동마감(0=끔)
-                val active = workStart > 0L
-                val paused = pauseStart > 0L
-                // [v41] 영업일(day_start_hour 기준) 키 — 하루 안 여러 출퇴근을 하나로 누적하기 위한 기준.
-                fun workDayKey(): Long {
-                    val h = prefs.getInt("day_start_hour", 0)
-                    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-                    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
-                    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
-                    return c.timeInMillis
-                }
-                // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
-                fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
-                    lastLocalWorkChange = System.currentTimeMillis()   // [v59] 로컬 변경 표시 → 30초간 pull이 서버로 덮지 않음
-                    if (userId.isEmpty()) return
-                    scope.launch {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                val json = JSONObject().apply { put("user_id", userId); put("work_start", ws); put("paused_total", pt); put("pause_start", ps); put("start_fare", sf) }
-                                val conn = (URL("$SERVER_URL/api/work-session").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
-                                conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
-                            }
-                        } catch (e: Exception) {}
-                    }
-                }
-                // [v17][#5] 퇴근 요약 카드
-                var showEndSummary by remember { mutableStateOf(false) }
-                var showPastSessions by remember { mutableStateOf(false) }   // [v41] 지난 근무 기록 보기/공유
-                var showEndConfirm by remember { mutableStateOf(false) }   // [v23] 실수 퇴근 방지 확인
-                var sumGrossMin by remember { mutableStateOf(0L) }
-                var sumNetMin by remember { mutableStateOf(0L) }
-                var sumDistKm by remember { mutableStateOf(0f) }
-                var sumFare by remember { mutableStateOf(0) }
-                var sumPerHour by remember { mutableStateOf(0) }
-                var sumFixedCost by remember { mutableStateOf(0) }   // [v24 진화②] 일 유류비+사납금
-                var sumNetProfit by remember { mutableStateOf(0) }   // [v24 진화②] 교대 예상 순수익
-                fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
-                fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
-                // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
-                // [원스토어 반려수정] 어떤 예외가 나도 '퇴근'으로 앱이 죽지 않도록 전체를 안전망으로 감쌈.
-                val endShiftNow = {
-                  try {
-                    val now = System.currentTimeMillis()
-                    val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
-                    val grossMs = (now - workStart).coerceAtLeast(0L)
-                    // [v41] 하루(영업일) 누적 — 오전·오후 여러 출퇴근을 하나로 합쳐 영수증을 '하루 총합'으로.
-                    //  이번 세션분을 당일 누적(work_day_net_ms/gross_ms)에 더하고, 매출·거리는 당일 첫 출근 기준으로 계산.
-                    val dayKey = workDayKey()
-                    val sameDay = prefs.getLong("work_day_key", 0L) == dayKey
-                    // [버그수정] 16시간 초과 세션 = 퇴근 깜빡한 유령 → 하루 누적에 더하지 않음(25시간 오염 방지)
-                    val realSession = grossMs < 16L * 3600000L
-                    val dayNetMs = (if (sameDay) prefs.getLong("work_day_net_ms", 0L) else 0L) + (if (realSession) netMs else 0L)
-                    val dayGrossMs = (if (sameDay) prefs.getLong("work_day_gross_ms", 0L) else 0L) + (if (realSession) grossMs else 0L)
-                    val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
-                    prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
-                    val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
-                    val hrs = dayNetMs / 3600000.0
-                    sumGrossMin = dayGrossMs / 60000L
-                    sumNetMin = dayNetMs / 60000L
-                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f   // 당일 누적 거리(출근마다 리셋 안 함)
-                    sumFare = sFare
-                    sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
-                    // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
-                    // [개인/법인 분리] 개인택시는 사납금이 없음 → 고정비=유류만. 법인만 사납 포함(잔존 사납값 누출 방지).
-                    val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
-                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + effShiftSanap
-                    sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
-                    com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
-                    try {
-                        val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
-                        log.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
-                        val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
-                        prefs.edit().putString("work_session_log", trimmed.toString()).apply()
-                    } catch (e: Exception) {}
-                    // [v56] 근무세션 요약(시간·km·매출) 서버 저장 — 퇴근 시 1회. 진단·크로스디바이스용, 좌표 아닌 집계값이라 부담 거의 없음.
-                    run {
-                        val sStart = workStart; val sEnd = now
-                        val gMin = sumGrossMin; val nMin = sumNetMin; val dKm = sumDistKm; val sF = sFare; val pH = sumPerHour
-                        if (userId.isNotEmpty()) scope.launch {
-                            try { withContext(Dispatchers.IO) {
-                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", sF); put("per_hour", pH) }
-                                val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
-                                conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
-                            } } catch (e: Exception) {}
-                        }
-                    }
-                    // 이어가기용 스냅샷 저장(잘못 퇴근 시 복구)
-                    prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
-                    workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-                    prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
-                    pushWorkSession(0L, 0L, 0L, 0)
-                    stopMeter()
-                    com.callradar.app.TrackSync.uploadRecent(context)   // [v44] 퇴근 시 오늘 궤적 서버 백업
-                    com.callradar.app.WorkAutoEnd.cancel(context)
-                    com.callradar.app.ScreenCaptureService.stopSession(context)   // [v24] 퇴근 시 화면권한 해제
-                    com.callradar.app.Telemetry.log(context, "shift_end", "home", meta = sumFare.toString())
-                    showEndSummary = true
-                  } catch (e: Exception) {
-                    // 안전망: 예상치 못한 예외에도 세션은 종료 상태로 만들고 요약을 띄운다(강제종료 방지).
-                    try {
-                        workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
-                    } catch (e2: Exception) {}
-                    try { stopMeter() } catch (e2: Exception) {}
-                    showEndSummary = true
-                  }
-                }
-                LaunchedEffect(Unit) { if (workStart > 0L) com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)) }  // [v23] 앱 재시작 시 예약 복원
-                LaunchedEffect(active, paused) {
-                    while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
-                }
-                // [v2] 투폰 근무세션 pull — 20초마다 서버 세션을 확인해 다른 폰의 출근/일시정지/퇴근을 반영
-                LaunchedEffect(Unit) {
-                    if (userId.isEmpty()) return@LaunchedEffect
-                    while (true) {
-                        try {
-                            val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
-                            val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
-                            if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
-                                workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
-                                prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
-                                if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
-                                if (rws > 0L) com.callradar.app.WorkAutoEnd.schedule(context, rws, maxHours) else com.callradar.app.WorkAutoEnd.cancel(context)
-                            }
-                        } catch (e: Exception) {}
-                        kotlinx.coroutines.delay(20000)
-                    }
-                }
-                // [v23] 퇴근 확인 — 실수로 눌러 세션이 초기화되는 것 방지
-                if (showEndConfirm) {
-                    val nowC = System.currentTimeMillis()
-                    val netMsC = ((nowC - workStart) - pausedTotal - (if (paused) nowC - pauseStart else 0L)).coerceAtLeast(0L)
-                    val hC = netMsC / 3600000L; val mC = (netMsC / 60000L) % 60
-                    AlertDialog(
-                        onDismissRequest = { showEndConfirm = false },
-                        title = { Text("퇴근할까요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                        text = { Text("지금까지 근무 ${hC}시간 ${mC}분. 퇴근하면 이 세션이 끝나고 시간·평균이 초기화돼요. 실수로 누른 거면 '계속 근무'를 누르세요.", fontSize = 13.sp, color = muted) },
-                        confirmButton = { Button(onClick = { showEndConfirm = false; endShiftNow() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
-                        dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
-                        containerColor = AppTheme.card
-                    )
-                }
-                // [v17][#5] 퇴근 요약 — [v2] 영수증 스타일 카드 + 공유
-                if (showEndSummary) {
-                    val gh = sumGrossMin / 60; val gm = sumGrossMin % 60
-                    val nh = sumNetMin / 60; val nm = sumNetMin % 60
-                    val mono = androidx.compose.ui.text.font.FontFamily.Monospace
-                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd (E)", java.util.Locale.KOREA).format(java.util.Date())
-                    val dash = "─".repeat(22)
-                    val receiptText = buildString {
-                        append("📻 콜레이더 · 근무 영수증\n"); append("$dash\n")
-                        append("날짜   $dateStr\n")
-                        append("근무   ${gh}시간 ${gm}분 (순 ${nh}:${String.format("%02d", nm)})\n")
-                        append("거리   ${String.format("%.1f", sumDistKm)} km\n")
-                        append("매출   ${String.format("%,d", sumFare)}원\n")
-                        append("시간당 ${String.format("%,d", sumPerHour)}원\n")
-                        if (sumFixedCost > 0) { append("고정비(유류+사납) -${String.format("%,d", sumFixedCost)}원\n"); append("예상 순수익 ${String.format("%,d", sumNetProfit)}원\n") }
-                        append("$dash\n수고하셨습니다!")
-                    }
-                    AlertDialog(
-                        onDismissRequest = { showEndSummary = false },
-                        title = { Text("🧾 근무 영수증", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                        text = {
-                            Column(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Text("📻 콜레이더 · 근무 영수증", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Text(dateStr, fontSize = 11.sp, fontFamily = mono, color = muted)
-                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${gh}시간 ${gm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("순 근무", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${nh}시간 ${nm}분", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("이동 거리", fontSize = 13.sp, fontFamily = mono, color = muted); Text(String.format("%.1f km", sumDistKm), fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = AppTheme.text) }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("운행 매출", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumFare)}원", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
-                                Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("시간당", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumPerHour)}원", fontSize = 17.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = accent) }
-                                if (sumFixedCost > 0) {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("고정비(유류+사납)", fontSize = 12.sp, fontFamily = mono, color = muted); Text("-${String.format("%,d", sumFixedCost)}원", fontSize = 12.sp, fontFamily = mono, color = red) }
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("예상 순수익", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumNetProfit)}원", fontSize = 16.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
-                                }
-                                Text("수고하셨습니다!", fontSize = 11.sp, fontFamily = mono, color = muted, modifier = Modifier.padding(top = 2.dp))
-                            }
-                        },
-                        confirmButton = { Button(onClick = { showEndSummary = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("확인", color = Color.Black) } },
-                        dismissButton = { OutlinedButton(onClick = {
-                            try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receiptText) }, "영수증 공유")) } catch (e: Exception) {}
-                        }) { Text("📤 공유") } },
-                        containerColor = card
-                    )
-                }
-                // [v41] 지난 근무 기록 목록 + 각 건 공유 — 자정이 지나도 과거 근무 영수증을 다시 공유 가능.
-                if (showPastSessions) {
-                    val logArr = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
-                    val fmtP = java.text.SimpleDateFormat("M/d(E) HH:mm", java.util.Locale.KOREA).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
-                    AlertDialog(
-                        onDismissRequest = { showPastSessions = false },
-                        title = { Text("📋 지난 근무 기록", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                        text = {
-                            if (logArr.length() == 0) {
-                                Text("아직 퇴근 기록이 없어요. 퇴근하면 여기에 쌓여요.", fontSize = 13.sp, color = muted)
-                            } else {
-                                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    for (i in logArr.length() - 1 downTo 0) {
-                                        val o = logArr.optJSONObject(i) ?: continue
-                                        val endMs = o.optLong("end", 0L)
-                                        val nmP = o.optLong("netMin", 0L); val nhP = nmP / 60; val nmmP = nmP % 60
-                                        val fareP = o.optInt("fare", 0)
-                                        val phP = o.optInt("perHour", 0)
-                                        val dkP = o.optDouble("distKm", 0.0)
-                                        val dateP = if (endMs > 0) fmtP.format(java.util.Date(endMs)) else "-"
-                                        Column(Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(12.dp)) {
-                                            Text(dateP, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                            Text("근무 ${nhP}시간 ${nmmP}분 · ${String.format("%.1f", dkP)}km", fontSize = 12.sp, color = muted)
-                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                                Text("매출 ${String.format("%,d", fareP)}원 · 시간당 ${String.format("%,d", phP)}원", fontSize = 12.sp, color = green)
-                                                TextButton(onClick = {
-                                                    val dashP = "─".repeat(22)
-                                                    val txtP = buildString {
-                                                        append("📻 콜레이더 · 근무 영수증\n"); append("$dashP\n")
-                                                        append("날짜   $dateP\n")
-                                                        append("근무   ${nhP}시간 ${nmmP}분\n")
-                                                        append("거리   ${String.format("%.1f", dkP)} km\n")
-                                                        append("매출   ${String.format("%,d", fareP)}원\n")
-                                                        append("시간당 ${String.format("%,d", phP)}원\n")
-                                                        append("$dashP\n수고하셨습니다!")
-                                                    }
-                                                    try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txtP) }, "영수증 공유")) } catch (e: Exception) {}
-                                                }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("📤 공유", fontSize = 12.sp, color = accent) }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        confirmButton = { Button(onClick = { showPastSessions = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("닫기", color = Color.Black) } },
-                        containerColor = card
-                    )
-                }
-                if (sessionEnabled) {
-                    // [v41] 라이브 카드도 '하루 누적'으로 — 당일 완료 세션분 + 현재 세션분을 이어서 표시.
-                    val sameDayLive = prefs.getLong("work_day_key", 0L) == workDayKey()
-                    // [버그수정] '퇴근 깜빡' 등으로 비현실적(>16h) 누적이 박히면 오염값 → 무시하고 자가치유(pref 정리).
-                    //  (25시간처럼 말이 안 되는 근무시간이 출근해도 계속 뜨던 문제 해결)
-                    val rawDayNet = if (sameDayLive) prefs.getLong("work_day_net_ms", 0L) else 0L
-                    val dayNetPrev = if (rawDayNet > 16L * 3600000L) {
-                        prefs.edit().putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).apply(); 0L
-                    } else rawDayNet
-                    val curNet = if (!active) 0L else ((nowTick - workStart) - pausedTotal - (if (paused) nowTick - pauseStart else 0L)).coerceAtLeast(0L)
-                    val workedMs = dayNetPrev + curNet
-                    val workedMin = workedMs / 60000L
-                    val hh = workedMin / 60; val mm = workedMin % 60
-                    val workedHours = workedMs.toDouble() / 3600000.0
-                    // [버그수정] 시간당/㎞당 매출은 '하루 매출(당일 첫 출근 기준)'을 '하루 근무시간'으로 나눔.
-                    // (짧은 세션 하나로 나눠 시간당 수백만원 나오던 버그는 하루 누적시간으로 방지)
-                    val sStartFare = if (sameDayLive) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
-                    val sessionFare = (todayFare - sStartFare).coerceAtLeast(0)
-                    val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
-                    val distKm = workDist / 1000f
-                    val perKm = if (distKm > 0.3f) (sessionFare / distKm).toInt() else 0
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
-                        Column(modifier = Modifier.padding(18.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Column {
-                                    Text(if (!active) "근무 세션" else if (paused) "근무 일시정지 ⏸" else "근무 중 🟢", fontSize = 12.sp, color = muted)
-                                    Text(if (!active) "출근을 눌러 시작" else String.format("%d시간 %02d분", hh, mm), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (!active) muted else AppTheme.text)
-                                }
-                                if (active) Column(horizontalAlignment = Alignment.End) {
-                                    Text("시간당 매출", fontSize = 11.sp, color = muted)
-                                    Text("${String.format("%,d", perHour)}원", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent)
-                                }
-                            }
-                            if (active && distEnabled) {
-                                Spacer(Modifier.height(10.dp))
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(vertical = 8.dp, horizontal = 10.dp)) {
-                                        Column {
-                                            Text("이동 거리", fontSize = 10.sp, color = muted)
-                                            Text(String.format("%.1f km", distKm), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                        }
-                                    }
-                                    Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(vertical = 8.dp, horizontal = 10.dp)) {
-                                        Column {
-                                            Text("km당 매출", fontSize = 10.sp, color = muted)
-                                            Text(if (perKm > 0) "${String.format("%,d", perKm)}원" else "—", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green)
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            // [v23] 근무시간 자동마감 설정 — 탭하면 프리셋 순환(꺼짐/10/12/15/18/24시간)
-                            run {
-                                val presets = listOf(0, 10, 12, 15, 18, 24)
-                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
-                                    val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
-                                    val nv = presets[(idx + 1) % presets.size]
-                                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
-                                    if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
-                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("🛌 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
-                                    Text(if (maxHours > 0) "${maxHours}시간 후" else "꺼짐 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (maxHours > 0) accent else muted)
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            // [v57] 영업일 시작시각 — 자정 넘긴 운행을 어느 날에 귀속할지 기준. 탭하면 순환(자정/새벽4·5·6시). 설정하면 완료시각 기준 귀속 활성화.
-                            run {
-                                var dsh by remember { mutableStateOf(prefs.getInt("day_start_hour", 0)) }
-                                val opts = listOf(0, 4, 5, 6)
-                                Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
-                                    val idx = opts.indexOf(dsh).let { if (it < 0) 0 else it }
-                                    val nv = opts[(idx + 1) % opts.size]
-                                    dsh = nv; prefs.edit().putInt("day_start_hour", nv).putBoolean("day_start_set", true).apply()
-                                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("📅 영업일 시작시각(자정 넘김 귀속)", fontSize = 12.sp, color = muted)
-                                    Text(if (prefs.getBoolean("day_start_set", false)) (if (dsh == 0) "자정(0시)" else "새벽 ${dsh}시") + " · 탭변경" else "미설정 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (prefs.getBoolean("day_start_set", false)) accent else muted)
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            if (!active) {
-                                Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
-                                    // [v41] 같은 영업일 재출근이면 당일 누적(거리·시작요금·시간) 유지 → 이어서 근무. 새 영업일이면 리셋.
-                                    val dayKey = workDayKey(); val newDay = prefs.getLong("work_day_key", 0L) != dayKey
-                                    val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare)
-                                    if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
-                                    e.apply()
-                                    workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
-                                    pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                            } else {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedButton(onClick = {
-                                        val t = System.currentTimeMillis()
-                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
-                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
-                                    }, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(10.dp)) { Text(if (paused) "▶ 재개" else "⏸ 일시정지", color = accent, fontWeight = FontWeight.Bold) }
-                                    Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
-                                }
-                            }
-                            // [v41] 지난 근무 기록 보기/공유 진입 — 퇴근 후 자정이 지나도 과거 세션을 다시 공유
-                            TextButton(onClick = { showPastSessions = true }, modifier = Modifier.align(Alignment.CenterHorizontally), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("📋 지난 근무 기록", fontSize = 12.sp, color = muted) }
-                        }
                     }
                 }
             }
