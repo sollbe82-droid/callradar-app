@@ -1,0 +1,6 @@
+[main 01e26af] security(v24 phase-1b): owner-scope trip fare edit and booking status when token present
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   e2b9756..01e26af  HEAD -> main
+PUSH_EXITCODE=0 
+01e26af security(v24 phase-1b): owner-scope trip fare edit and booking status when token present

@@ -1,0 +1,160 @@
+Calculating task graph as configuration cache cannot be reused because file 'app\build.gradle.kts' has changed.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generatePlayDebugAssets UP-TO-DATE
+> Task :app:generatePlayReleaseAssets UP-TO-DATE
+> Task :app:generateOnestoreReleaseAssets UP-TO-DATE
+> Task :app:preOnestoreReleaseBuild UP-TO-DATE
+> Task :app:prePlayReleaseBuild UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJniLibFolders UP-TO-DATE
+> Task :app:mapPlayReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generatePlayReleaseResources UP-TO-DATE
+> Task :app:generateOnestoreReleaseResources UP-TO-DATE
+> Task :app:extractDeepLinksPlayRelease UP-TO-DATE
+> Task :app:generateOnestoreReleaseBuildConfig
+> Task :app:createPlayReleaseCompatibleScreenManifests
+> Task :app:extractPlayReleaseVersionControlInfo UP-TO-DATE
+> Task :app:processOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:packagePlayReleaseResources UP-TO-DATE
+> Task :app:javaPreCompilePlayRelease UP-TO-DATE
+> Task :app:generatePlayReleaseBuildConfig
+> Task :app:desugarPlayReleaseFileDependencies UP-TO-DATE
+> Task :app:mergePlayReleaseStartupProfile UP-TO-DATE
+> Task :app:mergePlayReleaseJniLibFolders UP-TO-DATE
+> Task :app:mergePlayReleaseAssets UP-TO-DATE
+> Task :app:writePlayReleaseAppMetadata UP-TO-DATE
+> Task :app:processPlayReleaseNavigationResources UP-TO-DATE
+> Task :app:compilePlayReleaseNavigationResources UP-TO-DATE
+> Task :app:checkPlayReleaseAarMetadata UP-TO-DATE
+> Task :app:parsePlayReleaseLocalResources UP-TO-DATE
+> Task :app:generatePlayReleaseRFile UP-TO-DATE
+> Task :app:checkPlayReleaseDuplicateClasses UP-TO-DATE
+> Task :app:collectPlayReleaseDependencies UP-TO-DATE
+> Task :app:configurePlayReleaseDependencies UP-TO-DATE
+> Task :app:parsePlayReleaseIntegrityConfig UP-TO-DATE
+> Task :app:validateSigningPlayRelease UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeLibs UP-TO-DATE
+> Task :app:stripOnestoreReleaseDebugSymbols UP-TO-DATE
+> Task :app:extractOnestoreReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:packageOnestoreReleaseResources UP-TO-DATE
+> Task :app:parseOnestoreReleaseLocalResources UP-TO-DATE
+> Task :app:generateOnestoreReleaseRFile UP-TO-DATE
+> Task :app:mergePlayReleaseArtProfile UP-TO-DATE
+> Task :app:javaPreCompileOnestoreRelease UP-TO-DATE
+> Task :app:mergePlayReleaseResources UP-TO-DATE
+> Task :app:checkOnestoreReleaseAarMetadata UP-TO-DATE
+> Task :app:mergePlayReleaseNativeLibs UP-TO-DATE
+> Task :app:mergeExtDexPlayRelease UP-TO-DATE
+> Task :app:mapOnestoreReleaseSourceSetPaths UP-TO-DATE
+> Task :app:checkOnestoreReleaseDuplicateClasses UP-TO-DATE
+> Task :app:createOnestoreReleaseCompatibleScreenManifests
+> Task :app:compileOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:stripPlayReleaseDebugSymbols UP-TO-DATE
+> Task :app:desugarOnestoreReleaseFileDependencies UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreRelease UP-TO-DATE
+> Task :app:mergeOnestoreReleaseStartupProfile UP-TO-DATE
+> Task :app:mergeOnestoreReleaseArtProfile UP-TO-DATE
+> Task :app:extractPlayReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:extractOnestoreReleaseVersionControlInfo UP-TO-DATE
+> Task :app:mergeExtDexOnestoreRelease UP-TO-DATE
+> Task :app:collectOnestoreReleaseDependencies UP-TO-DATE
+> Task :app:sdkOnestoreReleaseDependencyData UP-TO-DATE
+> Task :app:writeOnestoreReleaseAppMetadata UP-TO-DATE
+> Task :app:writeOnestoreReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:prePlayDebugBuild UP-TO-DATE
+> Task :app:mergePlayDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generatePlayDebugBuildConfig UP-TO-DATE
+> Task :app:generatePlayDebugResources UP-TO-DATE
+> Task :app:mergeOnestoreReleaseAssets UP-TO-DATE
+> Task :app:validateSigningOnestoreRelease UP-TO-DATE
+> Task :app:packagePlayDebugResources UP-TO-DATE
+> Task :app:javaPreCompilePlayDebug UP-TO-DATE
+> Task :app:processPlayDebugNavigationResources UP-TO-DATE
+> Task :app:parsePlayDebugLocalResources UP-TO-DATE
+> Task :app:generatePlayDebugRFile UP-TO-DATE
+> Task :app:compressOnestoreReleaseAssets UP-TO-DATE
+> Task :app:generatePlayDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeOnestoreReleaseResources UP-TO-DATE
+> Task :app:desugarPlayDebugFileDependencies UP-TO-DATE
+> Task :app:checkPlayDebugDuplicateClasses UP-TO-DATE
+> Task :app:checkPlayDebugAarMetadata UP-TO-DATE
+> Task :app:mergeLibDexPlayDebug UP-TO-DATE
+> Task :app:mapPlayDebugSourceSetPaths UP-TO-DATE
+> Task :app:compilePlayDebugNavigationResources UP-TO-DATE
+> Task :app:compilePlayDebugKotlin UP-TO-DATE
+> Task :app:mergePlayDebugResources UP-TO-DATE
+> Task :app:processPlayDebugJavaRes UP-TO-DATE
+> Task :app:mergePlayDebugAssets UP-TO-DATE
+> Task :app:compressPlayDebugAssets UP-TO-DATE
+> Task :app:createPlayDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksPlayDebug UP-TO-DATE
+> Task :app:processOnestoreReleaseMainManifest
+> Task :app:processPlayReleaseMainManifest
+> Task :app:mergePlayDebugJavaResource UP-TO-DATE
+> Task :app:mergePlayDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeExtDexPlayDebug UP-TO-DATE
+> Task :app:validateSigningPlayDebug UP-TO-DATE
+> Task :app:writePlayDebugAppMetadata UP-TO-DATE
+> Task :app:writePlayDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergePlayDebugNativeLibs UP-TO-DATE
+> Task :app:stripPlayDebugDebugSymbols UP-TO-DATE
+> Task :app:processPlayDebugMainManifest
+> Task :app:processPlayDebugManifest
+> Task :app:processOnestoreReleaseManifest
+> Task :app:processPlayReleaseManifest
+> Task :app:processApplicationManifestPlayReleaseForBundle
+> Task :app:processPlayReleaseManifestForPackage
+> Task :app:processPlayDebugManifestForPackage
+> Task :app:processOnestoreReleaseManifestForPackage
+> Task :app:compilePlayDebugJavaWithJavac
+> Task :app:processPlayReleaseResources
+> Task :app:processPlayDebugResources
+> Task :app:processOnestoreReleaseResources
+> Task :app:optimizeOnestoreReleaseResources
+> Task :app:compilePlayReleaseKotlin
+> Task :app:compileOnestoreReleaseKotlin
+> Task :app:bundlePlayReleaseResources
+> Task :app:dexBuilderPlayDebug
+
+> Task :app:compilePlayReleaseKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:60:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:60:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:71:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+
+> Task :app:processPlayReleaseJavaRes UP-TO-DATE
+> Task :app:mergePlayReleaseJavaResource UP-TO-DATE
+> Task :app:compilePlayReleaseJavaWithJavac
+> Task :app:mergeProjectDexPlayDebug
+> Task :app:packagePlayDebug
+> Task :app:assemblePlayDebug
+> Task :app:createPlayDebugApkListingFileRedirect
+> Task :app:dexBuilderPlayRelease
+> Task :app:mergePlayReleaseGlobalSynthetics UP-TO-DATE
+
+> Task :app:compileOnestoreReleaseKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:60:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:60:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:71:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+
+> Task :app:processOnestoreReleaseJavaRes UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJavaResource UP-TO-DATE
+> Task :app:compileOnestoreReleaseJavaWithJavac
+> Task :app:mergeDexPlayRelease
+> Task :app:buildPlayReleasePreBundle
+> Task :app:compilePlayReleaseArtProfile
+> Task :app:dexBuilderOnestoreRelease
+> Task :app:mergeOnestoreReleaseGlobalSynthetics UP-TO-DATE
+> Task :app:packagePlayReleaseBundle
+> Task :app:signPlayReleaseBundle
+> Task :app:bundlePlayRelease
+> Task :app:producePlayReleaseBundleIdeListingFile
+> Task :app:createPlayReleaseBundleListingFileRedirect UP-TO-DATE
+> Task :app:mergeDexOnestoreRelease
+> Task :app:compileOnestoreReleaseArtProfile
+> Task :app:packageOnestoreRelease
+> Task :app:assembleOnestoreRelease
+> Task :app:createOnestoreReleaseApkListingFileRedirect
+
+BUILD SUCCESSFUL in 2m 21s
+131 actionable tasks: 41 executed, 90 up-to-date
+Configuration cache entry stored.

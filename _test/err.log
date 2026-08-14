@@ -1,0 +1,31 @@
+--------- beginning of main
+07-30 18:00:53.341  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:53.355  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:54.093  2334  4097 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1785402054093 lastDateWindow=1785402044000
+07-30 18:00:54.342  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:54.344  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:00:54.354  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:55.340  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:55.354  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:55.943  1891  1914 E BatteryDump: !@new_battery_dump : 4343,1776,1666,3000,87,357,338,450,357,0,367,450,319,Charging,NO_CHARGING,Normal,Good,PDIC,0,Normal,0,0,9600,0x0,0x20000,0x0,0,0,0000,0000,ffff0700,4335,4270,817,982,994,4088,8575,980,0,
+07-30 18:00:56.132  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:00:56.343  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:56.361  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:57.136  2334  4097 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1785402057136 lastDateWindow=1785402044000
+07-30 18:00:57.345  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:57.359  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:57.927  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:00:57.932  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:00:58.346  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:58.359  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:59.346  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:59.359  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:00:59.862  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:00:59.969  5247  6243 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+07-30 18:01:00.180  2334  4097 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1785402060180 lastDateWindow=1785402044000
+07-30 18:01:00.350  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:01:00.368  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:01:01.348  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:01:01.361  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:01:02.349  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_main_vchg : /sys/class/power_supply/battery/batt_main_vchg: open failed: ENOENT (No such file or directory)
+07-30 18:01:02.363  2334  2900 E BSOHChargingDataCollector: Failed to read double from /sys/class/power_supply/battery/batt_sub_vchg : /sys/class/power_supply/battery/batt_sub_vchg: open failed: ENOENT (No such file or directory)

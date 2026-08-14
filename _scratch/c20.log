@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 1479ccb] v54 4: my-location marker on dedicated label layer (immune to hotzone removeAll)
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+1479ccb v54 4: my-location marker on dedicated label layer (immune to hotzone removeAll)

@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 6174bb0] v54 4-c-1: absorb salary(wolgeup) tab into wolbyeol top summary card; records tabs now [naeyeok, wolbyeol, jichul]; bump versionCode 54
+ 2 files changed, 25 insertions(+), 40 deletions(-)
+6174bb0 v54 4-c-1: absorb salary(wolgeup) tab into wolbyeol top summary card; records tabs now [naeyeok, wolbyeol, jichul]; bump versionCode 54

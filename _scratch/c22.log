@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master fba355a] docs: v54 marker + region-aware guidance done/verified; remaining = home reorg (refactor) + low-pri learning/OCR
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+fba355a docs: v54 marker + region-aware guidance done/verified; remaining = home reorg (refactor) + low-pri learning/OCR

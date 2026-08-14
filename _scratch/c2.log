@@ -1,0 +1,8 @@
+START 2026-08-10 22:16:28.17
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+[master 29a51ff] v51 2.5.1: bump versionCode 51 + uber idle-home guard tighten + radar nav TODO
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+29a51ff v51 2.5.1: bump versionCode 51 + uber idle-home guard tighten + radar nav TODO
+0c4d1bc uber fixes (v51 pending): write meter fare on sight (0won fix) + finalize on idle-home return (stall recover)
+a9bb6c8 floating toast text 5s->3s (match timer)

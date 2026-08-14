@@ -53,7 +53,14 @@
 - Render 스타터(콜드스타트 30~60s). ENFORCE_TOKEN OFF(구버전 로그아웃 방지). ADMIN_KEY Render에 설정됨.
 - 계정: device_id 연결(게스트/페어링 = 같은 user_id), 카카오는 kakao_id. **로그인 = 카카오 + 게스트만**(아이디/비번 폐기).
 
-## ★ 현재 상태 (2026-08-13)
+## ★ 현재 상태 (2026-08-14)
+- **v62 / 2.6.2 빌드완료·미업로드** (커밋 c87b83f, `_releases/v62/`). 서버 라이브 6a71b10. 상세는 `HANDOVER.md` 0-AA 섹션 먼저 읽기.
+  - v60: 근무카드 오늘매출 아래 이동 + 세션거리 수동초기화(548km). v61: 공항 '앞으로 도착 손님' 30분버킷 예측카드. v62: **심플홈(카카오식 무탭) 옵트인 모드**(SimpleHomeScreen/SimpleMenuScreen, home_mode 토글, classic 무손상). 심플 상세=`심플홈_리디자인_스펙.md`.
+  - 서버: 콜제보 매출제외 통일, 레이더 GPS 광역분류 cr_region, /api/usage/audit.
+  - **v62 심플모드는 실기기 미검증 — 대표 폰 확인 필요.** 콜제보=죽은기능(정리 불요). 우버 0원 파싱 이슈 실재(다음).
+- (이하 2026-08-13 v59 이력)
+
+## ★ 이전 상태 (2026-08-13)
 - **v59 / 2.5.9 빌드완료·본폰설치·검수제출 예정** (커밋 3741343, `_releases/v59/`). 오늘 v55→v59 누적:
   - v55(ca20209): 요금 총액 오긁기 방지(extractFare 홈 대시보드 마커 제외), 콜취소 후 플로팅 먹통(탭=취소무장).
   - v56(0b9869b·7adc1aa): 자동기록 토글 OFF 실작동(auto_free_open이 토글 덮던 것, auto_record_touched), 티머니 알림도 notif_capture_on 게이트, 근무세션 요약 서버저장(퇴근시 /api/work-session/close). 서버 141d729(work_sessions_log+admin).

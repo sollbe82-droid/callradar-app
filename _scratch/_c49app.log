@@ -1,0 +1,17 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:compileOnestoreDebugKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:71:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:58:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:277:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+BUILD SUCCESSFUL in 47s
+7 actionable tasks: 1 executed, 6 up-to-date
+Configuration cache entry reused.

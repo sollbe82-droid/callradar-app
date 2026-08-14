@@ -1,0 +1,6 @@
+[main e2b9756] security(v24): IDOR phased token auth - issue token on login, enforce user_id match when token present (backward compatible)
+ 1 file changed, 88 insertions(+), 6 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   a272754..e2b9756  HEAD -> main
+PUSH_EXITCODE=0 
+e2b9756 security(v24): IDOR phased token auth - issue token on login, enforce user_id match when token present (backward compatible)

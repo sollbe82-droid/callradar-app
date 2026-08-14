@@ -1,0 +1,6 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ImageImportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 55ae3d1] v53 stage4a: rename calendar tab to wolbyeol + calendar cell sizing (date small, income/expense big), expense dialog fixed-height amount (no shake), liters in expense list, hide income column in expense import
+ 2 files changed, 14 insertions(+), 8 deletions(-)
+55ae3d1 v53 stage4a: rename calendar tab to wolbyeol + calendar cell sizing (date small, income/expense big), expense dialog fixed-height amount (no shake), liters in expense list, hide income column in expense import

@@ -1,0 +1,7 @@
+=== SERVER DEPLOY === 
+[main 141d729] v56: work_sessions_log table + /api/work-session/close + admin work-sessions (session km/time summary for diagnosis)
+ 1 file changed, 24 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   6cb2b52..141d729  main -> main
+141d729 v56: work_sessions_log table + /api/work-session/close + admin work-sessions (session km/time summary for diagnosis)
+=== DONE === 

@@ -1,0 +1,7 @@
+START
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master ebaa6c1] docs: release archive rule (keep mapping.txt+APK per version in _releases/) + v51 current status
+ 2 files changed, 17 insertions(+)
+ebaa6c1 docs: release archive rule (keep mapping.txt+APK per version in _releases/) + v51 current status
+dd57a5c fix #7 franchise call-pause false trip (operator precedence + exclude colmeum/accept), #2-3 track distance jitter gate (700km fix), #5 floating hide when manual off+idle, #1 radar map center on my location + recenter button (no more cluster jump)

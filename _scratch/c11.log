@@ -1,0 +1,6 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master d0ff8eb] v53 stage3: Samsung restricted-settings accessibility guide (row in setup dialog when acc off) + proactive auto-surface after update drops accessibility (#103/#124)
+ 1 file changed, 18 insertions(+)
+d0ff8eb v53 stage3: Samsung restricted-settings accessibility guide (row in setup dialog when acc off) + proactive auto-surface after update drops accessibility (#103/#124)
+adfc7b5 v53 stage2: uber realride tag (blue track)+boarded_at, uber 0won fare recovery from home last-trip, manual cancel via floating badge long-press (NaviIntentReceiver.instance)

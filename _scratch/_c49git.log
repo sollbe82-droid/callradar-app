@@ -1,0 +1,8 @@
+error: pathspec '자동정산' did not match any file(s) known to git
+error: pathspec '엔진' did not match any file(s) known to git
+error: pathspec '+' did not match any file(s) known to git
+error: pathspec '콜ID' did not match any file(s) known to git
+error: pathspec '컬럼(platform_call_id)' did not match any file(s) known to git
+error: pathspec '+' did not match any file(s) known to git
+error: pathspec 'PUT' did not match any file(s) known to git
+error: pathspec '지원"' did not match any file(s) known to git

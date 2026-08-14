@@ -1,0 +1,57 @@
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CallCaptureService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CloudinaryUploader.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FloatingTripService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ImageImportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/LocalTripDatabase.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MainActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MeterActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MeterFloatingService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/QuickEntryActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptScanActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ScreenCaptureService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/Telemetry.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TmoneyNotificationService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/AirportScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DailySettlementScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/KnowHowScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/MoreScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RankingScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/StatsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/Auth.kt', LF will be replaced by CRLF the next time Git touches it
+[master f07d1d0] security(v24): client IDOR - attach bearer token on all API calls, token lifecycle (issue/self-heal/clear)
+ 25 files changed, 706 insertions(+), 184 deletions(-)
+ create mode 100644 app/src/main/java/com/callradar/app/Auth.kt
+COMMIT_EXIT=0 
+f07d1d0 security(v24): client IDOR - attach bearer token on all API calls, token lifecycle (issue/self-heal/clear)
+f07d1d0 security(v24): client IDOR - attach bearer token on all API calls, token lifecycle (issue/self-heal/clear)
+ app/src/main/java/com/callradar/app/Auth.kt        |  26 +++
+ .../java/com/callradar/app/CallCaptureService.kt   |   2 +-
+ .../java/com/callradar/app/CloudinaryUploader.kt   |   2 +-
+ .../java/com/callradar/app/FloatingTripService.kt  | 154 ++++++++----
+ .../java/com/callradar/app/ImageImportActivity.kt  |   4 +-
+ .../java/com/callradar/app/LocalTripDatabase.kt    |   2 +-
+ .../main/java/com/callradar/app/MainActivity.kt    |  42 +++-
+ .../main/java/com/callradar/app/MeterActivity.kt   |   2 +-
+ .../java/com/callradar/app/MeterFloatingService.kt |   2 +-
+ .../java/com/callradar/app/NaviIntentReceiver.kt   |  12 +-
+ .../java/com/callradar/app/QuickEntryActivity.kt   |   2 +-
+ .../java/com/callradar/app/ReceiptScanActivity.kt  |   2 +-
+ .../java/com/callradar/app/ScreenCaptureService.kt |  47 +++-
+ app/src/main/java/com/callradar/app/Telemetry.kt   |   2 +-
+ .../com/callradar/app/TmoneyNotificationService.kt |   8 +-
+ .../java/com/callradar/app/screen/AirportScreen.kt |   6 +-
+ .../callradar/app/screen/DailySettlementScreen.kt  |  10 +-
+ .../com/callradar/app/screen/DriverMapScreen.kt    |   2 +-
+ .../java/com/callradar/app/screen/HomeScreen.kt    |  99 ++++++--
+ .../java/com/callradar/app/screen/KnowHowScreen.kt |   6 +-
+ .../java/com/callradar/app/screen/MoreScreen.kt    |  96 +++++++-
+ .../java/com/callradar/app/screen/RadarScreen.kt   | 259 ++++++++++++++++++---
+ .../java/com/callradar/app/screen/RankingScreen.kt |  16 +-
+ .../java/com/callradar/app/screen/RecordsScreen.kt |  36 +--
+ .../java/com/callradar/app/screen/StatsScreen.kt   |  51 +++-
+ 25 files changed, 706 insertions(+), 184 deletions(-)

@@ -1,0 +1,26 @@
+별칭 이름: callradar
+생성 날짜: 2026. 7. 6.
+항목 유형: PrivateKeyEntry
+인증서 체인 길이: 1
+인증서[1]:
+소유자: CN=Yi Youngjin, OU=CallRadar, O=CallRadar, L=Seoul, ST=Seoul, C=KR
+발행자: CN=Yi Youngjin, OU=CallRadar, O=CallRadar, L=Seoul, ST=Seoul, C=KR
+일련 번호: f188f352bba032d4
+적합한 시작 날짜: Mon Jul 06 23:23:00 KST 2026 종료 날짜: Fri Nov 21 23:23:00 KST 2053
+인증서 지문:
+	 SHA1: 39:6C:F6:DF:71:5D:B9:0E:71:B8:07:73:C8:16:A6:2B:6B:E1:FF:F2
+	 SHA256: 29:93:36:A0:E5:07:60:B9:3C:09:FC:3F:59:52:E4:E6:59:F9:4E:13:89:CC:E3:E8:50:44:FA:91:12:6E:40:24
+서명 알고리즘 이름: SHA384withRSA
+주체 공용 키 알고리즘: 2048비트 RSA 키
+버전: 3
+
+확장: 
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: FA 6C 67 07 C6 4E 69 9F   DB 3E 38 C3 EE A8 15 D9  .lg..Ni..>8.....
+0010: 03 75 56 B1                                        .uV.
+]
+]
+

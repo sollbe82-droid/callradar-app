@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master acb2fec] v54 fix: revert HERO dest-risk to resilient personal-first/all-fallback (always-merge broke it on large all-driver fetch + nationwide pollution); keep learning-count card + LPG liters parse
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+acb2fec v54 fix: revert HERO dest-risk to resilient personal-first/all-fallback (always-merge broke it on large all-driver fetch + nationwide pollution); keep learning-count card + LPG liters parse

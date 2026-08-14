@@ -1,0 +1,15 @@
+별칭 이름: androiddebugkey
+생성 날짜: 2026. 6. 5.
+항목 유형: PrivateKeyEntry
+인증서 체인 길이: 1
+인증서[1]:
+소유자: C=US, O=Android, CN=Android Debug
+발행자: C=US, O=Android, CN=Android Debug
+일련 번호: 1
+적합한 시작 날짜: Fri Jun 05 23:42:38 KST 2026 종료 날짜: Sun May 28 23:42:38 KST 2056
+인증서 지문:
+	 SHA1: 3D:65:FB:AE:F6:50:AC:CC:00:2A:F5:FD:A3:2C:41:92:CC:51:96:A5
+	 SHA256: 94:42:D1:9C:BE:45:D2:79:ED:0F:4C:AE:48:10:EC:53:48:0F:58:8A:AE:43:1F:3F:04:AD:8C:C9:37:1C:AA:E1
+서명 알고리즘 이름: SHA256withRSA
+주체 공용 키 알고리즘: 2048비트 RSA 키
+버전: 1

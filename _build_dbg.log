@@ -1,0 +1,62 @@
+DBG_START 2026-08-14  5:55:10.22 
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: :app:assembleOnestoreDebug
+> Task :app:generateOnestoreDebugAssets UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:desugarOnestoreDebugFileDependencies
+> Task :app:generateOnestoreDebugBuildConfig
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:mapOnestoreDebugSourceSetPaths
+> Task :app:createOnestoreDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksOnestoreDebug
+> Task :app:javaPreCompileOnestoreDebug
+> Task :app:checkOnestoreDebugAarMetadata
+> Task :app:mergeOnestoreDebugJniLibFolders
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:validateSigningOnestoreDebug
+> Task :app:compileOnestoreDebugNavigationResources
+> Task :app:writeOnestoreDebugAppMetadata
+> Task :app:writeOnestoreDebugSigningConfigVersions
+> Task :app:processOnestoreDebugMainManifest
+> Task :app:mergeOnestoreDebugNativeLibs
+> Task :app:processOnestoreDebugManifest
+> Task :app:processOnestoreDebugManifestForPackage
+> Task :app:checkOnestoreDebugDuplicateClasses
+> Task :app:mergeOnestoreDebugAssets
+> Task :app:generateOnestoreDebugGlobalSynthetics
+> Task :app:mergeLibDexOnestoreDebug
+> Task :app:mergeOnestoreDebugResources
+> Task :app:compileOnestoreDebugKotlin
+> Task :app:stripOnestoreDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libK3fAndroid.so, libandroidx.graphics.path.so. Run with --info option to learn more.
+
+> Task :app:mergeExtDexOnestoreDebug
+> Task :app:compressOnestoreDebugAssets
+> Task :app:processOnestoreDebugResources
+
+> Task :app:compileOnestoreDebugKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:62:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:351:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:71:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:58:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:277:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+> Task :app:processOnestoreDebugJavaRes
+> Task :app:mergeOnestoreDebugJavaResource
+> Task :app:compileOnestoreDebugJavaWithJavac
+> Task :app:dexBuilderOnestoreDebug
+> Task :app:mergeProjectDexOnestoreDebug
+> Task :app:packageOnestoreDebug
+> Task :app:assembleOnestoreDebug
+> Task :app:createOnestoreDebugApkListingFileRedirect
+
+BUILD SUCCESSFUL in 3m 49s
+38 actionable tasks: 33 executed, 5 up-to-date
+Configuration cache entry stored.
+DBG_EXITCODE 0 
+DBG_DONE 2026-08-14  5:58:59.86 

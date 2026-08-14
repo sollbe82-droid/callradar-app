@@ -78,7 +78,7 @@ fun RadarScreen(userId: String) {
     // [v24] 레이더 AI 음성비서 — 개인 레이더 요약을 음성으로 안내(TTS)
     var ttsReady by remember { mutableStateOf(false) }
     val radarTts = remember { android.speech.tts.TextToSpeech(ctx) { s -> ttsReady = (s == android.speech.tts.TextToSpeech.SUCCESS) } }
-    LaunchedEffect(ttsReady) { if (ttsReady) try { radarTts.language = java.util.Locale.KOREAN } catch (e: Exception) {} }
+    LaunchedEffect(ttsReady) { if (ttsReady) try { radarTts.language = java.util.Locale.KOREAN; radarTts.setSpeechRate(0.82f); radarTts.setPitch(1.0f) } catch (e: Exception) {} }   // [피드백] 음성 너무 빨라 못 알아듣던 것 → 0.82배로 천천히
     DisposableEffect(Unit) { onDispose { try { radarTts.stop(); radarTts.shutdown() } catch (e: Exception) {} } }
     val speakGuide: () -> Unit = {
         val sb = StringBuilder()
@@ -219,7 +219,7 @@ fun RadarScreen(userId: String) {
     var hzone by remember { mutableStateOf<List<Pair<String, Double>>>(emptyList()) }
     var hzScope by remember { mutableStateOf(0) }   // 0=전체(지금 시간대) · 1=내 누적 · 2=오늘(내)
     fun rget(path: String): String = (URL("$server$path").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 30000 }.inputStream.bufferedReader().readText()
-    LaunchedEffect(Unit) {
+    LaunchedEffect(curLat, curLng) {   // [피드백] 위치 도착 시 재조회 → dest-risk도 내 반경 기준으로
         withContext(Dispatchers.IO) {
             try {
                 val e = JSONObject(rget("/api/radar/efficiency?user_id=$userId&period=today"))
@@ -233,9 +233,11 @@ fun RadarScreen(userId: String) {
                     return (0 until (a?.length() ?: 0)).map { val o = a!!.getJSONObject(it); Triple(o.optString("dest"), o.optDouble("median_wait_min", 0.0), o.optInt("samples")) }.filter { it.first.isNotBlank() }
                 }
                 // 내 기록 우선. 얇으면(2곳 미만) 전체 기사로 폴백. (전체 호출은 실패해도 내 기록 유지되게 개별 try)
-                var rows = parseDr(rget("/api/radar/dest-risk?user_id=$userId"))
+                // [피드백] 내 위치(lat/lng) 보내 반경 내 하차지만 → 전체 폴백해도 제주 등 타지역 안 섞임.
+                val locQ = if (curLat != 0.0 && curLng != 0.0) "lat=$curLat&lng=$curLng" else ""
+                var rows = parseDr(rget("/api/radar/dest-risk?user_id=$userId" + (if (locQ.isNotEmpty()) "&$locQ" else "")))
                 var basis = "me"
-                if (rows.size < 2) { rows = try { parseDr(rget("/api/radar/dest-risk")) } catch (e: Exception) { emptyList() }; basis = "all" }
+                if (rows.size < 2) { rows = try { parseDr(rget("/api/radar/dest-risk" + (if (locQ.isNotEmpty()) "?$locQ" else ""))) } catch (e: Exception) { emptyList() }; basis = "all" }
                 destRisk = rows; destBasis = if (rows.isEmpty()) "" else basis
             } catch (ex: Exception) {}
         }

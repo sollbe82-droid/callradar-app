@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master c828ae7] v54 5/6: radar voice guidance reads destPooled, phrases money-destination as GPS-location / all-driver based for clarity
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+c828ae7 v54 5/6: radar voice guidance reads destPooled, phrases money-destination as GPS-location / all-driver based for clarity

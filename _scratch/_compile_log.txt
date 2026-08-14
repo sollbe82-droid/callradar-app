@@ -1,0 +1,14 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:prePlayReleaseBuild UP-TO-DATE
+> Task :app:generatePlayReleaseBuildConfig UP-TO-DATE
+> Task :app:generatePlayReleaseResources UP-TO-DATE
+> Task :app:packagePlayReleaseResources UP-TO-DATE
+> Task :app:processPlayReleaseNavigationResources UP-TO-DATE
+> Task :app:parsePlayReleaseLocalResources UP-TO-DATE
+> Task :app:generatePlayReleaseRFile UP-TO-DATE
+> Task :app:compilePlayReleaseKotlin
+
+BUILD SUCCESSFUL in 18s
+7 actionable tasks: 1 executed, 6 up-to-date
+Configuration cache entry reused.

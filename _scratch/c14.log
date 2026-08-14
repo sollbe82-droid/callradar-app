@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master f72c128] docs: v53 status (stages 1-4b done+committed, server b3a7227 live, 4-c tab renewal deferred to v54), archived to _releases/v53
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+f72c128 docs: v53 status (stages 1-4b done+committed, server b3a7227 live, 4-c tab renewal deferred to v54), archived to _releases/v53

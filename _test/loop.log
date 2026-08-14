@@ -1,0 +1,11 @@
+=== CRASH === 
+=== ERRORS(main) === 
+--------- beginning of system
+07-31 00:46:59.473  2334  6354 E WindowManager: win=Window{f393e64 u0 InputMethod} destroySurfaces: appStopped=true cleanupOnResume=false win.mWindowRemovalAllowed=false win.mRemoveOnExit=false win.mViewVisibility=8 caller=com.android.server.wm.WindowManagerService.tryStartExitingAnimation:128 com.android.server.wm.WindowManagerService.relayoutWindow:1176 com.android.server.wm.Session.relayout:30 android.view.IWindowSession$Stub.onTransact:840 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1509 android.os.Binder.execTransact:1454 
+--------- beginning of main
+07-31 00:46:59.487  1954  1954 E SurfaceFlinger: alpha changed 1.000 -> 0.000 - Surface(name=f393e64 InputMethod#151)/@0xd7ddcd0 - animation-leash of insets_animation#25130
+07-31 00:47:00.545  1954  1954 E SurfaceFlinger: alpha changed 1.000 -> 0.000 - Surface(name=f393e64 InputMethod#151)/@0xd7ddcd0 - animation-leash of insets_animation#25135
+07-31 00:47:00.663  2334  2360 E WindowManager: win=Window{d32e09a u0 com.callradar.app/com.callradar.app.MainActivity EXITING} destroySurfaces: appStopped=false cleanupOnResume=false win.mWindowRemovalAllowed=true win.mRemoveOnExit=true win.mViewVisibility=0 caller=com.android.server.wm.WindowState.onExitAnimationDone:224 com.android.server.wm.WindowState.onAnimationFinished:174 com.android.server.wm.WindowContainer$$ExternalSyntheticLambda8.onAnimationFinished:3 com.android.server.wm.SurfaceAnimator$$ExternalSyntheticLambda0.onAnimationFinished:69 com.android.server.wm.LocalAnimationAdapter$$ExternalSyntheticLambda0.run:10 android.os.Handler.handleCallback:1070 android.os.Handler.dispatchMessage:125 
+07-31 00:47:00.670  1954  1954 E SurfaceFlinger: alpha changed 0.083 -> 0.000 - Surface(name=d32e09a com.callradar.app/com.callradar.app.MainActivity#25117)/@0x66535c0 - animation-leash of window_animation#25131
+07-31 00:47:00.679  1954  1954 E SurfaceFlinger: alpha changed 0.032 -> 0.000 - Dim Layer for - Task=640#25123
+LOOP_DONE 

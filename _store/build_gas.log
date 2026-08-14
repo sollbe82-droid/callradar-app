@@ -1,0 +1,59 @@
+Reusing configuration cache.
+> Task :app:generatePlayReleaseAssets UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:prePlayReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompilePlayRelease UP-TO-DATE
+> Task :app:mapPlayReleaseSourceSetPaths UP-TO-DATE
+> Task :app:extractDeepLinksPlayRelease UP-TO-DATE
+> Task :app:generatePlayReleaseResources UP-TO-DATE
+> Task :app:mergePlayReleaseJniLibFolders UP-TO-DATE
+> Task :app:checkPlayReleaseAarMetadata UP-TO-DATE
+> Task :app:generatePlayReleaseBuildConfig UP-TO-DATE
+> Task :app:checkPlayReleaseDuplicateClasses UP-TO-DATE
+> Task :app:mergePlayReleaseStartupProfile UP-TO-DATE
+> Task :app:desugarPlayReleaseFileDependencies UP-TO-DATE
+> Task :app:createPlayReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:packagePlayReleaseResources UP-TO-DATE
+> Task :app:extractPlayReleaseVersionControlInfo UP-TO-DATE
+> Task :app:mergePlayReleaseArtProfile UP-TO-DATE
+> Task :app:validateSigningPlayRelease UP-TO-DATE
+> Task :app:writePlayReleaseAppMetadata UP-TO-DATE
+> Task :app:writePlayReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:mergePlayReleaseResources UP-TO-DATE
+> Task :app:collectPlayReleaseDependencies UP-TO-DATE
+> Task :app:mergePlayReleaseNativeLibs UP-TO-DATE
+> Task :app:mergePlayReleaseAssets UP-TO-DATE
+> Task :app:stripPlayReleaseDebugSymbols UP-TO-DATE
+> Task :app:compressPlayReleaseAssets UP-TO-DATE
+> Task :app:sdkPlayReleaseDependencyData UP-TO-DATE
+> Task :app:extractPlayReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:processPlayReleaseMainManifest UP-TO-DATE
+> Task :app:mergeExtDexPlayRelease UP-TO-DATE
+> Task :app:processPlayReleaseManifest UP-TO-DATE
+> Task :app:mergePlayReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:processPlayReleaseManifestForPackage UP-TO-DATE
+> Task :app:processPlayReleaseNavigationResources UP-TO-DATE
+> Task :app:compilePlayReleaseNavigationResources UP-TO-DATE
+> Task :app:parsePlayReleaseLocalResources UP-TO-DATE
+> Task :app:generatePlayReleaseRFile UP-TO-DATE
+> Task :app:processPlayReleaseResources UP-TO-DATE
+> Task :app:optimizePlayReleaseResources UP-TO-DATE
+
+> Task :app:compilePlayReleaseKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ReceiptScanActivity.kt:57:50 'static fun getBitmap(p0: ContentResolver!, p1: Uri!): Bitmap!' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:273:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+> Task :app:processPlayReleaseJavaRes UP-TO-DATE
+> Task :app:mergePlayReleaseJavaResource UP-TO-DATE
+> Task :app:compilePlayReleaseJavaWithJavac UP-TO-DATE
+> Task :app:dexBuilderPlayRelease
+> Task :app:mergePlayReleaseGlobalSynthetics UP-TO-DATE
+> Task :app:mergeDexPlayRelease
+> Task :app:compilePlayReleaseArtProfile
+> Task :app:packagePlayRelease
+> Task :app:assemblePlayRelease
+> Task :app:createPlayReleaseApkListingFileRedirect UP-TO-DATE
+
+BUILD SUCCESSFUL in 34s
+45 actionable tasks: 5 executed, 40 up-to-date
+Configuration cache entry reused.

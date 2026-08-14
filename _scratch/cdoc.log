@@ -1,0 +1,5 @@
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master 67ec437] docs: v55 shipped (fare-misparse guard + call-cancel floating fix), v56 plan (toll->expense, midnight date attribution)
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+67ec437 docs: v55 shipped (fare-misparse guard + call-cancel floating fix), v56 plan (toll->expense, midnight date attribution)
+ca20209 v55/2.5.5: #4 fare-misparse guard (exclude uber/kakao home dashboard cumulative total), #1 floating tap=cancel-arm (call-cancel stuck/meokteong fix)

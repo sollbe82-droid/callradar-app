@@ -1,0 +1,15 @@
+Starting a Gradle Daemon, 1 busy Daemon could not be reused, use --status for details
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:compileOnestoreDebugKotlin UP-TO-DATE
+
+BUILD SUCCESSFUL in 19s
+7 actionable tasks: 7 up-to-date
+Configuration cache entry reused.

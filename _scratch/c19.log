@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master e9e91d1] v54 4: radar map my-location marker (blue dot at current GPS, follows every 2s via label.moveTo on DriverMapScreen)
+ 1 file changed, 23 insertions(+)
+e9e91d1 v54 4: radar map my-location marker (blue dot at current GPS, follows every 2s via label.moveTo on DriverMapScreen)

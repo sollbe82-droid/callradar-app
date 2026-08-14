@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master 05ed8d0] docs: v54 final (learning-count card, LPG liters 3-decimal parse, HERO revert), next task = radar regional classification
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+05ed8d0 docs: v54 final (learning-count card, LPG liters 3-decimal parse, HERO revert), next task = radar regional classification

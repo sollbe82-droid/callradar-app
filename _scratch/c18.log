@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+[master 0582e29] docs: v54 status (wolgeup tab removed, 900km distance fix, dedup take-home), remaining feedback items, archived _releases/v54
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+0582e29 docs: v54 status (wolgeup tab removed, 900km distance fix, dedup take-home), remaining feedback items, archived _releases/v54

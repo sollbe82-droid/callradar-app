@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 83a3a3c] v53 stage4b: expense tab summary adds LPG total liters + company discount (per-liter x liters); calendar cell taller (aspectRatio 0.72) to stop expense clipping
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+83a3a3c v53 stage4b: expense tab summary adds LPG total liters + company discount (per-liter x liters); calendar cell taller (aspectRatio 0.72) to stop expense clipping

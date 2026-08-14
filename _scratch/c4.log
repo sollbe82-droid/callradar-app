@@ -1,0 +1,8 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 6bfb939] radar map: on-map cycle filter (today/30k/50k) + 4-tier density colors (green/orange/red/black), remove bottom toggle
+ 2 files changed, 46 insertions(+), 18 deletions(-)
+6bfb939 radar map: on-map cycle filter (today/30k/50k) + 4-tier density colors (green/orange/red/black), remove bottom toggle
+e67c74c v51: enable R8 obfuscation (minify + keep rules for kakao/mlkit/gms/okhttp)
+29a51ff v51 2.5.1: bump versionCode 51 + uber idle-home guard tighten + radar nav TODO

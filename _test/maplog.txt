@@ -1,0 +1,594 @@
+--------- beginning of main
+07-31 06:01:54.447  2334  4125 I SemWifiLinkQualityMonitor: LQ L2C initialized: 0 / false / 1890
+07-31 06:01:54.767  4878  4878 I wpa_supplicant: nl80211: Drv Event 103 (NL80211_CMD_VENDOR) received for wlan0
+07-31 06:01:54.767  4878  4878 I wpa_supplicant: nl80211: Vendor event: wiphy=0 vendor_id=0x1374 subcmd=182
+07-31 06:01:54.768  4878  4878 I wpa_supplicant: nl80211: Ignore unsupported QCA vendor event 182
+07-31 06:01:54.768  2481  2481 I cnss-daemon: nl80211 response handler invoked
+07-31 06:01:54.768  2481  2481 I cnss-daemon: nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+07-31 06:01:54.768  1810  4866 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+07-31 06:01:54.860  4287  4287 I SprWallpaper|FoldInteractive: handleMessage: what[101]
+07-31 06:01:54.861  4287  4287 I SprWallpaper|FoldInteractive: unregisterSensor: mIsSensorRegistered[true]
+07-31 06:01:54.862  1808  1808 I sensors-hal: set_config:65, no need to adjust sample_period_ns due to reporting_mode = 2
+07-31 06:01:54.862  1808  1808 I sensors-hal: batch:369, com.samsung.sensor.folding_angle/2501, period=1000000, max_latency=0 request completed
+07-31 06:01:54.863  4287  4287 I SprWallpaper|fold_Choreographer: pause
+07-31 06:01:54.863  4287  4287 I SprWallpaper|VideoPlayer: release : needReset = true
+07-31 06:01:54.863  4287  2093 I CCodec  : [c2.qti.hevc.decoder] state->set(RELEASING)
+07-31 06:01:54.864  4287  2341 I CCodec  : [release][3751] surface -> component
+07-31 06:01:54.865  1883  1883 D C2BqBuffer: configuring null producer: igbp_information(0)
+07-31 06:01:54.866  1883  2095 I QC2Comp : [hevcD_1102] Stats: Pending(0) i/p-done(0) Works: Q: 1/Done 1|Work-Rate: Q(0.0/s Avg=0.3/s) Done(0.000/s Avg=0.309/s)| Stream: 30.00fps 0.0Kbps
+07-31 06:01:54.866  1883  2095 I QC2Comp : [hevcD_1102] Mem-usage:  [In-1D: 1 bufs 8.000 MB] [1D-1768: 1 bufs 0.016 MB] | Total: 8.016 MB
+07-31 06:01:54.866  1883  2095 E QC2Comp : [hevcD_1102][RUNNING] comp.release() is called without comp.stop()
+07-31 06:01:54.875  1883  2095 I QC2V4l2Driver: [hevcD_1102] Closed device driver with fd: 8
+07-31 06:01:54.875  1883  2095 I QC2V4l2Driver: [hevcD_1102] Closed media device with fd: -1
+07-31 06:01:54.876  1883  2095 D BufferPoolAccessor2.0: Destruction - bufferpool2 0xb400007391c8ce28 cached: 0/0M, 0/0% in use; allocs: 1, 0% recycled; transfers: 0, 0% unfetched
+07-31 06:01:54.876  1883  2095 I QC2Comp : [hevcD_1102][RUNNING] NOTE: handleStopCodec returning: 0 (OK=0)
+07-31 06:01:54.877  1883  1883 I QC2Comp : [hevcD_1102] NOTE: Release returning: 0 (OK=0)
+07-31 06:01:54.877  4287  2341 I CCodec  : [c2.qti.hevc.decoder] state->set(RELEASED)
+07-31 06:01:54.878  4287  2093 I MediaCodec: Codec shutdown complete
+07-31 06:01:54.878  2441 12030 I ResourceManagerService: removeResourceInfo pid 4287, removed 4734976 (width 2176 height 2176), remained hw codec count 0
+07-31 06:01:54.878  4287  2341 I Codec2Client: Component destructing
+07-31 06:01:54.878  4287  2341 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+07-31 06:01:54.879  1883  1883 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+07-31 06:01:54.879  1883  1883 I HDRFilterPlugin: HDRToneMappingFilter DTOR
+07-31 06:01:54.879  1883  1883 I QC2CompStore: Deleting component(c2.qti.hevc.decoder) id(1102)
+07-31 06:01:54.880  1883  1883 I QC2Comp : [hevcD_1102] Deallocated component c2.qti.hevc.decoder [id=1102]
+07-31 06:01:54.880  5797  6036 I SemMediaResourceHelper: onRemove
+07-31 06:01:54.880  5797  6036 I SemDvfsHyPerManager: acquire hyper - TABaseBoost/5797@26, type = -999
+07-31 06:01:54.880  1822  1863 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 16956602  [5797 / 26]    HINT :      list : [TABoost / 1] 
+07-31 06:01:54.881  4287  4287 I CCodecBufferChannel: CCodecBufferChannel destructing c2.qti.hevc.decoder#555
+07-31 06:01:54.881  4287  2093 I CCodec  : state->set(ALLOCATING)
+07-31 06:01:54.881  4287  2094 I CCodec  : allocate(c2.qti.hevc.decoder)
+07-31 06:01:54.883  4287  2094 I CCodec  : setting up 'default' as default (vendor) store
+07-31 06:01:54.883  1883  1883 I QC2Registry: search [c2.qti.hevc.decoder] in mEntries
+07-31 06:01:54.883  1883  1883 I QC2Comp : [c2.qti.hevc.decoder] PreProcessingPipelining 1
+07-31 06:01:54.883  1883  1883 I QC2Registry: search [c2.qti.hevc.decoder] in mEntries
+07-31 06:01:54.884  1883  1883 E QC2ImgTxrFilterCapsHelper: Missing dependency raw.pixel-format
+07-31 06:01:54.884  1883  1883 I SEC2ImageFormatFilterCapsHelper: SEC2ImageFormatFilterInputPortConfigsHelper::getParamHelper
+07-31 06:01:54.884  1883  1883 E SEC2ImageFormatFilterCapsHelper: Missing dependency raw.pixel-format
+07-31 06:01:54.884  1883  1883 I SEC2ImageFormatFilterCapsHelper: SEC2ImageFormatFilterOutputPortConfigsHelper::getParamHelper
+07-31 06:01:54.884  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(--002) for field mastering of struct #Param::CoreIndex(--180a)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(-V8002) for field portConfigs of struct #Param::CoreIndex(FV1a100)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(-V8002) for field portConfigs of struct #Param::CoreIndex(FV19100)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(-V8002) for field portConfigs of struct #Param::CoreIndex(FV1a100)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(-V8002) for field portConfigs of struct #Param::CoreIndex(FV19100)
+07-31 06:01:54.885  1883  1883 I SEC2ImageFormatFilterCapsHelper: SEC2ImageFormatFilterOutputPortConfigsSetter
+07-31 06:01:54.885  1883  1883 I QC2Registry: search [c2.qti.hevc.decoder] in mEntries
+07-31 06:01:54.885  1883  1883 I QC2Comp : Create: Allocated component[1103] for name c2.qti.hevc.decoder : [64 bit]
+07-31 06:01:54.885  1883  1883 I QC2Comp : Create Latency:1.73 ms
+07-31 06:01:54.885  1883  1883 I QC2CompStore: Created component(c2.qti.hevc.decoder) id(1103)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(--002) for field mastering of struct #Param::CoreIndex(--180a)
+07-31 06:01:54.885  1883  1883 I vendor.qti.media.c2@1.0-service: missing struct descriptor #Param::CoreIndex(--002) for field mastering of struct #Param::CoreIndex(--180a)
+07-31 06:01:54.885  1883  1883 I HDRFilterPlugin: C2StreamVendorRenderEngineHDRToneMapRequestInfoset to 0
+07-31 06:01:54.885  1883  1883 E QC2Interface: Failed to query parameters
+07-31 06:01:54.885  1883  1883 I HDRFilterPlugin: [IsFilteringEnabled] colorAspectReqInfo.transfer is 0
+07-31 06:01:54.886  4287  2094 I CCodec  : Created component [c2.qti.hevc.decoder] for [c2.qti.hevc.decoder]
+07-31 06:01:54.887  4287  2094 I CCodec  : [c2.qti.hevc.decoder] state->set(ALLOCATED)
+07-31 06:01:54.887  1883  2201 E QC2Interface: Failed to query parameters
+07-31 06:01:54.896  1883  2201 E QC2Interface: Failed to query parameters
+07-31 06:01:54.896  1883  2201 I HDRFilterPlugin: [IsFilteringEnabled] colorAspectReqInfo.transfer is 0
+07-31 06:01:54.896  4287  2094 I CCodec  : [c2.qti.hevc.decoder] config->initialize() : 0
+07-31 06:01:54.896  1883  2201 E QC2Interface: Failed to query parameters
+07-31 06:01:54.897  4287  2094 I CCodecConfig: query failed after returning 18 values (BAD_INDEX)
+07-31 06:01:54.897  4287  2094 W ColorUtils: expected specified color aspects (0:0:0:0)
+07-31 06:01:54.897  4287  2094 I CCodec  : [c2.qti.hevc.decoder] config->queryConfiguration()
+07-31 06:01:54.897  4287  2094 I CCodec  : [c2.qti.hevc.decoder] mCallback->onComponentAllocated() IN
+07-31 06:01:54.897  4287  2094 I CCodec  : [c2.qti.hevc.decoder] mCallback->onComponentAllocated() OUT
+07-31 06:01:54.898  4287  2093 I CCodec  : [c2.qti.hevc.decoder] state->set(RELEASING)
+07-31 06:01:54.899  4287  2353 I CCodec  : [release][3751] surface -> component
+07-31 06:01:54.899  1883  2342 I QC2Comp : [hevcD_1103] Stats: Pending(0) i/p-done(0) Works: Q: 0/Done 0|Work-Rate: Q(0.0/s Avg=0.0/s) Done(0.000/s Avg=0.000/s)| Stream: 30.00fps 0.0Kbps
+07-31 06:01:54.899  1883  2342 I QC2Comp : [hevcD_1103] Mem-usage:  | Total: 0.000 MB
+07-31 06:01:54.899  1883  2342 I QC2Comp : [hevcD_1103][STOPPED] NOTE: handleReleaseCodec returning: 0 (OK=0)
+07-31 06:01:54.899  1883  2342 W QC2PerfCtrl: PerfController: Session (1103) has already been removed from PerfController
+07-31 06:01:54.899  1883  2201 I QC2Comp : [hevcD_1103] NOTE: Release returning: 0 (OK=0)
+07-31 06:01:54.899  4287  2353 I CCodec  : [c2.qti.hevc.decoder] state->set(RELEASED)
+07-31 06:01:54.899  4287  2093 I MediaCodec: Codec shutdown complete
+07-31 06:01:54.899  4287  2353 I Codec2Client: Component destructing
+07-31 06:01:54.900  4287  2353 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+07-31 06:01:54.900  1883  2201 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+07-31 06:01:54.900  1883  2201 I QC2CompStore: Deleting component(c2.qti.hevc.decoder) id(1103)
+07-31 06:01:54.900  1883  3129 I HDRFilterPlugin: HDRToneMappingFilter DTOR
+07-31 06:01:54.900  1883  2201 I QC2Comp : [hevcD_1103] Deallocated component c2.qti.hevc.decoder [id=1103]
+07-31 06:01:54.900  4287  2093 I CCodecBufferChannel: CCodecBufferChannel destructing c2.qti.hevc.decoder#252
+07-31 06:01:54.940  1822  2234 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 16921673
+--------- beginning of system
+07-31 06:01:55.129  1176  1176 D io_stats: !@   8,0 r 4462278 116388298 w 6239479 110824896 d 1154052 602680368 f 210629 756542 iot 6115604 0 th 0 0 0 pt 0 inp 0 0 409140.685
+07-31 06:01:55.130  1176  1176 D io_stats: !@ Read_top(KB): .apps.nbu.files(32513) 7904 chbox:googleapp(9799) 1856 m.callradar.app(2237) 1700
+07-31 06:01:55.130  1176  1176 D io_stats: !@ Write_top(KB): kworker/u16:1(32353) 492 system_server(2334) 404 f2fs_ckpt-254:6(1437) 236
+07-31 06:01:55.276  1808 10554 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 86(86),ch0:1408,ch1:144,c:0,g:128,l:72,m:2,br:12,c1:100,c2:110,i:0
+07-31 06:01:55.515  1822  2103 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 4365535
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): Output of /proc/2392/stat/ : 2392 (shsusrd0) S 1 2392 0 0 -1 1077936384 749852 0 1366 0 4928 19873 0 0 20 0 11 0 873 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 0 0 0 17 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.544  2392  2411 I shsusrd : 
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): utime 4928 stime 19873 cpu_time_last 24801
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): user time = 4928 | system time = 19873 | total = 24801 | cpu_time_delta = 0, clk_tck 100
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): time_cur 1785445315 time_last 1785445305
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): shsusrd is using 0 pct of CPU - time_delta 10
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage(): shsusrd usage 0
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): time_delta for combined : 10 time_cur 1785445315 time_last_combined 1785445305
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2392/stat: 2392 (shsusrd0) S 1 2392 0 0 -1 1077936384 1193 0 9 0 0 1 0 0 20 0 11 0 873 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 17 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.544  2392  2411 I shsusrd : 
+07-31 06:01:55.544  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2392 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2408/stat: 2408 (shsusrd12) S 1 2392 0 0 -1 4194368 673769 0 556 0 1844 7965 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.545  2392  2411 I shsusrd : 
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2408 utime 1844 stime 7965 time_delta 10 clk_tck 100, usage 900
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2409/stat: 2409 (shsusrd2) S 1 2392 0 0 -1 4194368 209 0 235 0 5 234 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.545  2392  2411 I shsusrd : 
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2409 utime 5 stime 234 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2410/stat: 2410 (shsusrd13) S 1 2392 0 0 -1 1077936192 11 0 23 0 57 230 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.545  2392  2411 I shsusrd : 
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2410 utime 57 stime 230 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2411/stat: 2411 (shsusrd42) R 1 2392 0 0 -1 4194368 87 0 188 0 2454 9072 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 0 0 0 -1 0 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.545  2392  2411 I shsusrd : 
+07-31 06:01:55.545  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2411 utime 2454 stime 9072 time_delta 10 clk_tck 100, usage 1100
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2412/stat: 2412 (shsusrd4) S 1 2392 0 0 -1 4194368 0 0 0 0 4 191 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.546  2392  2411 I shsusrd : 
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2412 utime 4 stime 191 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2413/stat: 2413 (shsusrd14) S 1 2392 0 0 -1 4194368 184 0 145 0 2 240 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.546  2392  2411 I shsusrd : 
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2413 utime 2 stime 240 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29800/stat: 29800 (shsusrd14) S 1 2392 0 0 -1 4194368 2 0 9 0 1 144 0 0 20 0 11 0 31919407 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.546  2392  2411 I shsusrd : 
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29800 utime 1 stime 144 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29802/stat: 29802 (shsusrd7) S 1 2392 0 0 -1 4194368 7 0 25 0 1 142 0 0 20 0 11 0 31919408 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.546  2392  2411 I shsusrd : 
+07-31 06:01:55.546  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29802 utime 1 stime 142 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29805/stat: 29805 (shsusrd5) S 1 2392 0 0 -1 4194368 2 0 6 0 1 136 0 0 20 0 11 0 31919409 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.547  2392  2411 I shsusrd : 
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29805 utime 1 stime 136 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29865/stat: 29865 (HwBinder:2392_1) S 1 2392 0 0 -1 1077936192 5 0 0 0 0 0 0 0 20 0 11 0 31919504 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:01:55.547  2392  2411 I shsusrd : 
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29865 utime 0 stime 0 time_delta 10 clk_tck 100, usage 0
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined CPU usage: total_utime 4369 total_stime 18355 total_cpu_time_seconds 0.00, clk_tck 100
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage 0
+07-31 06:01:55.547  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage FINAL 0
+07-31 06:01:56.032  2334  5795 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+07-31 06:01:56.207  2334  4095 I SemWifiServiceDetector: Service det. resumed: T / T / 10164
+07-31 06:01:56.637  2334  4188 I Pageboost: Launcher App Execution
+07-31 06:01:56.686  4340 20295 D IpClient/wlan0: interfaceLinkStateChanged: ifindex 45 up
+07-31 06:01:57.130  1176  1176 D io_stats: !@   8,0 r 4462279 116388302 w 6239566 110825356 d 1154053 602680372 f 210631 756549 iot 6115636 0 th 0 0 0 pt 0 inp 0 0 409142.687
+07-31 06:01:57.162  2334  3972 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+07-31 06:01:57.169  2334  6973 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 110538, isSameBssidAndFreq true
+07-31 06:01:57.174  4834  4952 I HoneySpace.StatusIconTracker: invokeEvent() called with: event = Wifi(visible=true, resId=2114459827, activityId=2114459842)
+07-31 06:01:57.179  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 0
+07-31 06:01:57.188  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+07-31 06:01:57.443  1822  2236 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 16933312
+07-31 06:01:57.646  2334  5414 I NSLocationMonitor: getGPSUsingApps() called
+07-31 06:01:57.646  5369 24954 I NSLocationManager_FLP: getGPSUsingApps, No change
+07-31 06:01:57.657  2334  5414 D ActivityManager: FCA:FCA recordedFileRss = 119380, and changeinRss = 7560
+07-31 06:01:57.657  2334  5414 D FreecessController: FZ : com.google.android.apps.nbu.files(10379) [32513] reason: Bg
+07-31 06:01:57.657  2334  5414 D FreecessHandler: freeze com.google.android.apps.nbu.files(10379)
+07-31 06:01:57.658  2334  5414 W LocationManagerService: onFreezeStateChanged, uid[10379]=true
+07-31 06:01:57.658  2334  5414 I PowerManagerService: [PWL] SetWakeLockEnableDisable uid = 10379 , disable= true
+07-31 06:01:57.658  2334  5414 I PowerManagerService: [PWL] can not change uid =  10379
+07-31 06:01:57.678  4987  4987 I adbd    : adbd service requested 'shell,v2,TERM=xterm-256color,raw:input tap 538 1987'
+07-31 06:01:57.739  2334  4564 D InputDispatcher: Inject motion (2373/2000): action=0x0, time=409143295000000, f=0x0, d=0 dsdx=1.000000 dtdx=0.000000
+07-31 06:01:57.740  2334  3892 I InputDispatcher: Delivering touch to (4834): action: 0x4, f=0x0, d=0, '454a99f', t=1 
+07-31 06:01:57.740  2334  3892 I InputDispatcher: Delivering touch to (4311): action: 0x4, f=0x0, d=0, '434dcb4', t=1 
+07-31 06:01:57.741  2334  3892 I InputDispatcher: Delivering touch to (2237): action: 0x0, f=0x0, d=0, '87ec9ea', t=1 
+07-31 06:01:57.741  2334  3892 D PowerManagerService: [api] userActivityFromNative : touch displayId=0 eventTime=409143295
+07-31 06:01:57.742  2334  3892 D PowerManagerService: UserActivityStateListenerState: 1
+07-31 06:01:57.742  2334  3892 D PowerManagerService: UserActivityState : 4 -> 1 groupId=0
+07-31 06:01:57.742  2334  3892 D PowerManagerService: displayReady: false groupId=0
+07-31 06:01:57.742  2237  2237 I VRI[MainActivity]@5c8da97: ViewPostIme pointer 0
+07-31 06:01:57.743  2334  2357 I GestureDetector: obtain mCurrentDownEvent. id: -886372305 caller: com.android.server.wm.SystemGesturesPointerEventListener.onPointerEvent:17 com.android.server.wm.PointerEventDispatcher.onInputEvent:51 android.view.InputEventReceiver.dispatchInputEvent:369 
+07-31 06:01:57.743  2334  2357 I GestureDetector: obtain mCurrentDownEvent. id: -886372305 caller: com.android.server.wm.SystemPerformancePointerEventListener.onPointerEvent:13 com.android.server.wm.PointerEventDispatcher.onInputEvent:51 android.view.InputEventReceiver.dispatchInputEvent:369 
+07-31 06:01:57.744  2334  2581 D DisplayPowerController[0]: animateScreenStateChange: target=ON, mIsEnabled=true
+07-31 06:01:57.744  2334  2581 D SensorManager: Inject hysteresis info
+07-31 06:01:57.745  1808  1808 I sensors-hal: inject_sensor_data:95, injection type:268435458, data 60.000000 5.000000 19.153572 147.000000
+07-31 06:01:57.745  5797  5797 I SemDvfsHyPerManager: acquire hyper - TATouchBoost/5797@27, type = -999
+07-31 06:01:57.745  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:15
+07-31 06:01:57.746  5797  5797 I SemDvfsHyPerManager: acquire hyper - TA_TOUCH_SHARE/5797@28, type = -999
+07-31 06:01:57.746  1822  1863 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 16962427  [5797 / 27]    HINT :      list : [TABoost / 1] [TIMEOUT / 1500] 
+07-31 06:01:57.746  2237  2237 I VRI[MainActivity]@5c8da97: call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@5c8da97
+07-31 06:01:57.746  1822  1863 I HYPER-HAL: [RequestManager.cpp]acquire(): Acquired ID : 16968253  [5797 / 28]    HINT : TA_TOUCH_SHARE    list : [TIMEOUT / 1500] 
+07-31 06:01:57.747  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 2
+07-31 06:01:57.747  2334  2334 I MdnieScenarioControlService: action  :  com.samsung.server.PowerManagerService.action.USER_ACTIVITY
+07-31 06:01:57.748  2334  4564 D InputDispatcher: Inject motion (2373/2000): action=0x1, time=409143295000000, f=0x0, d=0 dsdx=1.000000 dtdx=0.000000
+07-31 06:01:57.748  2334  2581 W DisplayPowerController[0]: Animating brightness: target=60(0.24), rate=3.000, reason=automatic[60] -> scale_factor[60]
+07-31 06:01:57.748  2334  3892 I InputDispatcher: Delivering touch to (2237): action: 0x1, f=0x0, d=0, '87ec9ea', t=1 
+07-31 06:01:57.749  2237  2237 I VRI[MainActivity]@5c8da97: ViewPostIme pointer 1
+07-31 06:01:57.749  2334  2357 I GestureDetector: obtain mCurrentMotionEventRaw. action: 1 id: -739971009
+07-31 06:01:57.749  2334  2357 I GestureDetector: obtain mCurrentMotionEventRaw. action: 1 id: -739971009
+07-31 06:01:57.750  2334  2581 D DisplayManagerService: handleBrightnessAnimation: started=true
+07-31 06:01:57.750  2334  2581 D RefreshRateModeManager: set fix=3, brightness=12, lux=52.0, mIsWirelessCharging=false
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager: setPassiveMode=true, brightness=12, lux=52.0, PassiveModeToken=true
+07-31 06:01:57.751  2334  2359 D SurfaceControl: notifyHFRmode, displayToken=android.os.BinderProxy@677d81f, hfrMode=REFRESH_RATE_MODE_PASSIVE
+07-31 06:01:57.751  1954  2292 I SurfaceFlinger: [4630947175568309891] HFR mode : 3
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager: Schedule to change HFRmode=REFRESH_RATE_MODE_PASSIVE, mDisplayToken=android.os.BinderProxy@677d81f
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:     -1:
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_REFRESH_RATE_MODE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=10.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:     0:
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_REFRESH_RATE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_MIN_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=Infinity } }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:     1:
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_REFRESH_RATE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_MIN_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=Infinity } }
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:  mModeSwitchingType: SWITCHING_TYPE_WITHIN_GROUPS mAlwaysRespectAppRequest: false
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:  Current Mode mReportedRefreshRateMode(toSurfaceFlinger)=REFRESH_RATE_MODE_PASSIVE, mRefreshRateMode(fromSettings)=REFRESH_RATE_MODE_SEAMLESS
+07-31 06:01:57.751  2334  2581 D RefreshRateModeManager:  BrightnessState mPassive=true, PassiveModeToken=true, mLfd=3, mBrightness=12, mAmbientLux=52.0, mIsWirelessCharing=false
+07-31 06:01:57.752  2334  2581 D RefreshRateTokenController: Adding refreshRateToken={ RefreshRateToken[->PassiveModeToken:BrightnessAnim, acquire at 409143307 (1 ms ago)},
+07-31 06:01:57.752  2334  2581 D RefreshRateTokenController:     caller=com.android.server.display.mode.RefreshRateController.createPassiveModeToken:33 com.android.server.display.DisplayManagerService$$ExternalSyntheticLambda0.accept:387 com.android.server.display.DisplayPowerController.animateScreenBrightness:256 com.android.server.display.DisplayPowerController.updatePowerStateInternal:2570 com.android.server.display.DisplayPowerController.updatePowerState:9 
+07-31 06:01:57.754  1954  1954 I SurfaceFlinger: [com.callradar.app/com.callradar.app.MainActivity$_2237#25560] setFrameRateCategory: HighHint
+07-31 06:01:57.756  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+07-31 06:01:57.757  1932  4018 I SSC_DAEMON: light_msg(4/15): option - 88
+07-31 06:01:57.760  1954  1954 I SurfaceFlinger: [4630947175568309891] ActiveConfigToHWC, ID : 0
+07-31 06:01:57.761  2334  2581 D DisplayPowerController[0]: putAutoBrightnessTransitionTime: transitionTime=63
+07-31 06:01:57.761  2334  2581 D SettingsProvider: PUT_ret(/system/auto_brightness_transition_time), callingPackage:android
+07-31 06:01:57.762  2334  2581 D DisplayPowerController[0]: saveBrightnessInfo: brt:0.23529413 adjBrt:0.23694119 min:0.0 max:1.0 hbm:0 tp:1.0 throttler:0 isAnimating:true
+07-31 06:01:57.762  2334  2581 V DisplayPowerController[0]: Brightness [0.23694119] reason changing to: 'automatic', previous reason: 'automatic [ dim ]'.
+07-31 06:01:57.762  2334  2581 I DisplayPowerController[0]: BrightnessEvent: brt=0.23694119(73.0%), nits=77.76248, lux=19.153572, reason=automatic, strat=AutomaticBrightnessStrategy, state=ON, stateReason=DEFAULT_POLICY, policy=BRIGHT, flags=, initBrt=0.047388233, rcmdBrt=0.23529413, preBrt=0.0, preLux=220.0, lastReadLux=87.0, wasShortTermModelActive=false, autoBrightness=true (default), unclampedBrt=0.23529413, hbmMax=1.0, hbmMode=off, thrmMax=1.0, rbcStrength=-1, powerFactor=1.0, physDisp=기본으로 제공되는 화면(local:4630947175568309891), logicalId=0, slowChange=false, rampSpeed=3.0
+07-31 06:01:57.762  2334  2581 D DisplayPowerController[1]: animateScreenStateChange: target=OFF, mIsEnabled=false
+07-31 06:01:57.762  2334  2581 I DisplayPowerController[1]: BrightnessEvent: brt=0.0(0.0%), nits=1.0, lux=-1.0, reason=screen_off, strat=ScreenOffBrightnessStrategy, state=OFF, stateReason=DEFAULT_POLICY, policy=BRIGHT, flags=, initBrt=0.0, rcmdBrt=NaN, preBrt=NaN, preLux=0.0, wasShortTermModelActive=false, autoBrightness=true (default), unclampedBrt=0.0, hbmMax=1.0, hbmMode=off, thrmMax=1.0, rbcStrength=-1, powerFactor=1.0, physDisp=기본으로 제공되는 화면(local:4630946481096930692), logicalId=1, slowChange=false, rampSpeed=0.0
+07-31 06:01:57.762  4311  4311 D BrightnessControllerObserver: BrightnessObserver.onChange() : auto_brightness_transition_time
+07-31 06:01:57.762  2334  2581 D DisplayPowerController[0]: [api] handleSettingsChange: sb: 0.235 abAdj: 0.000 sbLock: false fd: true
+07-31 06:01:57.763  2334  2581 D PowerManagerService: displayReady: true groupId=0
+07-31 06:01:57.763  2334  2581 D DisplayPowerController[0]: animateScreenStateChange: target=ON, mIsEnabled=true
+07-31 06:01:57.763  4187  4279 D SatelliteController: isInCarrierRoamingNbIotNtn: satellite is disabled
+07-31 06:01:57.763  2334  2581 D DisplayPowerController[0]: animateScreenStateChange: target=ON, mIsEnabled=true
+07-31 06:01:57.764  1866  2175 I SDM     : HWDeviceDRM::SetDisplaySwitchMode: [DispConfigs] check hs_mode 3
+07-31 06:01:57.764  1866  2175 W SDM     : HWDeviceDRM::GetSupportedBitClkRate: Requested rate not supported: 1362080000
+07-31 06:01:57.764  1866  2175 I SDM     : HWDeviceDRM::SetDisplaySwitchMode: [DispConfigs] Mode 0 2176x1812x120xcmdHS already set
+07-31 06:01:57.764  2334  2359 D BrightnessSynchronizer: onDisplayChanged() : displayId=0
+07-31 06:01:57.764  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 8.75, target: 22.87->200
+07-31 06:01:57.764  1866  2175 I SDM     : HWDeviceDRM::UpdateMixerAttributes: Mixer WxH 2176x1812-1 for Peripheral
+07-31 06:01:57.764  1866  2175 I SDM     : HWCDisplay::SubmitDisplayConfig: Active configuration changed from config 0 to 0
+07-31 06:01:57.764  2334  2359 D BrightnessSynchronizer: updateScreenBrightness: displayId=0 type=2 mPreferredSettingValue=0.3019608(77) currentBrightnessInt=77 currentBrightnessIntFromFloat=60(0.23529413)
+07-31 06:01:57.765  2334  2359 D BrightnessSynchronizer: onChange: last float changed: 0.23529413 -> 60
+07-31 06:01:57.765  4187  4279 D SatelliteController: getCarrierRoamingNtnConnectType: Falling back to global carrier config connect type: 0
+07-31 06:01:57.765  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1)
+07-31 06:01:57.765  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1) lastNotifiedSignalStrength level: 0
+07-31 06:01:57.765  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1) currSignalStrength level: 0
+07-31 06:01:57.766  2334  4148 D LocalDisplayAdapter: surface lcd : 23(0.030), 23(0.030), main +
+07-31 06:01:57.767  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.030209)
+07-31 06:01:57.767  2334  2359 D SettingsProvider: PUT_ret(/system/screen_brightness), callingPackage:android
+07-31 06:01:57.767  2334  2359 D BrightnessSynchronizer: onChange : content://settings/system/screen_brightness
+07-31 06:01:57.768  2334  2359 D BrightnessSynchronizer: updateScreenBrightness: displayId=0 type=1 mPreferredSettingValue=0.23529413(60) currentBrightnessInt=60 currentBrightnessIntFromFloat=60(0.23529413)
+07-31 06:01:57.768  2334  4008 D MdnieScenarioControlService: onChange uri : content://settings/system/screen_brightness
+07-31 06:01:57.768  2334  4008 D MdnieScenarioControlService: settingDB update
+07-31 06:01:57.768  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 23 (3.020885 percent) primary(1) display(66)
+07-31 06:01:57.768  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.768  2334  4008 D MdnieScenarioControlService: anti_glare_state LUX_VALUE : 19
+07-31 06:01:57.768  2334  4008 V MdnieScenarioControlService: setAclModeSettings() ACL mPrevAclValue (1) - mCurrentValue (1)
+07-31 06:01:57.768  2334  4008 D AdaptiveDisplaySolutionService: setAutoCurrentLimitStateInt(1) , mADSEnableCondition : true
+07-31 06:01:57.768  2334  4008 D AdaptiveDisplaySolutionService: [AdaptiveControl]: ACL VALUE (1)
+07-31 06:01:57.770  2334  4148 D LocalDisplayAdapter: surface lcd : 23(0.030), 23(0.030), main -
+07-31 06:01:57.770  1932  4018 I SSC_DAEMON: light_msg(4/11): br 23 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.772  4311  4311 D SecBrightnessController: updateSlider() - BrightnessDialog resetTimer()
+07-31 06:01:57.773  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 6.27, target: 31.89->200
+07-31 06:01:57.773  2334  4148 D LocalDisplayAdapter: surface lcd : 30(0.039), 30(0.039), main +
+07-31 06:01:57.773  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.039165)
+07-31 06:01:57.778  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.778  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 29 (3.916522 percent) primary(1) display(66)
+07-31 06:01:57.779  2334  4148 D LocalDisplayAdapter: surface lcd : 30(0.039), 30(0.039), main -
+07-31 06:01:57.779  1932  4018 I SSC_DAEMON: light_msg(4/11): br 29 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.781  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 4.98, target: 40.16->200
+07-31 06:01:57.782  2334  2359 D RefreshRateModeManager: updateFlickerRefreshRateVotes: brt=36, lux=52.0
+07-31 06:01:57.782  2334  4148 D LocalDisplayAdapter: surface lcd : 36(0.047), 36(0.047), main +
+07-31 06:01:57.782  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.047499)
+07-31 06:01:57.783  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.783  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 36 (4.749854 percent) primary(1) display(66)
+07-31 06:01:57.784  2334  4148 D LocalDisplayAdapter: surface lcd : 36(0.047), 36(0.047), main -
+07-31 06:01:57.785  1932  4018 I SSC_DAEMON: light_msg(4/11): br 36 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.789  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 3.97, target: 50.33->200
+07-31 06:01:57.790  2334  4148 D LocalDisplayAdapter: surface lcd : 43(0.056), 43(0.056), main +
+07-31 06:01:57.790  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.055832)
+07-31 06:01:57.791  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.791  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 42 (5.583188 percent) primary(1) display(66)
+07-31 06:01:57.791  2334  4148 D LocalDisplayAdapter: surface lcd : 43(0.056), 43(0.056), main -
+07-31 06:01:57.796  1932  4018 I SSC_DAEMON: light_msg(4/11): br 42 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.797  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 3.36, target: 59.46->200
+07-31 06:01:57.798  2334  4148 D LocalDisplayAdapter: surface lcd : 49(0.064), 49(0.064), main +
+07-31 06:01:57.798  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.064165)
+07-31 06:01:57.799  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.799  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 49 (6.416521 percent) primary(1) display(66)
+07-31 06:01:57.800  2334  4148 D LocalDisplayAdapter: surface lcd : 49(0.064), 49(0.064), main -
+07-31 06:01:57.800  1932  4018 I SSC_DAEMON: light_msg(4/11): br 49 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.806  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 2.9, target: 68.93->200
+07-31 06:01:57.807  2334  4148 D LocalDisplayAdapter: surface lcd : 55(0.072), 55(0.072), main +
+07-31 06:01:57.807  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.072499)
+07-31 06:01:57.809  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.809  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 55 (7.249855 percent) primary(1) display(66)
+07-31 06:01:57.809  2334  4148 D LocalDisplayAdapter: surface lcd : 55(0.072), 55(0.072), main -
+07-31 06:01:57.810  1932  4018 I SSC_DAEMON: light_msg(4/11): br 55 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.814  2334  2581 D DisplayPowerController[0]: animateScreenStateChange: target=ON, mIsEnabled=true
+07-31 06:01:57.814  2334  4148 D HdrSolution_HdrDisplayNitMapper: updataTargetNit--------------mLightSensorData: -1.0, scaleRatio: 2.6, target: 77.07->200
+07-31 06:01:57.815  2334  4148 D LocalDisplayAdapter: surface lcd : 60(0.079), 60(0.079), main +
+07-31 06:01:57.815  2334  2581 D DisplayPowerController[0]: saveBrightnessInfo: brt:0.23529413 adjBrt:0.23694119 min:0.0 max:1.0 hbm:0 tp:1.0 throttler:0 isAnimating:false
+07-31 06:01:57.815  1954  1954 I SurfaceFlinger: setDisplayBrightness displayBrightness(0.078980)
+07-31 06:01:57.817  2334  2359 D BrightnessSynchronizer: onDisplayChanged() : displayId=0
+07-31 06:01:57.817  1932  1932 I SSC_DAEMON: physical_sensor_test_req_msg Sensor type :4, Msg type:11
+07-31 06:01:57.817  2334  2359 D BrightnessSynchronizer: updateScreenBrightness: displayId=0 type=2 mPreferredSettingValue=0.23529413(60) currentBrightnessInt=60 currentBrightnessIntFromFloat=60(0.23529413)
+07-31 06:01:57.817  1866  2175 I SDM     : DisplayBuiltIn::SetPanelBrightness: Setting brightness to level 60 (7.898039 percent) primary(1) display(66)
+07-31 06:01:57.817  2334  4148 D LocalDisplayAdapter: surface lcd : 60(0.079), 60(0.079), main -
+07-31 06:01:57.818  1932  4018 I SSC_DAEMON: light_msg(4/11): br 60 (lux 87,idx 0) - 0,1,0
+07-31 06:01:57.818  4311  4311 D SecBrightnessController: updateSlider() - BrightnessDialog resetTimer()
+07-31 06:01:57.824  2334  2371 I ActivityManager: Changes in 10126 5 to 15, 400 to 256
+07-31 06:01:57.872  2334  3909 D SemInputMotionEventDispatcher: registerMotionEventListener: already registered: com.samsung.android.hardware.secinputdev.taas.ExternalApi$5@ba9f66e
+07-31 06:01:57.957  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+07-31 06:01:57.961  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+07-31 06:01:57.961  2334  3991 D InetDiagMessage: Destroyed live tcp sockets for uids={10379} in 10ms
+07-31 06:01:57.964  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+07-31 06:01:57.966  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+07-31 06:01:57.966  2334  3991 D InetDiagMessage: Destroyed live tcp sockets for uids={20379} in 5ms
+07-31 06:01:58.015  2334  2581 D DisplayManagerService: handleBrightnessAnimation: started=false
+07-31 06:01:58.016  2334  2581 D RefreshRateModeManager: set fix=0, brightness=60, lux=52.0, mIsWirelessCharging=false
+07-31 06:01:58.017  2334  2581 D RefreshRateModeManager: setPassiveMode=false, brightness=60, lux=52.0, PassiveModeToken=false
+07-31 06:01:58.017  2334  2359 D SurfaceControl: notifyHFRmode, displayToken=android.os.BinderProxy@677d81f, hfrMode=REFRESH_RATE_MODE_SEAMLESS
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager: Schedule to change HFRmode=REFRESH_RATE_MODE_SEAMLESS, mDisplayToken=android.os.BinderProxy@677d81f
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:     -1:
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_REFRESH_RATE_MODE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=10.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:     0:
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_REFRESH_RATE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_MIN_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=Infinity } }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:     1:
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_PEAK_REFRESH_RATE -> CombinedVote{ mVotes=[PhysicalVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=120.0 } }, DisableRefreshRateSwitchingVote{ mDisableRefreshRateSwitching=false }] }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:       PRIORITY_USER_SETTING_MIN_RENDER_FRAME_RATE -> RenderVote{ RefreshRateVote{  mMinRefreshRate=0.0, mMaxRefreshRate=Infinity } }
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:  mModeSwitchingType: SWITCHING_TYPE_WITHIN_GROUPS mAlwaysRespectAppRequest: false
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:  Current Mode mReportedRefreshRateMode(toSurfaceFlinger)=REFRESH_RATE_MODE_SEAMLESS, mRefreshRateMode(fromSettings)=REFRESH_RATE_MODE_SEAMLESS
+07-31 06:01:58.018  2334  2581 D RefreshRateModeManager:  BrightnessState mPassive=false, PassiveModeToken=false, mLfd=0, mBrightness=60, mAmbientLux=52.0, mIsWirelessCharing=false
+07-31 06:01:58.018  1954  2292 I SurfaceFlinger: [4630947175568309891] HFR mode : 1
+07-31 06:01:58.019  2334  2581 D RefreshRateTokenController: Removing refreshRateToken={ RefreshRateToken[->PassiveModeToken:BrightnessAnim, acquire at 409143307 (268 ms ago)},
+07-31 06:01:58.019  2334  2581 D RefreshRateTokenController:     caller=com.android.server.display.mode.RefreshRateToken.release:5 com.android.server.display.DisplayManagerService$$ExternalSyntheticLambda0.accept:427 com.android.server.display.DisplayPowerController$3.run:24 android.os.Handler.handleCallback:1070 android.os.Handler.dispatchMessage:125 
+07-31 06:01:58.032  1954  1954 I SurfaceFlinger: [4630947175568309891] ActiveConfigToHWC, ID : 0
+07-31 06:01:58.041  1866  2175 I SDM     : HWDeviceDRM::SetDisplaySwitchMode: [DispConfigs] check hs_mode 1
+07-31 06:01:58.041  1866  2175 W SDM     : HWDeviceDRM::GetSupportedBitClkRate: Requested rate not supported: 1362080000
+07-31 06:01:58.041  1866  2175 I SDM     : HWDeviceDRM::SetDisplaySwitchMode: [DispConfigs] Mode 0 2176x1812x120xcmdHS already set
+07-31 06:01:58.041  1866  2175 I SDM     : HWDeviceDRM::UpdateMixerAttributes: Mixer WxH 2176x1812-1 for Peripheral
+07-31 06:01:58.042  1866  2175 I SDM     : HWCDisplay::SubmitDisplayConfig: Active configuration changed from config 0 to 0
+07-31 06:01:58.042  2334  2357 I GestureDetector: handleMessage TAP
+07-31 06:01:58.045  2334  2334 I GestureDetector: handleMessage TAP
+07-31 06:01:58.873  5369  5443 I RequestManager_FLP: onOpChanged, op=0 / packageName=com.sec.android.app.launcher
+07-31 06:01:58.878  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+07-31 06:01:58.881  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+07-31 06:01:58.882  2334  3991 D InetDiagMessage: Destroyed live tcp sockets for uids={10125} in 8ms
+07-31 06:01:58.885  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+07-31 06:01:58.887  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+07-31 06:01:58.888  2334  3991 D InetDiagMessage: Destroyed live tcp sockets for uids={20125} in 6ms
+07-31 06:01:58.986  2334  5414 I NSLocationMonitor: getGPSUsingApps() called
+07-31 06:01:58.987  5369 24954 I NSLocationManager_FLP: getGPSUsingApps, No change
+07-31 06:01:58.995  2334  5414 D FreecessHandler: skipping freeze com.netflix.mediaclient(10065) result : 2
+07-31 06:01:59.019  2237  2407 D ProfileInstaller: Skipping profile installation for com.callradar.app
+07-31 06:01:59.047  2334  4127 D WifiConnectivityMonitor.NetworkStatsAnalyzer: Backhaul result - RSSI:-10, CE:18, PE:21, TI:22, PTI:25, TW:0, PTW:0, Tx:26, Rx:23, TxS:22, RxS:17, RESULT:true, IC:0, ICT:5, WC:0, WCT:5, R:5, RC:0, IE:0, EC:0
+07-31 06:01:59.132  1176  1176 D io_stats: !@   8,0 r 4462288 116388366 w 6239624 110825720 d 1154053 602680372 f 210634 756561 iot 6115708 0 th 0 0 0 pt 0 inp 0 0 409144.688
+07-31 06:01:59.132  1176  1176 D io_stats: !@ Read_top(KB): system_server(2334) 40 m.callradar.app(2237) 24 sh(2368) 4
+07-31 06:01:59.132  1176  1176 D io_stats: !@ Write_top(KB): f2fs_ckpt-254:6(1437) 156 system_server(2334) 116 init(1) 40
+07-31 06:01:59.210  2334  4095 I SemWifiServiceDetector: Service det. suspended: T / T / 10164
+07-31 06:01:59.247  1822  2393 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 16962427
+07-31 06:01:59.248  1822  2395 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 16968253
+07-31 06:01:59.398  2334  4041 D UsbStatsMonitor: 0 0 0 0 7 0 0 0 0 0 0 0 27 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 114864605364250
+07-31 06:01:59.668  2334  3875 D ActivityManager: FCA:Reclamation for pid: 32513
+07-31 06:02:00.015  2334  2334 I EyeComfortSolutionService: action  :  android.intent.action.TIME_TICK
+07-31 06:02:00.016  4311  4818 I DateTimeView: updateAll - getTimeFormat
+07-31 06:02:00.017  4311  4311 D FaceWidgetPagesController: onTimeChanged()
+07-31 06:02:00.018  4311  4818 D QSClockBellTower: onReceive(android.intent.action.TIME_TICK) mTimeZoneString:Asia/Seoul
+07-31 06:02:00.021  4311  4311 D QSClockBellTower: He is ready to ring the bell. (((QSClockBellSound - TimeText:6:02, TimeContentDescription:오전 6:02, DateText:7월 31일 금요일, ShortDateText:7월 31일 (금), Demo:false)))
+07-31 06:02:00.022  4311  4311 D QSClock : StatusBar clock=6:02 notifyTimeChanged(QSClockBellSound - TimeText:6:02, TimeContentDescription:오전 6:02, DateText:7월 31일 금요일, ShortDateText:7월 31일 (금), Demo:false) clockVisibleByPolicy=true, clockVisibleByUser=true, visible=true, parent=android.widget.LinearLayout{e92b4f2 V.E...... ......ID 0,0-73,64 #7e0a06b0 com.android.systemui:id/left_clock_container} caller=com.android.systemui.statusbar.phone.fragment.CollapsedStatusBarFragment.animateShow:66 com.android.systemui.statusbar.phone.fragment.CollapsedStatusBarFragment.updateStatusBarVisibilitiesInner:236 com.android.systemui.statusbar.phone.fragment.CollapsedStatusBarFragment$$ExternalSyntheticLambda5.run:86 com.android.systemui.statusbar.phone.fragment.CollapsedStatusBarFragment.updateStatusBarVisibilities:116 com.android.systemui.statusbar.phone.fragment.CollapsedStatusBarFragment.disable:73  
+07-31 06:02:00.022  4311  4311 D QSClockBellTower: Everyone heard the bell. run(currentTime:1785445320020, getTime():Fri Jul 31 06:02:00 GMT+09:00 2026, getTimeZone():libcore.util.ZoneInfo[mDstSavings=0,mUseDst=false,mDelegate=[id="Asia/Seoul",mRawOffset=32400000,mEarliestRawOffset=30472000,transitions=29]])
+07-31 06:02:00.033  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 0
+07-31 06:02:00.034  4311  4311 D {OngoingChipAdapter}: updateEnableMaxWidth : 1491 -:> 1487
+07-31 06:02:00.034  4311  4311 I {OngoingActivityController}: sendChipInfoForAppExitAnimation check OA data
+07-31 06:02:00.034  4311  4311 I {OngoingActivityController}: sendChipInfoForAppExitAnimation call chip list: []
+07-31 06:02:00.034  4311  4311 I {OngoingActivityController}: sendChipInfoForAppExitAnimation onOngoingChipInfoChanged
+07-31 06:02:00.035  4834  6367 I HoneySpace.OnGoingChip: onOngoingChipInfoChanged, size-0
+07-31 06:02:00.041  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+07-31 06:02:00.045  4311  4311 W View    : requestLayout() improperly called by android.widget.FrameLayout{8ba7a4b V.E...... ......ID 0,0-1812,2176 #14} during layout: running second layout pass
+07-31 06:02:00.045  4311  4311 W View    : requestLayout() improperly called by com.android.systemui.qs.QSTouchAwareFrameLayout{9ab1c28 V.E...... ......ID 434,101-1379,2176 #7e0a0a4c com.android.systemui:id/qs_frame} during layout: running second layout pass
+07-31 06:02:00.046  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.047  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.047  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.049  4311  4311 D SamsungChipsController: onGardenChanged()                                                     (  1Call(X)-callNotiState=null, 2Cast(X), 3Oa(X)-hideChip(X), insetTop(X), rtl(X), foldMain(O), large(O)  )
+07-31 06:02:00.049  4311  4311 D IndicatorBasicGardener: PhoneStatusBarViewController update is done totalHeight=80  hasCameraTopMargin=true  cameraTopMargin=16  hasCameraBottomMargin=false  cameraBottomMargin=0  paddingLeft=35  paddingRight=35  maxWidthLeftContainer=1575  maxWidthCenterContainer=453  maxWidthRightContainer=1654 cutout=null
+07-31 06:02:00.050  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 60
+07-31 06:02:00.058  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+07-31 06:02:00.061  4311  4311 W View    : requestLayout() improperly called by android.widget.FrameLayout{8ba7a4b V.E...... ......ID 0,0-1812,2176 #14} during layout: running second layout pass
+07-31 06:02:00.061  4311  4311 W View    : requestLayout() improperly called by com.android.systemui.qs.QSTouchAwareFrameLayout{9ab1c28 V.E...... ......ID 434,101-1379,2176 #7e0a0a4c com.android.systemui:id/qs_frame} during layout: running second layout pass
+07-31 06:02:00.062  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.062  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.062  4311  4311 W RefactorFlag: New code path expects SceneContainerFlag to be enabled.
+07-31 06:02:00.204  2334  3972 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+07-31 06:02:00.210  2334  6973 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 110539, isSameBssidAndFreq true
+07-31 06:02:00.570  2334  4125 D WifiConnectivityMonitor: Stop WCM Poll. cnt : 5
+07-31 06:02:00.570  2334  4125 D WifiConnectivityMonitor: Unregister WifiLinkQualityMonitorCallback
+07-31 06:02:00.571  2334  4097 I SemWifiLinkQualityMonitor: LQ callback unregistered
+07-31 06:02:00.724  1883  2989 D BufferPoolAccessor2.0: evictor expired: 1, evicted: 0
+07-31 06:02:00.742  2334  2581 D PowerManagerService: UserActivityStateListenerState: 0
+07-31 06:02:00.753  2237  2237 I VRI[MainActivity]@5c8da97: call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@5c8da97
+07-31 06:02:00.758  1954  1954 I SurfaceFlinger: [com.callradar.app/com.callradar.app.MainActivity$_2237#25560] setFrameRateCategory: NoPreference
+07-31 06:02:00.761  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 1
+07-31 06:02:00.767  1954  2059 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+07-31 06:02:00.796  1808 10554 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 86(86),ch0:1424,ch1:144,c:0,g:128,l:72,m:2,br:60,c1:100,c2:110,i:0
+07-31 06:02:01.133  1176  1176 D io_stats: !@   8,0 r 4462288 116388366 w 6239636 110826560 d 1154053 602680372 f 210634 756561 iot 6115720 0 th 0 0 0 pt 0 inp 0 0 409146.689
+07-31 06:02:01.556  2334  4830 D PowerManagerService: [api] setMasterBrightnessLimit : lowerLimit : -1  upperLimit : 765  mMasterBrightnessLimitPeriod : 200 (uid: 1000 pid: 5797)
+07-31 06:02:01.557  2334  2581 D PowerManagerService: [api] BrightnessLimitRunnable done
+07-31 06:02:01.936  2334  3878 D ActivityManager: Received BROADCAST intent 0x6a637fc Key{broadcastIntent pkg=com.android.nfc intent=act=android.nfc.intent.action.WATCHDOG xflg=0x4 flags=0x4000000 u=0} requestCode=0 sent=0 from uid 1000
+07-31 06:02:01.953  2099  2099 I SLPASVC : onStartJob                                                                                          [at com.samsung.euicc.lpaService.NotificationJobService.onStartJob(NotificationJobService.java:17)]
+07-31 06:02:01.955  2099  2099 I SLPASVC : start NotificationService                                                                           [at com.samsung.euicc.lpaService.NotificationJobService.onStartJob(NotificationJobService.java:27)]
+07-31 06:02:01.956  2099  2099 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:2128 android.content.ContextWrapper.startService:898 com.samsung.euicc.lpaService.NotificationJobService.onStartJob:28 android.app.job.JobService$1.onStartJob:118 android.app.job.JobServiceEngine$JobHandler.handleMessage:190 
+07-31 06:02:01.964  2099  2099 I SLPASVC : onStartCommand()                                                                                    [at com.samsung.euicc.lpaService.NotificationService.onStartCommand(NotificationService.java:42)]
+07-31 06:02:01.965  2099  2424 I SLPASVC : +sendNotifications                                                                                  [at com.samsung.euicc.lpaService.NotificationService$NotificationHandler.sendNotifications(NotificationService$NotificationHandler.java:68)]
+07-31 06:02:01.966  2099  2424 I SLPASVC : -sendNotifications                                                                                  [at com.samsung.euicc.lpaService.NotificationService$NotificationHandler.sendNotifications(NotificationService$NotificationHandler.java:80)]
+07-31 06:02:01.968  2099  2099 I SLPASVC : +onDestroy(): Handler (com.samsung.euicc.lpaService.NotificationService$NotificationHandler) {9b990aa}[at com.samsung.euicc.lpaService.NotificationService.onDestroy(NotificationService.java:25)]
+07-31 06:02:01.968  2099  2099 I SLPASVC : -onDestroy()                                                                                        [at com.samsung.euicc.lpaService.NotificationService.onDestroy(NotificationService.java:31)]
+07-31 06:02:02.948  2334  3875 D ActivityManager: freezing 32513 com.google.android.apps.nbu.files
+07-31 06:02:02.957  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+07-31 06:02:02.962  2334  3991 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+07-31 06:02:02.963  2334  3991 D InetDiagMessage: Destroyed live tcp sockets for uids={10379} in 10ms
+07-31 06:02:03.134  1176  1176 D io_stats: !@   8,0 r 4462288 116388366 w 6239689 110827084 d 1154053 602680372 f 210639 756569 iot 6115760 0 th 0 0 0 pt 0 inp 0 0 409148.690
+07-31 06:02:03.134  1176  1176 D io_stats: !@ Write_top(KB): kworker/u16:3(31232) 840 system_server(2334) 280 f2fs_ckpt-254:6(1437) 72
+07-31 06:02:03.253  2334  3972 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+07-31 06:02:03.261  2334  6973 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 110540, isSameBssidAndFreq true
+07-31 06:02:03.284 27552 27728 E SQLiteLog: (10) POSIX Error : 11 SQLite Error : 3850
+07-31 06:02:03.284 27552 27728 E SQLiteLog: (10) LOCK : Getting pending lock for (1) failed due to (11). The current owner is (27662).
+07-31 06:02:03.285 27552 27728 E SQLiteLog: (10) POSIX Error : 11 SQLite Error : 3850
+07-31 06:02:03.285 27552 27728 E SQLiteLog: (10) LOCK : Getting pending lock for (1) failed due to (11). The current owner is (27662).
+07-31 06:02:03.814  5797  5797 I SDHMS:LOAD: type: LoadsFreqs, value: 0:0:2:1102080:3360000:0:974976:2803200:0:311:475:0
+07-31 06:02:04.112  9799  9856 E farr    : (REDACTED) Trace %s timed out after %d ms. Complete trace: %s
+07-31 06:02:04.112  9799  9856 E farr    : fatb: 
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.ZwiebackCookieProviderImpl#extractZwieback(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.ZwiebackCookieProviderImpl#getCookie(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.Synclet: facts_daily_data_logging_sync 1(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.NoAccountWorkerFactory startWork()(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork()(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork()(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	at tk_trace.WorkManager:TikTokListenableWorker startWork(Started After:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	Suppressed: fata: 
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.GOOGLEAPP_LABS_FOREGROUND_REQUEST_END(unfinished)(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.getLabsEnrollmentStatus 17 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.getLabsEnrollmentStatus 15 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.Synclet: facts_daily_data_logging_sync 1 97 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.NoAccountWorkerFactory startWork() 196 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork() 198 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork() 198 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.WorkManager:TikTokListenableWorker startWork 0 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 	Suppressed: fata: 
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.GOOGLEAPP_LABS_FOREGROUND_REQUEST_START(unfinished)(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.getLabsEnrollmentStatus 17 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.getLabsEnrollmentStatus 15 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.Synclet: facts_daily_data_logging_sync 1 97 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.NoAccountWorkerFactory startWork() 196 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork() 198 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.com.google.apps.tiktok.sync.impl.workmanager.SyncPeriodicWorker startWork() 198 ms(Unknown Source:0)
+07-31 06:02:04.112  9799  9856 E farr    : 		at tk_trace.WorkManager:TikTokListenableWorker startWork 0 ms(Unknown Source:0)
+07-31 06:02:04.238  1808 10432 I sensors-hal: handle_sns_client_event:207, auto_rotation_debug_2 mode,255,last,0, type,2,0 main,0.512,7.188,6.552 sub,0.574,7.140,6.614, ar,0, h_ic,0, s,2, ver,15, pedo,1,e,1,i,3
+07-31 06:02:04.275  4878  4878 I wpa_supplicant: Heartbeat 49858
+07-31 06:02:04.876  1808 10554 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 88(88),ch0:1440,ch1:144,c:0,g:128,l:72,m:2,br:60,c1:100,c2:110,i:0
+07-31 06:02:04.997  2334  5414 I NSLocationMonitor: getGPSUsingApps() called
+07-31 06:02:04.998  5369 24954 I NSLocationManager_FLP: getGPSUsingApps, No change
+07-31 06:02:05.002  2334  5414 W Binder  : Outgoing transactions from this process must be FLAG_ONEWAY
+07-31 06:02:05.002  2334  5414 W Binder  : java.lang.Throwable
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.BinderProxy.transact(BinderProxy.java:575)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.bluetooth.IBluetoothGatt$Stub$Proxy.getAdvertisingSetUids(IBluetoothGatt.java:992)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.bluetooth.BluetoothAdapter.getAdvertisingSetUids(BluetoothAdapter.java:1995)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.bluetooth.BluetoothAdapter.getHWUsingApps(BluetoothAdapter.java:2266)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at com.android.server.am.mars.filter.filter.BlueToothConnectedFilter.updateBTUsingPackages(qb/110725498 d4f2224ede11e9cea502f6698909fcc7316b76abd574cd0b1400da176ffe58af:22)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at com.android.server.am.FreecessController.freeze(qb/110725498 d4f2224ede11e9cea502f6698909fcc7316b76abd574cd0b1400da176ffe58af:126)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at com.android.server.am.FreecessHandler$MainHandler.handleLcdOnFreeze(qb/110725498 d4f2224ede11e9cea502f6698909fcc7316b76abd574cd0b1400da176ffe58af:55)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at com.android.server.am.FreecessHandler$MainHandler.handleMessage(qb/110725498 d4f2224ede11e9cea502f6698909fcc7316b76abd574cd0b1400da176ffe58af:1686)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.Handler.dispatchMessage(Handler.java:132)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.Looper.dispatchMessage(Looper.java:358)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.Looper.loopOnce(Looper.java:288)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.Looper.loop(Looper.java:392)
+07-31 06:02:05.002  2334  5414 W Binder  : 	at android.os.HandlerThread.run(HandlerThread.java:139)
+07-31 06:02:05.011  2334  5414 D FreecessHandler: skipping freeze com.netflix.mediaclient(10065) result : 2
+07-31 06:02:05.135  1176  1176 D io_stats: !@   8,0 r 4462291 116388378 w 6239723 110827408 d 1154053 602680372 f 210640 756575 iot 6115792 0 th 0 0 0 pt 0 inp 0 0 409150.692
+07-31 06:02:05.444  4187  4279 D SatelliteController: isInCarrierRoamingNbIotNtn: satellite is disabled
+07-31 06:02:05.447  4187  4279 D SatelliteController: getCarrierRoamingNtnConnectType: Falling back to global carrier config connect type: 0
+07-31 06:02:05.447  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1)
+07-31 06:02:05.447  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1) lastNotifiedSignalStrength level: 0
+07-31 06:02:05.447  4187  4279 D SatelliteController: updateLastNotifiedCarrierRoamingNtnSignalStrengthAndNotify(1) currSignalStrength level: 0
+07-31 06:02:05.548  2392  2411 I shsusrd : shsusr_check_cpu_usage(): Output of /proc/2392/stat/ : 2392 (shsusrd0) S 1 2392 0 0 -1 1077936384 749852 0 1366 0 4929 19873 0 0 20 0 11 0 873 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 0 0 0 17 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.548  2392  2411 I shsusrd : 
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage(): utime 4929 stime 19873 cpu_time_last 24801
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage(): user time = 4929 | system time = 19873 | total = 24802 | cpu_time_delta = 1, clk_tck 100
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage(): time_cur 1785445325 time_last 1785445315
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage(): shsusrd is using 0 pct of CPU - time_delta 10
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage(): shsusrd usage 0
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): time_delta for combined : 10 time_cur 1785445325 time_last_combined 1785445315
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2392/stat: 2392 (shsusrd0) S 1 2392 0 0 -1 1077936384 1193 0 9 0 0 1 0 0 20 0 11 0 873 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 17 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.549  2392  2411 I shsusrd : 
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2392 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2408/stat: 2408 (shsusrd12) S 1 2392 0 0 -1 4194368 673769 0 556 0 1844 7965 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.549  2392  2411 I shsusrd : 
+07-31 06:02:05.549  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2408 utime 1844 stime 7965 time_delta 10 clk_tck 100, usage 900
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2409/stat: 2409 (shsusrd2) S 1 2392 0 0 -1 4194368 209 0 235 0 5 234 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.550  2392  2411 I shsusrd : 
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2409 utime 5 stime 234 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2410/stat: 2410 (shsusrd13) S 1 2392 0 0 -1 1077936192 11 0 23 0 57 230 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.550  2392  2411 I shsusrd : 
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2410 utime 57 stime 230 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2411/stat: 2411 (shsusrd42) R 1 2392 0 0 -1 4194368 87 0 188 0 2454 9073 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 0 0 0 -1 0 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.550  2392  2411 I shsusrd : 
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2411 utime 2454 stime 9073 time_delta 10 clk_tck 100, usage 1100
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2412/stat: 2412 (shsusrd4) S 1 2392 0 0 -1 4194368 0 0 0 0 4 191 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.550  2392  2411 I shsusrd : 
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2412 utime 4 stime 191 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/2413/stat: 2413 (shsusrd14) S 1 2392 0 0 -1 4194368 184 0 145 0 2 240 0 0 20 0 11 0 877 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.550  2392  2411 I shsusrd : 
+07-31 06:02:05.550  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2413 utime 2 stime 240 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.551  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29800/stat: 29800 (shsusrd14) S 1 2392 0 0 -1 4194368 2 0 9 0 1 144 0 0 20 0 11 0 31919407 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.551  2392  2411 I shsusrd : 
+07-31 06:02:05.551  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29800 utime 1 stime 144 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.551  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29802/stat: 29802 (shsusrd7) S 1 2392 0 0 -1 4194368 7 0 25 0 1 142 0 0 20 0 11 0 31919408 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.551  2392  2411 I shsusrd : 
+07-31 06:02:05.551  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29802 utime 1 stime 142 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29805/stat: 29805 (shsusrd5) S 1 2392 0 0 -1 4194368 2 0 6 0 1 136 0 0 20 0 11 0 31919409 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.552  2392  2411 I shsusrd : 
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29805 utime 1 stime 136 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2392/task/29865/stat: 29865 (HwBinder:2392_1) S 1 2392 0 0 -1 1077936192 5 0 0 0 0 0 0 0 20 0 11 0 31919504 2494464000 1069 18446744073709551615 399796146176 399796404632 548898672240 0 0 0 0 0 1073794810 1 0 0 -1 3 0 0 0 0 0 399796427712 399796428648 400598544384 548898674701 548898674744 548898674744 548898680797 0
+07-31 06:02:05.552  2392  2411 I shsusrd : 
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): tid 29865 utime 0 stime 0 time_delta 10 clk_tck 100, usage 0
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined CPU usage: total_utime 4369 total_stime 18356 total_cpu_time_seconds 0.00, clk_tck 100
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage 0
+07-31 06:02:05.552  2392  2411 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage FINAL 0
+07-31 06:02:06.298  2334  3972 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+07-31 06:02:06.302  2334  6973 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 110541, isSameBssidAndFreq true
+07-31 06:02:07.023  4987  4987 I adbd    : adbd service requested 'shell,v2,TERM=xterm-256color,raw:screencap -p /sdcard/cr.png'
+07-31 06:02:07.124  2427  2427 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+07-31 06:02:07.125  2427  2427 W libbinder.BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+07-31 06:02:07.125  2427  2427 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: edmnativehelper
+07-31 06:02:07.125  2334  4830 I EDMNativeHelperService: isScreenCaptureEnabled
+07-31 06:02:07.125  2334  4830 D RestrictionPolicy: isScreenCaptureEnabled : ret=true userId=0
+07-31 06:02:07.125  2427  2427 W libbinder.ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+07-31 06:02:07.125  2427  2427 I SurfaceComposerClient: captureDisplay:Display-4630947175568309891
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 com.callradar.app/com.callradar.app.MainActivity$_2237#25560(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 Caption of Task=444#3030(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 $_2237#25567(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 StatusBar$_4311#114(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 Handle Input Layer of task 641$_4311#25558(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 com.sec.android.app.launcher/com.samsung.app.honeyspace.edge.edgepanel.app.CocktailBarService$_4834#24458(preserveDisplayColors:0)
+07-31 06:02:07.126  1954  2066 I SurfaceFlinger: Capture layer list: 	 TaskbarWindow$_4834#996(preserveDisplayColors:0)
+07-31 06:02:07.128  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer ScreenCaptureFillLayer at index 0
+07-31 06:02:07.128  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer com.callradar.app/com.callradar.app.MainActivity$_2237#25560 at index 1
+07-31 06:02:07.128  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer Caption of Task=444#3030 at index 2
+07-31 06:02:07.128  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer $_2237#25567 at index 3
+07-31 06:02:07.129  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer StatusBar$_4311#114 at index 4
+07-31 06:02:07.129  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer Handle Input Layer of task 641$_4311#25558 at index 5
+07-31 06:02:07.129  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer com.sec.android.app.launcher/com.samsung.app.honeyspace.edge.edgepanel.app.CocktailBarService$_4834#24458 at index 6
+07-31 06:02:07.129  1954  2078 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer TaskbarWindow$_4834#996 at index 7
+07-31 06:02:07.136  1176  1176 D io_stats: !@   8,0 r 4462297 116388426 w 6239723 110827408 d 1154053 602680372 f 210640 756575 iot 6115812 0 th 0 0 0 pt 0 inp 0 0 409152.693
+07-31 06:02:07.136  1176  1176 D io_stats: !@ Read_top(KB): sh(2427) 48 droid.rubin.app(7855) 12
+07-31 06:02:07.137  1176  1176 D io_stats: !@ Write_top(KB): kworker/u16:1(32353) 228 droid.rubin.app(7855) 40 appmanager:auth(27662) 16
+07-31 06:02:07.189  2427  2430 I AdrenoUtils: <ReadGpuID:407>: Reading chip ID through GSL
+07-31 06:02:07.392  2334  4830 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+07-31 06:02:07.393  2334  4830 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+07-31 06:02:07.396  5576  5576 I MediaServiceV2: Creating work for intent Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+07-31 06:02:07.397  5576  5576 I MediaServiceV2: Work enqueued for intent: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+07-31 06:02:07.399  2334  2356 I ActivityManager: Broadcast completed: result=0
+07-31 06:02:07.435  5576  5829 W JobInfo : Requested important-while-foreground flag for job745 is ignored and takes no effect
+07-31 06:02:07.436  5576  5829 D WM-SystemJobScheduler: Scheduling work ID b5aee243-fc27-4efa-b044-ecbf8e8e57f8Job ID 745
+07-31 06:02:07.441  5576  5829 D WM-GreedyScheduler: Ignoring {WorkSpec: 020756c8-a9c7-4bcb-af1a-eeed831c240b}. Requires device idle.
+07-31 06:02:07.441  5576  5829 D WM-GreedyScheduler: Ignoring {WorkSpec: c8c3824f-97cc-4eec-97a2-ca01a28c23d3}. Requires device idle.
+07-31 06:02:07.441  5576  5829 D WM-GreedyScheduler: Ignoring {WorkSpec: 3ac8ff6f-0815-4f12-8605-1abbf64243ff}. Requires device idle.
+07-31 06:02:07.441  5576  5829 D WM-GreedyScheduler: Ignoring {WorkSpec: c857eab7-966b-4ae8-a2b2-91f88215ec4b}. Requires device idle.
+07-31 06:02:07.441  5576  5829 D WM-GreedyScheduler: Starting work for b5aee243-fc27-4efa-b044-ecbf8e8e57f8
+07-31 06:02:07.442  5576  5829 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=b5aee243-fc27-4efa-b044-ecbf8e8e57f8, generation=0)
+07-31 06:02:07.443  5576  5576 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=b5aee243-fc27-4efa-b044-ecbf8e8e57f8, generation=0)
+07-31 06:02:07.444  5576  5576 D WM-WorkerWrapper: Starting work for com.android.providers.media.MediaServiceV2
+07-31 06:02:07.445  5576  2457 I MediaServiceV2: Work initiated for action [ android.intent.action.MEDIA_SCANNER_SCAN_FILE ]
+07-31 06:02:07.450  5576  5829 D WM-Processor: Work WorkGenerationalId(workSpecId=b5aee243-fc27-4efa-b044-ecbf8e8e57f8, generation=0) is already enqueued for processing
+07-31 06:02:07.457  5576  2457 I Kumiho-Kumiho: getPackageName: com.google.android.providers.media.module
+07-31 06:02:07.458  5576  2457 I Kumiho-Kumiho: getPackageName: com.google.android.providers.media.module
+07-31 06:02:07.472  5576  2457 I MediaServiceV2: Work ended for action [ android.intent.action.MEDIA_SCANNER_SCAN_FILE ]
+07-31 06:02:07.474  2334  4564 D SyncManager: userId - 0 auto - true
+07-31 06:02:07.476  8947  9075 I MediaSyncer: generation: Generation(added=2477, modified=2516)
+07-31 06:02:07.477  5576  6021 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=b5aee243-fc27-4efa-b044-ecbf8e8e57f8, tags={ com.android.providers.media.MediaServiceV2 } ]
+07-31 06:02:07.479  5576  5576 D WM-Processor: Processor b5aee243-fc27-4efa-b044-ecbf8e8e57f8 executed; reschedule = false
+07-31 06:02:07.479  5576  5576 D WM-SystemJobService: b5aee243-fc27-4efa-b044-ecbf8e8e57f8 executed on JobScheduler
+07-31 06:02:07.483  5576  6021 D WM-GreedyScheduler: Cancelling work ID b5aee243-fc27-4efa-b044-ecbf8e8e57f8
+07-31 06:02:07.485  5576  6021 D WM-GreedyScheduler: Ignoring {WorkSpec: 020756c8-a9c7-4bcb-af1a-eeed831c240b}. Requires device idle.
+07-31 06:02:07.485  5576  6021 D WM-GreedyScheduler: Ignoring {WorkSpec: c8c3824f-97cc-4eec-97a2-ca01a28c23d3}. Requires device idle.
+07-31 06:02:07.485  5576  6021 D WM-GreedyScheduler: Ignoring {WorkSpec: 3ac8ff6f-0815-4f12-8605-1abbf64243ff}. Requires device idle.
+07-31 06:02:07.485  5576  6021 D WM-GreedyScheduler: Ignoring {WorkSpec: c857eab7-966b-4ae8-a2b2-91f88215ec4b}. Requires device idle.
+07-31 06:02:07.499  8947  9077 W SefInterface$Companion: This file doesn't have SEF
+07-31 06:02:07.504  8947  9075 I MediaSyncer: loaded: 28ms, Success(maxMediaId=228, maxGenAdded=2447, maxGenModified=2519, count=1)
+07-31 06:02:07.510  2334  4829 D SyncManager: userId - 0 auto - true
+07-31 06:02:07.516  1808 10554 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 89(89),ch0:1456,ch1:144,c:0,g:128,l:72,m:2,br:60,c1:100,c2:110,i:0
+07-31 06:02:07.516 30747   696 I NetworkScheduler.Stats: (REDACTED) Task %s/%s started execution. cause:%s exec_start_elapsed_seconds: %s
+07-31 06:02:07.522 30747   306 I NetworkScheduler.Stats: (REDACTED) Task %s/%s finished executing. cause:%s result: %s elapsed_millis: %s uptime_millis: %s exec_start_elapsed_seconds: %s
+07-31 06:02:07.523  2334  4830 D SyncManager: userId - 0 auto - true
+07-31 06:02:07.523  2334  4830 D SyncManager: userId - 0 auto - true
+07-31 06:02:07.529  4987  4987 I adbd    : adbd service requested 'sync:'
+07-31 06:02:07.673  4987  4987 I adbd    : adbd service requested 'shell,v2:export ANDROID_LOG_TAGS=''; exec logcat '-d' '-t' '500''

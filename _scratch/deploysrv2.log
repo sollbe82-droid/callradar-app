@@ -1,0 +1,7 @@
+=== SERVER DEPLOY v57 === 
+[main 4808a88] v57: PUT /api/trips accepts business_date (client sends completion-based day when day_start set) - midnight trip attribution
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   141d729..4808a88  main -> main
+4808a88 v57: PUT /api/trips accepts business_date (client sends completion-based day when day_start set) - midnight trip attribution
+=== DONE === 

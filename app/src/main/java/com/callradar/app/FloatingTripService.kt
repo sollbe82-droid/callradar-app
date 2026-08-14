@@ -92,8 +92,8 @@ class FloatingTripService : Service() {
 
         // 플로팅 버튼(원형 텍스트뷰)
         val btn = TextView(this).apply {
-            text = "시작"
-            textSize = 18f
+            text = "🚕\n운행"   // [피드백] 레이더 아이콘처럼 보여 헷갈림 → 🚕택시로 '운행 기록 버튼'임을 명확히
+            textSize = 13f
             setTextColor(Color.WHITE)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -216,7 +216,7 @@ class FloatingTripService : Service() {
                 setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981")
             }
             floatingOn -> {             // 운행 기록 버튼만 ON = 수동 시작 버튼
-                setFloatVisible(true); stopPulse(); updateButton("시작", "#F59E0B")
+                setFloatVisible(true); stopPulse(); updateButtonSmall("🚕\n운행", "#F59E0B")
             }
             else -> {                   // [#5] 운행 기록 버튼 OFF + 운행 아님 → 플로팅 숨김
                 stopPulse(); setFloatVisible(false)
@@ -325,7 +325,7 @@ class FloatingTripService : Service() {
             isRiding = false
             stopPulse()
             stopLocationForeground(); clearRideState()
-            updateButton("시작", "#F59E0B")
+            updateButtonSmall("🚕\n운행", "#F59E0B")
             toast("운행 취소됨")
             return
         }
@@ -393,7 +393,7 @@ class FloatingTripService : Service() {
                             if (dist[0] < MIN_DISTANCE_M && rideMsShort < MIN_RIDE_MS) {
                                 isRiding = false
                                 stopLocationForeground(); clearRideState()
-                                updateButton("시작", "#F59E0B")
+                                updateButtonSmall("🚕\n운행", "#F59E0B")
                                 toast("이동거리·시간이 짧아 기록 안 함")
                                 return@captureLocation
                             }
@@ -403,7 +403,7 @@ class FloatingTripService : Service() {
                         if (sMs > 0L && System.currentTimeMillis() - sMs > MAX_RIDE_MS) {
                             isRiding = false
                             stopLocationForeground(); clearRideState()
-                            updateButton("시작", "#F59E0B")
+                            updateButtonSmall("🚕\n운행", "#F59E0B")
                             toast("운행이 너무 길어(3시간+) 기록 안 함 — 필요하면 수동으로 추가하세요")
                             return@captureLocation
                         }
@@ -411,7 +411,7 @@ class FloatingTripService : Service() {
                         createTrip(startLat, startLng, startAddr, startTime, lat, lng, addr)
                         isRiding = false
                         stopLocationForeground(); clearRideState()
-                        updateButton("시작", "#F59E0B")
+                        updateButtonSmall("🚕\n운행", "#F59E0B")
                         toast("운행 기록됨 · 잘못됐으면 기록 탭에서 삭제")
                     }
                 }

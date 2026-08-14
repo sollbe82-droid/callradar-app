@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 4132516] v54: remove duplicate take-home card from wolbyeol (kept on home only) - de-dup per user
+ 1 file changed, 1 insertion(+), 21 deletions(-)
+4132516 v54: remove duplicate take-home card from wolbyeol (kept on home only) - de-dup per user

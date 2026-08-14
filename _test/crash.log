@@ -1,0 +1,28 @@
+=== CRASH BUFFER === 
+=== ERRORS (main) === 
+--------- beginning of main
+07-31 00:29:28.808 16674 16715 E libEGL  : call to OpenGL ES API with no current context (logged once per thread)
+07-31 00:29:28.829 24469 16718 E qr_barcode_decoder: target 7
+07-31 00:29:28.829 24469 16718 E qr_barcode_decoder: QuramDecodeHintType 6210
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: updateBehaviorSleepLogger()  -  Error : 3003: OOBE is not completed, break
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: com.samsung.android.sdk.health.data.error.ResolvablePlatformException: 3003: OOBE is not completed
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.ErrorStatus.a(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:56)
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.g1.a(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:16)
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.s0.onTransact(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:48)
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: 	at android.os.Binder.execTransactInternal(Binder.java:1514)
+07-31 00:29:28.868 27478 27493 E [CE]_HealthDataManager: 	at android.os.Binder.execTransact(Binder.java:1454)
+07-31 00:29:28.877 16674 16715 E Kumiho-Kumiho: updateList - failed to retrieve policy '/data/system/Kumiho/Kumiho.policy' retrying with default
+07-31 00:29:28.946 16674 16715 E SmartCapture: AppClassificationUtil Source app of the image not found 
+07-31 00:29:28.953 22883  5554 E CMHProvider: [#CMH#] Not support This table query: 55, com.samsung.android.smartsuggestions 
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: updateBehaviorExerciseLogger()  -  Error : 3003: OOBE is not completed, break
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: com.samsung.android.sdk.health.data.error.ResolvablePlatformException: 3003: OOBE is not completed
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.ErrorStatus.a(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:56)
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.g1.a(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:16)
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: 	at com.samsung.android.sdk.health.data.internal.s0.onTransact(r8-map-id-089e22e712a350dbc2fc0e3f078455e31f2edf3502f5eef63331f1cc53c6c9c4:48)
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: 	at android.os.Binder.execTransactInternal(Binder.java:1514)
+07-31 00:29:28.976 27478 27493 E [CE]_HealthDataManager: 	at android.os.Binder.execTransact(Binder.java:1454)
+07-31 00:29:28.994 22679 22748 E SSS@search user 0: (FsmDataManager) getAllHits: No hits
+07-31 00:29:28.998 22679 22748 E SSS@search user 0: (VideoFrameFetcher) fetch: No results found.
+07-31 00:29:29.006 16674 16733 E qr_barcode_decoder: target 7
+07-31 00:29:29.006 16674 16733 E qr_barcode_decoder: QuramDecodeHintType 6210
+07-31 00:29:29.022 22883 16747 E MediaContentSyncTask: [#CMH#] Insert : 1, Update: 0, Delete: 0 

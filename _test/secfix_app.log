@@ -1,0 +1,7 @@
+rm 'callradar-release.jks'
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+[master 773093b] security: untrack release keystore and local.properties
+ 2 files changed, 2 insertions(+)
+ delete mode 100644 callradar-release.jks
+COMMIT_EXITCODE=0 
+773093b security: untrack release keystore and local.properties

@@ -1,0 +1,7 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ImageImportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master 12be566] v54: radar HERO combines my+all-driver dest-risk (mix label), learning card shows correction count not misleading pct, LPG gas receipt liters parse (exact 3-decimal, comma-safe)
+ 3 files changed, 30 insertions(+), 11 deletions(-)
+12be566 v54: radar HERO combines my+all-driver dest-risk (mix label), learning card shows correction count not misleading pct, LPG gas receipt liters parse (exact 3-decimal, comma-safe)

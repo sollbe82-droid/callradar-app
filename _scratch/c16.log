@@ -1,0 +1,5 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkSessionService.kt', LF will be replaced by CRLF the next time Git touches it
+[master 54c4f16] v54: fix work-session distance bug (900km on stationary phone) - reject GPS segments with dt>60s (doze/GPS-gap jumps pass speed gate at low apparent speed)
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+54c4f16 v54: fix work-session distance bug (900km on stationary phone) - reject GPS segments with dt>60s (doze/GPS-gap jumps pass speed gate at low apparent speed)

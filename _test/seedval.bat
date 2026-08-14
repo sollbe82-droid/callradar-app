@@ -1,0 +1,2 @@
+@echo off
+node -e "const P=(u,b)=>fetch('https://callradar-server.onrender.com'+u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()); Promise.all([P('/api/knowhow',{user_id:1,area:'서초',time_band:'',pattern:'',note:'검증 테스트'}),P('/api/hotspots',{user_id:1,name:'서초',lat:0,lng:0,time_band:'',note:'검증 테스트'})]).then(r=>console.log('SEEDED',JSON.stringify(r))).catch(e=>console.log('ERR '+e))" > C:\CallRadar\_test\val.log 2>&1

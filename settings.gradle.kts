@@ -21,6 +21,7 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url = uri("https://maven.google.com") }
         maven { url = uri("https://devrepo.kakao.com/nexus/repository/kakaomap-releases/") }
+        maven { url = uri("https://devrepo.kakao.com/nexus/content/groups/public/") }  // [v43] 카카오 로그인 SDK(v2-user) 호스팅 저장소
     }
 }
 

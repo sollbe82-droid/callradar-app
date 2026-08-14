@@ -1,0 +1,6 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+[master 0c4d1bc] uber fixes (v51 pending): write meter fare on sight (0won fix) + finalize on idle-home return (stall recover)
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+0c4d1bc uber fixes (v51 pending): write meter fare on sight (0won fix) + finalize on idle-home return (stall recover)
+a9bb6c8 floating toast text 5s->3s (match timer)

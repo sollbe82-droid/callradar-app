@@ -1,56 +1,65 @@
-Calculating task graph as no cached configuration is available for tasks: :app:assembleDebug
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: assembleDebug
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:desugarDebugFileDependencies UP-TO-DATE
 > Task :app:generateDebugGlobalSynthetics UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:createDebugCompatibleScreenManifests
+> Task :app:packageDebugResources UP-TO-DATE
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugBuildConfig
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:generateDebugResources
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:mergeDebugNativeLibs UP-TO-DATE
-> Task :app:stripDebugDebugSymbols UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:processDebugNavigationResources
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:generateDebugRFile UP-TO-DATE
+> Task :app:checkDebugAarMetadata
 > Task :app:compileDebugNavigationResources UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:packageDebugResources
-> Task :app:parseDebugLocalResources
-> Task :app:generateDebugRFile
 > Task :app:processDebugMainManifest
+> Task :app:mergeDebugNativeLibs
 > Task :app:processDebugManifest
 > Task :app:processDebugManifestForPackage
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libK3fAndroid.so. Run with --info option to learn more.
+
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
 > Task :app:mergeDebugResources
-> Task :app:mergeExtDexDebug
 > Task :app:compileDebugKotlin
+> Task :app:mergeExtDexDebug
 > Task :app:processDebugResources
 
 > Task :app:compileDebugKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/CloudinaryUploader.kt:86:54 Java type mismatch: inferred type is 'Nothing?', but 'String' was expected.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ReceiptScanActivity.kt:57:50 'static fun getBitmap(p0: ContentResolver!, p1: Uri!): Bitmap!' is deprecated. Deprecated in Java.
 w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ScreenCaptureService.kt:50:28 'fun <T : Parcelable!> getParcelableExtra(p0: String!): T?' is deprecated. Deprecated in Java.
-w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:231:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
-w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:191:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
-w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ScreenCaptureService.kt:50:28 'fun <T : Parcelable!> getParcelableExtra(p0: String!): T?' is deprecated. Deprecated in Java.
-w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:231:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
-w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:191:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:59:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:242:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:64:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/MoreScreen.kt:834:44 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:58:73 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:210:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
 
-> Task :app:compileDebugJavaWithJavac NO-SOURCE
 > Task :app:processDebugJavaRes
 > Task :app:mergeDebugJavaResource
+> Task :app:compileDebugJavaWithJavac
 > Task :app:dexBuilderDebug
 > Task :app:mergeProjectDexDebug
 > Task :app:packageDebug
 > Task :app:assembleDebug
-> Task :app:createDebugApkListingFileRedirect
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 3m 8s
-36 actionable tasks: 21 executed, 15 up-to-date
+BUILD SUCCESSFUL in 7m 52s
+38 actionable tasks: 20 executed, 18 up-to-date
 Configuration cache entry stored.
+BUILD_EXIT=0 

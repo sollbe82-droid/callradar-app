@@ -1,0 +1,6 @@
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'HANDOVER.md', LF will be replaced by CRLF the next time Git touches it
+[master 3293d78] docs: compress CLAUDE.md (rules kept, history condensed) + HANDOVER 2026-08-13 (v55-v59 summary, open items) for new session
+ 2 files changed, 226 insertions(+), 113 deletions(-)
+ create mode 100644 HANDOVER.md
+3293d78 docs: compress CLAUDE.md (rules kept, history condensed) + HANDOVER 2026-08-13 (v55-v59 summary, open items) for new session

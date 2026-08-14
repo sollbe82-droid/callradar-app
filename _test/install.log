@@ -1,0 +1,9 @@
+=== installing C:\CallRadar\app\build\outputs\apk\release\app-release.apk === 
+Performing Streamed Install
+adb.exe: failed to install C:\CallRadar\app\build\outputs\apk\release\app-release.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE: Downgrade detected: Update version code 19 is older than current 21]
+
+INSTALL_EXIT=1 
+=== version after === 
+    versionCode=21 minSdk=24 targetSdk=36
+    versionName=2.1
+=== DONE === 

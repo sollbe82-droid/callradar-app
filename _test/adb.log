@@ -1,0 +1,16 @@
+=== adb path: C:\AndroidSdk\platform-tools\adb.exe === 
+Android Debug Bridge version 1.0.41
+Version 37.0.0-14910828
+Installed as C:\AndroidSdk\platform-tools\adb.exe
+Running on Windows 10.0.26200
+=== devices === 
+List of devices attached
+R3CW70QB0NY            device product:q5qksx model:SM_F946N device:q5q transport_id:4
+
+=== CallRadar installed version === 
+    versionCode=21 minSdk=24 targetSdk=36
+    versionName=2.1
+=== current focused app === 
+      topResumedActivity=ActivityRecord{174694931 u0 com.sec.android.app.launcher/.activities.LauncherActivity t420}
+=== recent crash buffer === 
+=== DONE === 

@@ -1,0 +1,10 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FloatingTripService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/LocalTrackDatabase.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+[master dd57a5c] fix #7 franchise call-pause false trip (operator precedence + exclude colmeum/accept), #2-3 track distance jitter gate (700km fix), #5 floating hide when manual off+idle, #1 radar map center on my location + recenter button (no more cluster jump)
+ 5 files changed, 51 insertions(+), 11 deletions(-)
+dd57a5c fix #7 franchise call-pause false trip (operator precedence + exclude colmeum/accept), #2-3 track distance jitter gate (700km fix), #5 floating hide when manual off+idle, #1 radar map center on my location + recenter button (no more cluster jump)
+3ec7c2d fix #6 track loaded flag for auto-record (was all gray/deadhead) + #4 send boarded_at at boarding moment (near pickup no longer misses ride time)
+6bfb939 radar map: on-map cycle filter (today/30k/50k) + 4-tier density colors (green/orange/red/black), remove bottom toggle

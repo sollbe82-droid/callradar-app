@@ -1,0 +1,24 @@
+=== DEVICES === 
+List of devices attached
+R5KL10AL1ZF	device
+
+=== INSTALL === 
+Performing Streamed Install
+Success
+=== LAUNCH === 
+  bash arg: -p
+  bash arg: com.callradar.app
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 1
+args: [-p, com.callradar.app, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "com.callradar.app"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="com.callradar.app"
+data="android.intent.category.LAUNCHER"
+Events injected: 1
+## Network stats: elapsed time=9ms (0ms mobile, 0ms wifi, 9ms not connected)
+=== DONE === 

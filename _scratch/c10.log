@@ -1,0 +1,8 @@
+START
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FloatingTripService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+[master adfc7b5] v53 stage2: uber realride tag (blue track)+boarded_at, uber 0won fare recovery from home last-trip, manual cancel via floating badge long-press (NaviIntentReceiver.instance)
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+adfc7b5 v53 stage2: uber realride tag (blue track)+boarded_at, uber 0won fare recovery from home last-trip, manual cancel via floating badge long-press (NaviIntentReceiver.instance)
+1abb0d1 v53 2.5.3 stage1: remove screen address parsing (GPS-only origin/dest), drop uber ghost-call condition (mokjeokji+dochak), remove START_SCREEN diagnostic, bump versionCode 53
+e52b196 v52 2.5.2: strengthen franchise auto-dispatch call-card false-trip exclusion + START_SCREEN diagnostic + bump versionCode 52

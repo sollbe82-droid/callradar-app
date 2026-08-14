@@ -1,0 +1,8 @@
+START
+warning: in the working copy of 'app/proguard-rules.pro', LF will be replaced by CRLF the next time Git touches it
+[master e67c74c] v51: enable R8 obfuscation (minify + keep rules for kakao/mlkit/gms/okhttp)
+ 2 files changed, 38 insertions(+), 1 deletion(-)
+ create mode 100644 app/proguard-rules.pro
+e67c74c v51: enable R8 obfuscation (minify + keep rules for kakao/mlkit/gms/okhttp)
+29a51ff v51 2.5.1: bump versionCode 51 + uber idle-home guard tighten + radar nav TODO
+0c4d1bc uber fixes (v51 pending): write meter fare on sight (0won fix) + finalize on idle-home return (stall recover)
