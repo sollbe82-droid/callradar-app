@@ -388,7 +388,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
             // [#4116 미터기 수정결제] 방금 마감한 트립이 있는데, 최종 확인화면 금액이 다르면 그 값으로 갱신.
             //  예: '손님이 직접결제 하셨나요? 미터기 4,800'으로 마감 → 기사가 '입력하신 요금이 맞습니까? 7,800' 수정결제 → 7,800으로 갱신.
-            if (recentFinalTripId > 0 && System.currentTimeMillis() - recentFinalAt < 120000L) {
+            if (recentFinalTripId > 0 && System.currentTimeMillis() - recentFinalAt < 300000L) {   // [우버0원] 복구창 120→300초: 홈('마지막 운행 ₩X')이 늦게 떠도 요금 복구
                 val hasFinal = allText.contains("입력하신 요금이 맞습니까") || allText.contains("자동결제 완료") || allText.contains("결제요청")
                 val finFare = extractFare(lines, pkg)
                 if (hasFinal && finFare > 0 && finFare != recentFinalFare) {

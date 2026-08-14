@@ -128,17 +128,21 @@ fun SimpleHomeScreen(
                 if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalChange > 30000L) {
                     workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                     prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
-                    if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
+                    // [km폭주 수정③] pull은 미터 자동시작 안 함(유휴 보조폰 유령거리 차단). 원격 퇴근 시 중지+거리리셋.
+                    if (rws == 0L) { stopMeter(); prefs.edit().putBoolean("meter_local", false).putFloat("work_distance_m", 0f).apply(); workDist = 0f }
                 }
             } catch (e: Exception) {}
             delay(20000)
         }
     }
+    // [km폭주③] 앱 재시작 시: 소유폰(로컬 출근한 폰)만 미터 재개. pull은 미터 안 켜므로 여기서 복원.
+    LaunchedEffect(Unit) { if (workStart > 0L && pauseStart == 0L && prefs.getBoolean("meter_local", false) && distEnabled) startMeter() }
 
     val doStart = {
         val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
         val dayKey = workDayKey(); val newDay = prefs.getLong("work_day_key", 0L) != dayKey
-        val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare)
+        // [km폭주 수정③] meter_local=true → 이 폰이 미터 소유자(로컬 출근). pull은 미터 안 켜므로 소유폰만 거리 누적.
+        val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare).putBoolean("meter_local", true)
         if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
         e.apply(); workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
         pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); if (distEnabled) startMeter()
@@ -162,9 +166,10 @@ fun SimpleHomeScreen(
             prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
             val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
             val pH = if (dayNetMs > 3000000L) (sFare / (dayNetMs / 3600000.0)).toInt() else 0
-            val dKm = prefs.getFloat("work_distance_m", 0f) / 1000f
+            val dKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f   // [km폭주②] 비현실(>16h) 세션 거리 신뢰불가→0
             workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-            prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+            // [km폭주①③] 퇴근 시 거리 0 초기화 + 미터 소유 해제.
+            prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putBoolean("meter_local", false).apply(); workDist = 0f
             pushWorkSession(0L, 0L, 0L, 0); stopMeter()
             com.callradar.app.Telemetry.log(context, "shift_end", "simple_home", meta = sFare.toString())
             // 서버 근무세션 요약 저장 (classic과 동일)
@@ -174,7 +179,7 @@ fun SimpleHomeScreen(
                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
             } } catch (e: Exception) {} }
         } catch (e: Exception) {
-            try { workStart = 0L; pausedTotal = 0L; pauseStart = 0L; prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply(); stopMeter() } catch (e2: Exception) {}
+            try { workStart = 0L; pausedTotal = 0L; pauseStart = 0L; prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putBoolean("meter_local", false).apply(); workDist = 0f; stopMeter() } catch (e2: Exception) {}
         }
     }
 

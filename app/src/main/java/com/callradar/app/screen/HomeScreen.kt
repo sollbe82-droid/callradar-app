@@ -656,7 +656,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val hrs = dayNetMs / 3600000.0
                     sumGrossMin = dayGrossMs / 60000L
                     sumNetMin = dayNetMs / 60000L
-                    sumDistKm = prefs.getFloat("work_distance_m", 0f) / 1000f   // 당일 누적 거리(출근마다 리셋 안 함)
+                    // [km폭주 수정②] 비현실(>16h 유령) 세션은 거리 신뢰불가 → 0. (workStart 스톨로 미터가 오래 돌아 수백 km 누적되던 것 차단)
+                    sumDistKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f
                     sumFare = sFare
                     sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
                     // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
@@ -686,7 +687,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // 이어가기용 스냅샷 저장(잘못 퇴근 시 복구)
                     prefs.edit().putLong("last_work_start", workStart).putLong("last_work_paused_total", pausedTotal).putLong("last_work_end", now).apply()
                     workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-                    prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                    // [km폭주 수정①] 퇴근 시 세션 거리 0으로 초기화 — 다음 세션으로 누적 이월되던 것 차단(634→1228km 원인).
+                    prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putBoolean("meter_local", false).apply()
+                    workDist = 0f
                     pushWorkSession(0L, 0L, 0L, 0)
                     stopMeter()
                     com.callradar.app.TrackSync.uploadRecent(context)   // [v44] 퇴근 시 오늘 궤적 서버 백업
@@ -698,13 +701,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // 안전망: 예상치 못한 예외에도 세션은 종료 상태로 만들고 요약을 띄운다(강제종료 방지).
                     try {
                         workStart = 0L; pausedTotal = 0L; pauseStart = 0L
-                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).apply()
+                        prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putBoolean("meter_local", false).apply()
+                        workDist = 0f
                     } catch (e2: Exception) {}
                     try { stopMeter() } catch (e2: Exception) {}
                     showEndSummary = true
                   }
                 }
-                LaunchedEffect(Unit) { if (workStart > 0L) com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)) }  // [v23] 앱 재시작 시 예약 복원
+                LaunchedEffect(Unit) { if (workStart > 0L) { com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)); if (prefs.getBoolean("meter_local", false) && paused == false && distEnabled) startMeter() } }  // [v23 예약복원 + km폭주③ 소유폰만 미터 재개]
                 LaunchedEffect(active, paused) {
                     while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
                 }
@@ -718,7 +722,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
                                 workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                                 prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
-                                if (rws > 0L && rps == 0L && distEnabled) startMeter() else if (rws == 0L) stopMeter()
+                                // [km폭주 수정③] pull은 미터 자동시작 안 함(유휴 보조폰 유령거리 차단). 로컬 출근한 폰만 미터.
+                                //  원격 퇴근(rws==0) 시 미터 중지 + 이 폰의 거리 리셋(다른 폰에서 퇴근해도 유령거리 안 남게).
+                                if (rws == 0L) { stopMeter(); prefs.edit().putBoolean("meter_local", false).putFloat("work_distance_m", 0f).apply(); workDist = 0f }
                                 if (rws > 0L) com.callradar.app.WorkAutoEnd.schedule(context, rws, maxHours) else com.callradar.app.WorkAutoEnd.cancel(context)
                             }
                         } catch (e: Exception) {}
@@ -928,7 +934,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 Button(onClick = { val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
                                     // [v41] 같은 영업일 재출근이면 당일 누적(거리·시작요금·시간) 유지 → 이어서 근무. 새 영업일이면 리셋.
                                     val dayKey = workDayKey(); val newDay = prefs.getLong("work_day_key", 0L) != dayKey
-                                    val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare)
+                                    // [km폭주 수정③] meter_local=true → 이 폰이 미터 소유자(로컬 출근). pull은 미터 안 켜므로 소유폰만 거리 누적.
+                                    val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare).putBoolean("meter_local", true)
                                     if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
                                     e.apply()
                                     workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
