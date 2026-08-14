@@ -131,24 +131,27 @@ class TmoneyNotificationService : NotificationListenerService() {
                 timeZone = java.util.TimeZone.getTimeZone("UTC")
             }.format(java.util.Date())
 
+            // [길빵 dedup] fill-or-create: 서버가 직전 15분 내 플로팅으로 기록한 무요금 길빵 트립이 있으면
+            //  거기에 금액만 채우고(중복 방지), 없으면 새로 생성. nowIso는 미사용(서버 NOW() 기준).
             val json = JSONObject().apply {
                 put("user_id", userId)
-                put("originName", "미상")
-                put("destName", destName)
-                put("platform", "길빵/예약")
                 put("fare", fare)
-                put("payment_type", "card")
-                put("started_at", nowIso)
+                put("destName", destName)
+                put("dest_lat", lat)
+                put("dest_lng", lng)
             }
-            val conn = (URL("$SERVER_URL/api/trips/manual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+            val conn = (URL("$SERVER_URL/api/trips/gilbang-fare").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 doOutput = true; connectTimeout = 10000; readTimeout = 10000
             }
             conn.outputStream.write(json.toString().toByteArray())
             val code = conn.responseCode
+            val body = if (code in 200..299) try { conn.inputStream.bufferedReader().readText() } catch (e: Exception) { "" } else ""
             conn.disconnect()
-            Log.d(TAG, "🆕 스타트없는콜 트립 생성: 미상→$destName ${fare}원 (HTTP $code)")
+            val mode = try { JSONObject(body).optString("mode", "?") } catch (e: Exception) { "?" }
+            Log.d(TAG, "🆕 길빵 카드결제 처리($mode): →$destName ${fare}원 (HTTP $code)")
+            sendDebugLog(userId, "GILBANG_FARE", "$mode | →$destName | ${fare}원")
         } catch (e: Exception) {
             Log.e(TAG, "스타트없는콜 생성 실패: ${e.message}")
         }
