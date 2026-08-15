@@ -43,6 +43,10 @@ class FloatingTripService : Service() {
     private var autoCancelArmed = false
     private val autoCancelHandler = android.os.Handler(Looper.getMainLooper())
     private var autoCancelRun: Runnable? = null
+    // [완료콜누락 방어] 자동배지가 안 꺼질 때(완료 감지 놓침) 탭 → '완료로 기록'(삭제 아님). 삭제는 길게누름.
+    private var autoFinalizeArmed = false
+    private val autoFinalizeHandler = android.os.Handler(Looper.getMainLooper())
+    private var autoFinalizeRun: Runnable? = null
     private lateinit var fusedClient: FusedLocationProviderClient
 
     // 운행 상태
@@ -191,8 +195,26 @@ class FloatingTripService : Service() {
         autoCancelHandler.postDelayed(autoCancelRun!!, 4000)
     }
 
+    // [완료콜누락 방어] 자동배지가 안 꺼질 때(완료 감지 놓침) 탭 → 초록 '완료?' 무장 → 다시 탭하면 완료로 기록(삭제 아님).
+    //  다른 앱 쓰다 '운행 완료' 탭을 못 잡아 activeTripId가 안 풀린 케이스를, 기록 유지한 채 원터치로 마감.
+    private fun armAutoFinalize() {
+        if (com.callradar.app.NaviIntentReceiver.activeTripId <= 0) { toast("완료 처리할 자동 운행이 없어요"); return }
+        autoFinalizeArmed = true
+        floatingView?.post {
+            floatingView?.textSize = 12f
+            floatingView?.setTextColor(Color.WHITE)
+            floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
+            floatingView?.text = "완료?\n탭"
+            floatingView?.background = ovalBg("#10B981")
+        }
+        toast("이 운행을 완료로 기록하려면 배지를 한 번 더 탭 (기록은 유지돼요)")
+        autoFinalizeRun?.let { autoFinalizeHandler.removeCallbacks(it) }
+        autoFinalizeRun = Runnable { autoFinalizeArmed = false; try { updateAutoBadge() } catch (e: Exception) {} }
+        autoFinalizeHandler.postDelayed(autoFinalizeRun!!, 4000)
+    }
+
     private fun updateAutoBadge() {
-        if (autoCancelArmed) return   // [v53 #124] 취소 무장중엔 배지 갱신 보류(빨간 '취소?' 유지)
+        if (autoCancelArmed || autoFinalizeArmed) return   // 무장중엔 배지 갱신 보류(취소?/완료? 유지)
         // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
         if (isRiding) { setFloatVisible(true); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
@@ -310,6 +332,15 @@ class FloatingTripService : Service() {
     // 버튼 탭: 탑승 → 완료(취소대기 3초) → 확정
     private fun onButtonTap() {
         // [v53 #124] 자동 운행 수동취소 무장 상태에서 탭 → 취소 실행.
+        // [완료콜누락 방어] '완료?' 무장 상태에서 탭 → 완료로 기록(삭제 아님) + 배지 꺼짐.
+        if (autoFinalizeArmed) {
+            autoFinalizeArmed = false
+            autoFinalizeRun?.let { autoFinalizeHandler.removeCallbacks(it) }
+            com.callradar.app.NaviIntentReceiver.instance?.finalizeActiveTripManually()
+            toast("운행을 완료로 기록했어요 · 금액은 기록 탭에서 확인/수정")
+            try { updateAutoBadge() } catch (e: Exception) {}
+            return
+        }
         if (autoCancelArmed) {
             autoCancelArmed = false
             autoCancelRun?.let { autoCancelHandler.removeCallbacks(it) }
@@ -332,11 +363,11 @@ class FloatingTripService : Service() {
 
         if (!isRiding) {
             val p0 = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
-            // [v55 #124] 자동기록이 플랫폼 콜을 기록 중일 때 탭 → (길빵 시작 대신) 수동취소 무장.
-            //  기존엔 무의미 토스트만 떠서 "탭해도 안 꺼짐=먹통"으로 오해했음(취소는 길게누름에만 숨어있었음).
-            //  이제 탭하면 바로 '취소?\n탭'이 떠서, 방법 몰라도 취소 가능. 한 번 더 탭해야 실제 취소 + 4~5초 뒤 자동 원복(실수 방지).
+            // [완료콜누락 방어 v66] 자동기록이 플랫폼 콜을 기록 중일 때 탭 → '완료?' 무장(완료로 기록, 삭제 아님).
+            //  다른 앱 쓰다 '운행 완료' 탭을 못 잡아 배지가 안 꺼진 케이스를, 기록 유지한 채 원터치로 마감할 수 있게.
+            //  (삭제가 필요하면 배지를 길게 눌러 '취소?' 무장 → 탭.) 한 번 더 탭해야 실제 실행 + 4초 뒤 자동 원복(실수 방지).
             if (p0.getBoolean("auto_record_on", false) && com.callradar.app.NaviIntentReceiver.activeTripId > 0) {
-                armAutoCancel()
+                armAutoFinalize()   // [완료콜누락 방어] 탭=완료로 기록(주 동작). 삭제는 길게누름(취소?)로.
                 return
             }
             // [v44 Fix B] 이전 트립의 카드금액(pending_fare)이 이 운행에 새는 것 방지 → 탑승 순간 초기화.

@@ -88,24 +88,23 @@ class TmoneyNotificationService : NotificationListenerService() {
         Thread {
             try {
                 if (activeId > 0) {
-                    // 진행 중인 플랫폼 콜에 금액 채우기
-                    val updateJson = JSONObject().apply {
-                        put("user_id", userId)
-                        put("fare", fare)
+                    // [완료콜누락 예방] 결제 알림 = 운행 종료 신호. 요금 채우고 '완료 마감'까지(activeTripId 해제 + 배지 끔).
+                    //  '운행 완료' 접근성 탭을 놓쳐 배지가 안 꺼지던 케이스를, 결제 알림이 대신 마감해 예방.
+                    val finalized = com.callradar.app.NaviIntentReceiver.instance?.finalizeActiveTripWithFare(fare) ?: false
+                    if (!finalized) {
+                        // 접근성 인스턴스 없을 때만 폴백: 금액만 PUT(기존 동작).
+                        val updateJson = JSONObject().apply { put("user_id", userId); put("fare", fare) }
+                        val updateConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+                            requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
+                            doOutput = true; connectTimeout = 10000; readTimeout = 10000
+                        }
+                        updateConn.outputStream.write(updateJson.toString().toByteArray())
+                        updateConn.responseCode; updateConn.disconnect()
                     }
-                    val updateConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
-                        requestMethod = "PUT"
-                        setRequestProperty("Content-Type", "application/json")
-                        doOutput = true; connectTimeout = 10000; readTimeout = 10000
-                    }
-                    updateConn.outputStream.write(updateJson.toString().toByteArray())
-                    updateConn.responseCode
-                    updateConn.disconnect()
-
                     lastMatchedFare = fare
                     lastMatchedTime = now
-                    Log.d(TAG, "✅ 택시투데이 금액 매칭: 트립 #$activeId → ${fare}원")
-                    sendDebugLog(userId, "FARE_MATCH", "#$activeId | ${fare}원 | 진행중 플랫폼콜")
+                    Log.d(TAG, "✅ 결제 매칭+완료마감: 트립 #$activeId → ${fare}원 (finalized=$finalized)")
+                    sendDebugLog(userId, "FARE_MATCH_FINAL", "#$activeId | ${fare}원 | finalized=$finalized")
                 } else {
                     // 플랫폼 콜 없음 = 길빵/예약 → 새 트립 생성
                     createStandaloneTrip(userId, fare)

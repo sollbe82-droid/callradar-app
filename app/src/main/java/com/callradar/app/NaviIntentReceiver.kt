@@ -825,6 +825,24 @@ class NaviIntentReceiver : AccessibilityService() {
         deleteCurrentTrip()
     }
 
+    // [완료콜누락 방어] 배지 '완료?' 탭 → 현재 진행중 트립을 정상 완료로 마감(기록 유지 · 삭제 아님).
+    //  다른 앱 쓰다 '운행 완료' 접근성 클릭을 놓쳐 activeTripId가 안 풀린 케이스를 기사가 원터치로 복구.
+    //  캐시된 요금(lastDetectedFare)이 있으면 살리고, 없으면 0원 마감(기록 탭에서 수정).
+    fun finalizeActiveTripManually() {
+        if (lastTripId <= 0) return
+        sendDebugLog("FINALIZE_MANUAL", "#$lastTripId | $lastPlatform | 배지 수동완료 ${lastDetectedFare}원")
+        finalizeCurrentTrip(if (lastDetectedFare > 0) lastDetectedFare else 0)
+    }
+
+    // [완료콜누락 예방] 카드결제 알림이 진행중 콜과 매칭될 때(=운행 종료 신호) 호출.
+    //  요금을 지정 금액으로 완료 마감 + activeTripId 해제 + 배지 정리. '운행 완료' 접근성 탭을 놓쳐도 결제가 대신 마감.
+    fun finalizeActiveTripWithFare(fare: Int): Boolean {
+        if (lastTripId <= 0) return false
+        sendDebugLog("FINALIZE_PAY", "#$lastTripId | $lastPlatform | 결제로 완료마감 ${fare}원")
+        finalizeCurrentTrip(fare)
+        return true
+    }
+
     // 취소 시 트립 삭제 (0원 유령기록 방지)
     private fun deleteCurrentTrip() {
         val tripId = lastTripId
