@@ -132,6 +132,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [위치정보법 동의 게이트] 위치 수집·서비스 시작 전에 필수 동의부터. 미동의면 동의화면으로 보내고 여기서 중단.
+        //  (동의 후 ConsentActivity가 MainActivity를 다시 띄우면 이 검사를 통과해 정상 진행)
+        if (com.callradar.app.ConsentActivity.needed(this)) {
+            startActivity(android.content.Intent(this, com.callradar.app.ConsentActivity::class.java))
+            finish(); return
+        }
         // [알림 리스너 재바인딩] 앱 재설치/업데이트 후엔 알림접근 권한은 남지만 실제 바인딩이 끊긴다
         //   (안드로이드 알려진 동작) → 카드승인 알림([택시승인]) 캡처가 조용히 멈춤. 시작 시 강제 재바인딩.
         try {

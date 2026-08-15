@@ -84,6 +84,12 @@
             android:exported="false"
             android:label="영수증 스캔" />
 
+        <!-- [위치정보법 동의] 위치 수집 전 필수 동의 게이트 -->
+        <activity
+            android:name=".ConsentActivity"
+            android:exported="false"
+            android:label="이용 동의" />
+
         <!-- 매출 영수증 자동정산 (당일상세거래내역) -->
         <activity
             android:name=".ReceiptReconcileActivity"
