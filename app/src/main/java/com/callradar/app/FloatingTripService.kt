@@ -119,9 +119,12 @@ class FloatingTripService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // [v2] 기본 위치를 오른쪽·중앙으로 — 좌상단 콘텐츠(레이더 맛집 등)와 겹치지 않게. 드래그로 이동 가능.
-            x = (resources.displayMetrics.widthPixels - sizePx - (16 * resources.displayMetrics.density)).toInt().coerceAtLeast(0)
-            y = (resources.displayMetrics.heightPixels * 0.42f).toInt()
+            // [겹침 수정] 저장된 위치가 있으면 복원(드래그한 자리 유지), 없으면 기본값을 화면 아래쪽(72%)·우측으로.
+            //  이전 42%(중앙)는 시간당매출·레이더 버튼을 가려서 아래로 내림. 드래그하면 그 자리에 고정됨.
+            val fpPos = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            val savedX = fpPos.getInt("float_x", -1); val savedY = fpPos.getInt("float_y", -1)
+            x = if (savedX in 0..resources.displayMetrics.widthPixels) savedX else (resources.displayMetrics.widthPixels - sizePx - (16 * resources.displayMetrics.density)).toInt().coerceAtLeast(0)
+            y = if (savedY in 0..resources.displayMetrics.heightPixels) savedY else (resources.displayMetrics.heightPixels * 0.72f).toInt()
         }
 
         // 드래그 이동 + 탭 구분
@@ -147,6 +150,8 @@ class FloatingTripService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     lpRun?.let { lpHandler.removeCallbacks(it) }; if (!moved && !longPressed) onButtonTap()
+                    // [겹침 수정] 드래그로 옮긴 위치 저장 → 다음에 그 자리에 뜸(매번 중앙으로 안 돌아감).
+                    if (moved) try { getSharedPreferences("callradar_prefs", MODE_PRIVATE).edit().putInt("float_x", params.x).putInt("float_y", params.y).apply() } catch (e: Exception) {}
                     true
                 }
                 else -> false
@@ -233,15 +238,16 @@ class FloatingTripService : Service() {
                     else -> "🔴자동\n기록중"
                 }
                 updateButtonSmall(body, "#EF4444"); startPulse()
+                startLocationForeground()   // [플로팅 사라짐 수정] 자동기록 운행 중엔 포그라운드 유지 → 다른 앱 봐도 배지 안 죽음
             }
             floatingOn && armed -> {    // 운행 기록 버튼 ON + 자동 대기
-                setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981")
+                setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981"); stopLocationForeground()
             }
             floatingOn -> {             // 운행 기록 버튼만 ON = 수동 시작 버튼
-                setFloatVisible(true); stopPulse(); updateButtonSmall("🚕\n운행", "#F59E0B")
+                setFloatVisible(true); stopPulse(); updateButtonSmall("🚕\n운행", "#F59E0B"); stopLocationForeground()
             }
             else -> {                   // [#5] 운행 기록 버튼 OFF + 운행 아님 → 플로팅 숨김
-                stopPulse(); setFloatVisible(false)
+                stopPulse(); setFloatVisible(false); stopLocationForeground()
             }
         }
     }

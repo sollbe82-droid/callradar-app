@@ -652,7 +652,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val dayGrossMs = (if (sameDay) prefs.getLong("work_day_gross_ms", 0L) else 0L) + (if (realSession) grossMs else 0L)
                     val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
                     prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
-                    val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
+                    val sFare = todayFare.coerceAtLeast(0)   // [시간당매출 정정] 영수증도 오늘 총매출 기준으로 통일(라이브 카드와 일치)
                     val hrs = dayNetMs / 3600000.0
                     sumGrossMin = dayGrossMs / 60000L
                     sumNetMin = dayNetMs / 60000L
@@ -869,8 +869,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val workedHours = workedMs.toDouble() / 3600000.0
                     // [버그수정] 시간당/㎞당 매출은 '하루 매출(당일 첫 출근 기준)'을 '하루 근무시간'으로 나눔.
                     // (짧은 세션 하나로 나눠 시간당 수백만원 나오던 버그는 하루 누적시간으로 방지)
-                    val sStartFare = if (sameDayLive) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
-                    val sessionFare = (todayFare - sStartFare).coerceAtLeast(0)
+                    // [시간당매출 정정] 이전엔 '출근 후 매출'(총매출-출근시점매출)만 나눠서, 출근 전 자동기록분이 빠져 낮게 나왔음.
+                    //  → 오늘 총매출 ÷ 하루 근무시간으로 통일(오늘 매출 카드와 일치). '짧은 세션 수백만원' 버그는 하루 누적시간(workedHours)으로 이미 방지됨.
+                    val sessionFare = todayFare.coerceAtLeast(0)
                     val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
                     val distKm = workDist / 1000f
                     val perKm = if (distKm > 0.3f) (sessionFare / distKm).toInt() else 0
