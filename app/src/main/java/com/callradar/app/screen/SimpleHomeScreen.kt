@@ -164,7 +164,7 @@ fun SimpleHomeScreen(
             val dayGrossMs = (if (sameDay) prefs.getLong("work_day_gross_ms", 0L) else 0L) + (if (realSession) grossMs else 0L)
             val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
             prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
-            val sFare = (todayFare - dayStartFare).coerceAtLeast(0)
+            val sFare = todayFare.coerceAtLeast(0)   // [시간당매출 정정] 오늘 총매출 기준(라이브 카드와 일치)
             val pH = if (dayNetMs > 3000000L) (sFare / (dayNetMs / 3600000.0)).toInt() else 0
             val dKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f   // [km폭주②] 비현실(>16h) 세션 거리 신뢰불가→0
             workStart = 0L; pausedTotal = 0L; pauseStart = 0L
@@ -189,10 +189,8 @@ fun SimpleHomeScreen(
     val curNet = if (!active) 0L else ((nowTick - workStart) - pausedTotal - (if (paused) nowTick - pauseStart else 0L)).coerceAtLeast(0L)
     val workedMin = (dayNetPrev + curNet) / 60000L
     val hh = workedMin / 60; val mm = workedMin % 60
-    val sStartFare = if (sameDayLive) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
-    val sessionFare = (todayFare - sStartFare).coerceAtLeast(0)
     val workedHours = (dayNetPrev + curNet).toDouble() / 3600000.0
-    val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
+    val perHour = if (workedHours > 0.05) (todayFare / workedHours).toInt() else 0   // [시간당매출 정정] 오늘 총매출 ÷ 근무시간
     val distKm = workDist / 1000f
 
     if (showEndConfirm) {
@@ -292,24 +290,17 @@ fun SimpleHomeScreen(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // 기능 6카드 (2열 × 3행) — 홈 편집에서 교체 가능(추후)
-        cardIds.chunked(2).forEach { rowCards ->
-            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                rowCards.forEach { c ->
-                    Card(modifier = Modifier.weight(1f).height(92.dp).clickable { onOpenCard(c.id) }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
-                        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                            Text(c.icon, fontSize = 24.sp)
-                            Text(c.label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                        }
-                    }
-                }
-                if (rowCards.size == 1) Spacer(Modifier.weight(1f))
-            }
+        // [목업 반영] 하단 6칸 그리드 제거 → '전체 콜카드' 버튼 하나로 모든 메뉴 접근.
+        Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(58.dp), shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AppTheme.surface2)) {
+            Text("⋯", fontSize = 20.sp, color = AppTheme.text)
+            Spacer(Modifier.width(10.dp))
+            Text("전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
         }
 
-        Text("심플 모드(베타) · 메뉴 › 홈 모드에서 기본으로 되돌릴 수 있어요", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp, bottom = 20.dp))
+        Text("심플 모드(베타) · 메뉴 › 홈 모드에서 기본으로 되돌릴 수 있어요", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp, bottom = 20.dp))
     }
 
     if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {
