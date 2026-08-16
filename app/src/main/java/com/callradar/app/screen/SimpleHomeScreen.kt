@@ -205,7 +205,9 @@ fun SimpleHomeScreen(
     }
 
     val defCards = "records,radar,airport,settlement,track,stats"
-    val cardIds = (prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").mapNotNull { id -> SIMPLE_CARD_REGISTRY.find { it.id == id.trim() } }.take(6)
+    var homeCardsStr by remember { mutableStateOf(prefs.getString("simple_home_cards", defCards) ?: defCards) }
+    val cardIds = homeCardsStr.split(",").mapNotNull { id -> SIMPLE_CARD_REGISTRY.find { it.id == id.trim() } }
+    var showCardEdit by remember { mutableStateOf(false) }
     var showAutoSetup by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).verticalScroll(rememberScrollState()).padding(14.dp)) {
@@ -292,15 +294,54 @@ fun SimpleHomeScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // [목업 반영] 하단 6칸 그리드 제거 → '전체 콜카드' 버튼 하나로 모든 메뉴 접근.
-        Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(58.dp), shape = RoundedCornerShape(18.dp),
+        // [콜카드] 홈에 보일 콜카드(세로) + '편집' 버튼. 하단 6칸 독 편집은 없음(요청).
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("콜카드", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { showCardEdit = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("✏️ 편집", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
+        }
+        cardIds.forEach { c ->
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { onOpenCard(c.id) }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.icon, fontSize = 22.sp); Spacer(Modifier.width(14.dp))
+                    Text(c.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.weight(1f))
+                    Text("›", fontSize = 20.sp, color = muted)
+                }
+            }
+        }
+        // [목업] 전체 콜카드 버튼 — 모든 메뉴 열기
+        Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(54.dp).padding(top = 2.dp), shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AppTheme.surface2)) {
-            Text("⋯", fontSize = 20.sp, color = AppTheme.text)
-            Spacer(Modifier.width(10.dp))
-            Text("전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            Text("⋯  전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
         }
 
         Text("심플 모드(베타) · 메뉴 › 홈 모드에서 기본으로 되돌릴 수 있어요", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp, bottom = 20.dp))
+    }
+
+    // [콜카드 편집] 홈에 보일 콜카드 선택 → simple_home_cards 저장.
+    if (showCardEdit) {
+        val sel = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(cardIds.map { it.id }) } }
+        AlertDialog(
+            onDismissRequest = { showCardEdit = false },
+            title = { Text("홈 콜카드 편집", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("홈에 보일 콜카드를 고르세요.", fontSize = 12.sp, color = muted)
+                    Spacer(Modifier.height(8.dp))
+                    SIMPLE_CARD_REGISTRY.forEach { c ->
+                        val on = sel.contains(c.id)
+                        Row(modifier = Modifier.fillMaxWidth().clickable { if (on) sel.remove(c.id) else sel.add(c.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = on, onCheckedChange = { v -> if (v) { if (!sel.contains(c.id)) sel.add(c.id) } else sel.remove(c.id) }, colors = CheckboxDefaults.colors(checkedColor = accent))
+                            Text(c.icon, fontSize = 18.sp); Spacer(Modifier.width(8.dp))
+                            Text(c.label, fontSize = 15.sp, color = AppTheme.text)
+                        }
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { val v = sel.joinToString(","); prefs.edit().putString("simple_home_cards", v).apply(); homeCardsStr = v; showCardEdit = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) } },
+            dismissButton = { OutlinedButton(onClick = { showCardEdit = false }) { Text("취소") } },
+            containerColor = AppTheme.card
+        )
     }
 
     if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {

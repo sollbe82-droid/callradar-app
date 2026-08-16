@@ -83,8 +83,8 @@ fun SimpleMenuScreen(
                 }
             }
 
-            Spacer(Modifier.weight(1f))
-            // 홈 모드 되돌리기
+            Spacer(Modifier.height(10.dp))
+            // 홈 모드 되돌리기 — [위치수정] 맨 밑(weight)에서 전체 메뉴 바로 아래로 올림(너무 밑에 있다는 피드백).
             Card(modifier = Modifier.fillMaxWidth().clickable { onSwitchClassic() }, colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(14.dp)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
