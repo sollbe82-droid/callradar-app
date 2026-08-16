@@ -33,6 +33,7 @@ private data class SimpleCard(val id: String, val icon: String, val label: Strin
 
 // [목업 반영] 콜카드에 색·설명 추가. 편집에서 켜고 끌 수 있음.
 private val SIMPLE_CARD_REGISTRY = listOf(
+    SimpleCard("record_settings", "🤖", "자동설정", 0xFF10B981, "운행버튼·자동기록·금액입력"),
     SimpleCard("radar", "📡", "레이더", 0xFFF59E0B, "지금 콜 잘 잡히는 자리·핫존"),
     SimpleCard("airport", "✈️", "공항", 0xFF38BDF8, "인천공항 실시간 입국·수요"),
     SimpleCard("records", "📋", "기록", 0xFF3B82F6, "운행 기록 보기·수정"),
@@ -205,11 +206,21 @@ fun SimpleHomeScreen(
         )
     }
 
-    val defCards = "radar,airport,records,settlement,stats"
+    val defCards = "record_settings,radar,airport,records,settlement,stats"
     val selCards = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll((prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").map { it.trim() }.filter { it.isNotBlank() }) } }
     fun saveCards() { prefs.edit().putString("simple_home_cards", selCards.joinToString(",")).apply() }
     var editMode by remember { mutableStateOf(false) }
     var showAutoSetup by remember { mutableStateOf(false) }
+
+    // [자동설정 콜카드] 3종 토글(운행버튼·자동기록·금액입력) 상태 — 콜카드 탭 시 다이얼로그로 표시.
+    var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+    val acctAdmin = prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))
+    val acctEntitled = prefs.getBoolean("acct_entitled", false)
+    val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
+    var autoRec by remember { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
+    val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
+    var capOn by remember { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
+    var showRecordSettings by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).verticalScroll(rememberScrollState()).padding(14.dp)) {
         // 헤더: 공지 · 메뉴
@@ -245,53 +256,7 @@ fun SimpleHomeScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // [기록 3종] 운행 기록 버튼 · 자동 기록(관리자) · 금액 자동 입력 — classic '기록 설정' 카드 포팅.
-        run {
-            var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
-            val acctAdmin = prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))
-            val acctEntitled = prefs.getBoolean("acct_entitled", false)
-            val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
-            var autoRec by remember { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
-            val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
-            var capOn by remember { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
-            val anyOn = floatingOn || (showAuto && autoRec) || (showNotif && capOn)
-            Card(colors = CardDefaults.cardColors(containerColor = if (anyOn) green.copy(alpha = 0.10f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(if (floatingOn) "🟢 운행 기록 버튼 켜짐" else "🚕 운행 기록 버튼", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                            Text("시작·완료 두 번이면 기록 끝", fontSize = 11.sp, color = muted)
-                        }
-                        Switch(checked = floatingOn, onCheckedChange = { on -> onToggleFloating(on); floatingOn = if (on) isOverlayGranted() else false; com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "simple_home") })
-                    }
-                    if (showAuto) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(AppTheme.surface2))
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f).clickable { showAutoSetup = true }) {
-                                Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
-                            }
-                            Switch(checked = autoRec, onCheckedChange = { on ->
-                                autoRec = on
-                                prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()
-                                if (on) showAutoSetup = true else try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
-                                com.callradar.app.Telemetry.log(context, if (on) "auto_record_on" else "auto_record_off", "simple_home")
-                            })
-                        }
-                    }
-                    if (showNotif) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(AppTheme.surface2))
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Text("카드결제 알림 금액 자동 입력", fontSize = 11.sp, color = muted)
-                            }
-                            Switch(checked = capOn, onCheckedChange = { on -> prefs.edit().putBoolean("notif_capture_on", on).apply(); onToggleNotifCapture(on); capOn = if (on) isNotifAccessGranted() else false; com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "simple_home") })
-                        }
-                    }
-                }
-            }
-        }
+        // [자동설정] 3종 토글은 이제 '자동설정' 콜카드로 내림 → 아래 콜카드 그리드 + showRecordSettings 다이얼로그.
 
         Spacer(Modifier.height(14.dp))
 
@@ -315,7 +280,9 @@ fun SimpleHomeScreen(
                 rowCards.forEach { c ->
                     val on = selCards.contains(c.id)
                     Card(modifier = Modifier.weight(1f).height(124.dp).clickable {
-                            if (editMode) { if (on) selCards.remove(c.id) else selCards.add(c.id) } else onOpenCard(c.id)
+                            if (editMode) { if (on) selCards.remove(c.id) else selCards.add(c.id) }
+                            else if (c.id == "record_settings") showRecordSettings = true
+                            else onOpenCard(c.id)
                         },
                         colors = CardDefaults.cardColors(containerColor = if (editMode && !on) AppTheme.card.copy(alpha = 0.45f) else AppTheme.card),
                         shape = RoundedCornerShape(18.dp)) {
@@ -347,6 +314,52 @@ fun SimpleHomeScreen(
         }
 
         Text("심플 모드(베타) · 메뉴 › 홈 모드에서 기본으로 되돌릴 수 있어요", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp, bottom = 20.dp))
+    }
+
+    // [자동설정 다이얼로그] '자동설정' 콜카드 탭 → 3종 토글(운행버튼·자동기록·금액입력).
+    if (showRecordSettings) {
+        AlertDialog(
+            onDismissRequest = { showRecordSettings = false },
+            title = { Text("🤖 자동설정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (floatingOn) "🟢 운행 기록 버튼 켜짐" else "🚕 운행 기록 버튼", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text("시작·완료 두 번이면 기록 끝", fontSize = 11.sp, color = muted)
+                        }
+                        Switch(checked = floatingOn, onCheckedChange = { on -> onToggleFloating(on); floatingOn = if (on) isOverlayGranted() else false; com.callradar.app.Telemetry.log(context, if (on) "floating_on" else "floating_off", "simple_home") })
+                    }
+                    if (showAuto) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppTheme.surface2))
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f).clickable { showAutoSetup = true }) {
+                                Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
+                            }
+                            Switch(checked = autoRec, onCheckedChange = { on ->
+                                autoRec = on
+                                prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()
+                                if (on) showAutoSetup = true else try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
+                                com.callradar.app.Telemetry.log(context, if (on) "auto_record_on" else "auto_record_off", "simple_home")
+                            })
+                        }
+                    }
+                    if (showNotif) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppTheme.surface2))
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(if (capOn) "💰 금액 자동 입력 켜짐" else "💰 금액 자동 입력 (베타)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text("카드결제 알림 금액 자동 입력", fontSize = 11.sp, color = muted)
+                            }
+                            Switch(checked = capOn, onCheckedChange = { on -> prefs.edit().putBoolean("notif_capture_on", on).apply(); onToggleNotifCapture(on); capOn = if (on) isNotifAccessGranted() else false; com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "simple_home") })
+                        }
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { showRecordSettings = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("닫기", color = Color.Black, fontWeight = FontWeight.Bold) } },
+            containerColor = AppTheme.card
+        )
     }
 
     if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {
