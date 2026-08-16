@@ -308,28 +308,33 @@ fun SimpleHomeScreen(
             }
         }
 
-        // 편집 모드면 전체 카드(켜짐/꺼짐 표시), 평소엔 켜진 카드만.
+        // [박스 타일 2열 그리드] 목업처럼 세로 줄이 아니라 박스 카드로. 편집 모드면 전체(켜짐/꺼짐), 평소엔 켜진 것만.
         val shown = if (editMode) SIMPLE_CARD_REGISTRY else SIMPLE_CARD_REGISTRY.filter { selCards.contains(it.id) }.sortedBy { selCards.indexOf(it.id) }
-        shown.forEach { c ->
-            val on = selCards.contains(c.id)
-            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
-                    if (editMode) { if (on) selCards.remove(c.id) else selCards.add(c.id) } else onOpenCard(c.id)
-                },
-                colors = CardDefaults.cardColors(containerColor = if (editMode && !on) AppTheme.card.copy(alpha = 0.5f) else AppTheme.card),
-                shape = RoundedCornerShape(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // 색 아이콘 배지
-                    Box(modifier = Modifier.size(40.dp).background(Color(c.color).copy(alpha = 0.16f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                        Text(c.icon, fontSize = 20.sp)
+        shown.chunked(2).forEach { rowCards ->
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                rowCards.forEach { c ->
+                    val on = selCards.contains(c.id)
+                    Card(modifier = Modifier.weight(1f).height(124.dp).clickable {
+                            if (editMode) { if (on) selCards.remove(c.id) else selCards.add(c.id) } else onOpenCard(c.id)
+                        },
+                        colors = CardDefaults.cardColors(containerColor = if (editMode && !on) AppTheme.card.copy(alpha = 0.45f) else AppTheme.card),
+                        shape = RoundedCornerShape(18.dp)) {
+                        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(40.dp).background(Color(c.color).copy(alpha = 0.18f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                    Text(c.icon, fontSize = 21.sp)
+                                }
+                                Spacer(Modifier.weight(1f))
+                                if (editMode) Text(if (on) "✓" else "＋", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (on) Color(c.color) else muted)
+                            }
+                            Column {
+                                Text(c.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (editMode && !on) muted else AppTheme.text)
+                                if (c.desc.isNotEmpty()) Text(c.desc, fontSize = 10.5.sp, color = muted, maxLines = 2)
+                            }
+                        }
                     }
-                    Spacer(Modifier.width(13.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(c.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (editMode && !on) muted else AppTheme.text)
-                        if (c.desc.isNotEmpty()) Text(c.desc, fontSize = 11.sp, color = muted)
-                    }
-                    if (editMode) Text(if (on) "✓ 표시" else "숨김", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (on) Color(c.color) else muted)
-                    else Text("›", fontSize = 20.sp, color = muted)
                 }
+                if (rowCards.size == 1) Spacer(Modifier.weight(1f))
             }
         }
 
