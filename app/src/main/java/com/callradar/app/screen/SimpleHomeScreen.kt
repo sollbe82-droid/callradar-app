@@ -29,16 +29,17 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private data class SimpleCard(val id: String, val icon: String, val label: String)
+private data class SimpleCard(val id: String, val icon: String, val label: String, val color: Long = 0xFFF59E0B, val desc: String = "")
 
-// 홈 4칸 기본값(사용 감사 상위: 기록·레이더·공항·정산). 추후 편집 가능.
+// [목업 반영] 콜카드에 색·설명 추가. 편집에서 켜고 끌 수 있음.
 private val SIMPLE_CARD_REGISTRY = listOf(
-    SimpleCard("records", "📋", "기록"),
-    SimpleCard("radar", "📡", "레이더"),
-    SimpleCard("airport", "✈️", "공항"),
-    SimpleCard("settlement", "🧮", "정산"),
-    SimpleCard("track", "🗺️", "궤적"),
-    SimpleCard("stats", "📊", "분석")
+    SimpleCard("radar", "📡", "레이더", 0xFFF59E0B, "지금 콜 잘 잡히는 자리·핫존"),
+    SimpleCard("airport", "✈️", "공항", 0xFF38BDF8, "인천공항 실시간 입국·수요"),
+    SimpleCard("records", "📋", "기록", 0xFF3B82F6, "운행 기록 보기·수정"),
+    SimpleCard("settlement", "🧮", "정산", 0xFF94A3B8, "일일마감·급여 계산"),
+    SimpleCard("track", "🗺️", "궤적", 0xFF4ADE80, "오늘 실차·공차 경로"),
+    SimpleCard("stats", "📊", "분석", 0xFF22D3EE, "수입 추세·시간대 통계"),
+    SimpleCard("ranking", "🏆", "랭킹", 0xFFFBBF24, "내 순위·지역 랭킹")
 )
 
 @Composable
@@ -204,10 +205,10 @@ fun SimpleHomeScreen(
         )
     }
 
-    val defCards = "records,radar,airport,settlement,track,stats"
-    var homeCardsStr by remember { mutableStateOf(prefs.getString("simple_home_cards", defCards) ?: defCards) }
-    val cardIds = homeCardsStr.split(",").mapNotNull { id -> SIMPLE_CARD_REGISTRY.find { it.id == id.trim() } }
-    var showCardEdit by remember { mutableStateOf(false) }
+    val defCards = "radar,airport,records,settlement,stats"
+    val selCards = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll((prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").map { it.trim() }.filter { it.isNotBlank() }) } }
+    fun saveCards() { prefs.edit().putString("simple_home_cards", selCards.joinToString(",")).apply() }
+    var editMode by remember { mutableStateOf(false) }
     var showAutoSetup by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).verticalScroll(rememberScrollState()).padding(14.dp)) {
@@ -294,54 +295,53 @@ fun SimpleHomeScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // [콜카드] 홈에 보일 콜카드(세로) + '편집' 버튼. 하단 6칸 독 편집은 없음(요청).
+        // [콜카드] 홈에 보일 콜카드(색·설명) + 인라인 편집. (편집 시 카드 탭 = 켜고 끄기, 평소 = 바로가기)
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("콜카드", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            if (editMode) { Spacer(Modifier.width(8.dp)); Text("탭해서 홈에 켜고 끄기", fontSize = 11.sp, color = muted) }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { showCardEdit = true }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("✏️ 편집", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
+            Button(onClick = { if (editMode) saveCards(); editMode = !editMode },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (editMode) accent else AppTheme.surface2),
+                shape = RoundedCornerShape(999.dp)) {
+                Text(if (editMode) "완료" else "✏️ 편집", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (editMode) Color.Black else accent)
+            }
         }
-        cardIds.forEach { c ->
-            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { onOpenCard(c.id) }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.icon, fontSize = 22.sp); Spacer(Modifier.width(14.dp))
-                    Text(c.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text, modifier = Modifier.weight(1f))
-                    Text("›", fontSize = 20.sp, color = muted)
+
+        // 편집 모드면 전체 카드(켜짐/꺼짐 표시), 평소엔 켜진 카드만.
+        val shown = if (editMode) SIMPLE_CARD_REGISTRY else SIMPLE_CARD_REGISTRY.filter { selCards.contains(it.id) }.sortedBy { selCards.indexOf(it.id) }
+        shown.forEach { c ->
+            val on = selCards.contains(c.id)
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
+                    if (editMode) { if (on) selCards.remove(c.id) else selCards.add(c.id) } else onOpenCard(c.id)
+                },
+                colors = CardDefaults.cardColors(containerColor = if (editMode && !on) AppTheme.card.copy(alpha = 0.5f) else AppTheme.card),
+                shape = RoundedCornerShape(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // 색 아이콘 배지
+                    Box(modifier = Modifier.size(40.dp).background(Color(c.color).copy(alpha = 0.16f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                        Text(c.icon, fontSize = 20.sp)
+                    }
+                    Spacer(Modifier.width(13.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(c.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (editMode && !on) muted else AppTheme.text)
+                        if (c.desc.isNotEmpty()) Text(c.desc, fontSize = 11.sp, color = muted)
+                    }
+                    if (editMode) Text(if (on) "✓ 표시" else "숨김", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (on) Color(c.color) else muted)
+                    else Text("›", fontSize = 20.sp, color = muted)
                 }
             }
         }
-        // [목업] 전체 콜카드 버튼 — 모든 메뉴 열기
-        Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(54.dp).padding(top = 2.dp), shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AppTheme.surface2)) {
-            Text("⋯  전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+
+        if (!editMode) {
+            // [목업] 전체 콜카드 버튼 — 모든 메뉴 열기
+            Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(54.dp).padding(top = 2.dp), shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.surface2)) {
+                Text("⋯  전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            }
         }
 
         Text("심플 모드(베타) · 메뉴 › 홈 모드에서 기본으로 되돌릴 수 있어요", fontSize = 10.sp, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp, bottom = 20.dp))
-    }
-
-    // [콜카드 편집] 홈에 보일 콜카드 선택 → simple_home_cards 저장.
-    if (showCardEdit) {
-        val sel = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(cardIds.map { it.id }) } }
-        AlertDialog(
-            onDismissRequest = { showCardEdit = false },
-            title = { Text("홈 콜카드 편집", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text("홈에 보일 콜카드를 고르세요.", fontSize = 12.sp, color = muted)
-                    Spacer(Modifier.height(8.dp))
-                    SIMPLE_CARD_REGISTRY.forEach { c ->
-                        val on = sel.contains(c.id)
-                        Row(modifier = Modifier.fillMaxWidth().clickable { if (on) sel.remove(c.id) else sel.add(c.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = on, onCheckedChange = { v -> if (v) { if (!sel.contains(c.id)) sel.add(c.id) } else sel.remove(c.id) }, colors = CheckboxDefaults.colors(checkedColor = accent))
-                            Text(c.icon, fontSize = 18.sp); Spacer(Modifier.width(8.dp))
-                            Text(c.label, fontSize = 15.sp, color = AppTheme.text)
-                        }
-                    }
-                }
-            },
-            confirmButton = { Button(onClick = { val v = sel.joinToString(","); prefs.edit().putString("simple_home_cards", v).apply(); homeCardsStr = v; showCardEdit = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) } },
-            dismissButton = { OutlinedButton(onClick = { showCardEdit = false }) { Text("취소") } },
-            containerColor = AppTheme.card
-        )
     }
 
     if (showAutoSetup) com.callradar.app.screen.AutoRecordSetupDialog(context) {
