@@ -42,19 +42,21 @@ class TmoneyNotificationService : NotificationListenerService() {
         val bigText = extras.getString(Notification.EXTRA_BIG_TEXT) ?: text
         val allText = "$title $text $bigText"
 
-        // 택시투데이 알림: "[택시승인] 국민카드 13,640원"
+        // 택시투데이 알림: "[택시승인] 국민카드 13,640원" = 직접 카드/교통카드 단말기 결제 → payment_type=card
         if (allText.contains("택시승인") || allText.contains("택시결제")) {
-            Log.d(TAG, "💰 택시결제 알림: $title | $text")
+            Log.d(TAG, "💰 택시결제(직접카드) 알림: $title | $text")
             val fare = extractFareFromNotif(allText)
-            if (fare > 0) matchFareToRecentTrip(fare)
+            if (fare > 0) matchFareToRecentTrip(fare, "card")
             return
         }
 
-        // 카카오T 자동결제 알림
+        // 카카오T 결제 알림: '자동결제'는 등록카드 자동청구, '직접결제'는 카드단말기(택시승인 알림으로 옴).
+        //  카카오T 알림 본문에 '직접'이 있으면 직접카드로, 그 외(자동결제)는 auto로 구분.
         if (sbn.packageName == "com.kakao.taxi.driver" && (allText.contains("결제") || allText.contains("요금"))) {
             Log.d(TAG, "💰 카카오T 결제 알림: $title | $text")
             val fare = extractFareFromNotif(allText)
-            if (fare > 0) matchFareToRecentTrip(fare)
+            val payType = if (allText.contains("직접") || allText.contains("교통카드") || allText.contains("카드결제")) "card" else "auto"
+            if (fare > 0) matchFareToRecentTrip(fare, payType)
             return
         }
     }
@@ -68,7 +70,7 @@ class TmoneyNotificationService : NotificationListenerService() {
         return 0
     }
 
-    private fun matchFareToRecentTrip(fare: Int) {
+    private fun matchFareToRecentTrip(fare: Int, payType: String = "card") {
         val now = System.currentTimeMillis()
         // 중복 방지
         if (fare == lastMatchedFare && now - lastMatchedTime < COOLDOWN_MS) {
@@ -101,10 +103,19 @@ class TmoneyNotificationService : NotificationListenerService() {
                         updateConn.outputStream.write(updateJson.toString().toByteArray())
                         updateConn.responseCode; updateConn.disconnect()
                     }
+                    // [결제수단 정정] 직접 교통카드/카드단말기(택시승인)=card, 카카오T 자동결제=auto. 오분류 방지.
+                    try {
+                        val ptJson = JSONObject().apply { put("user_id", userId); put("payment_type", payType) }
+                        val ptConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+                            requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")
+                            doOutput = true; connectTimeout = 10000; readTimeout = 10000
+                        }
+                        ptConn.outputStream.write(ptJson.toString().toByteArray()); ptConn.responseCode; ptConn.disconnect()
+                    } catch (e: Exception) {}
                     lastMatchedFare = fare
                     lastMatchedTime = now
-                    Log.d(TAG, "✅ 결제 매칭+완료마감: 트립 #$activeId → ${fare}원 (finalized=$finalized)")
-                    sendDebugLog(userId, "FARE_MATCH_FINAL", "#$activeId | ${fare}원 | finalized=$finalized")
+                    Log.d(TAG, "✅ 결제 매칭+완료마감: 트립 #$activeId → ${fare}원 ($payType, finalized=$finalized)")
+                    sendDebugLog(userId, "FARE_MATCH_FINAL", "#$activeId | ${fare}원 | $payType | finalized=$finalized")
                 } else {
                     // 플랫폼 콜 없음 = 길빵/예약 → 새 트립 생성
                     createStandaloneTrip(userId, fare)
