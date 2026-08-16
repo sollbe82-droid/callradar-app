@@ -222,6 +222,8 @@ class FloatingTripService : Service() {
         if (autoCancelArmed || autoFinalizeArmed) return   // 무장중엔 배지 갱신 보류(취소?/완료? 유지)
         // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
         if (isRiding) { setFloatVisible(true); return }
+        // [업데이트 유령 플로팅 방지] 업데이트 직후엔 앱을 직접 열기 전까지 배지 숨김(MainActivity가 해제).
+        if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("float_suppressed", false)) { setFloatVisible(false); stopLocationForeground(); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
         val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
         val armed = p.getBoolean("auto_record_on", false)

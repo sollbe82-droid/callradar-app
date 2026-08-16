@@ -138,6 +138,8 @@ class MainActivity : ComponentActivity() {
             startActivity(android.content.Intent(this, com.callradar.app.ConsentActivity::class.java))
             finish(); return
         }
+        // [업데이트 유령 플로팅] 앱을 직접 열었으니 업데이트 후 억제 상태 해제 → 서비스/플로팅 정상 재개.
+        try { getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("float_suppressed", false).apply() } catch (e: Exception) {}
         // [알림 리스너 재바인딩] 앱 재설치/업데이트 후엔 알림접근 권한은 남지만 실제 바인딩이 끊긴다
         //   (안드로이드 알려진 동작) → 카드승인 알림([택시승인]) 캡처가 조용히 멈춤. 시작 시 강제 재바인딩.
         try {
