@@ -215,6 +215,10 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
     var effWonMin by remember { mutableStateOf(-1) }
     var effGap by remember { mutableStateOf(0) }
     var destRisk by remember { mutableStateOf<List<Triple<String, Double, Int>>>(emptyList()) }
+    // [귀로내비] 귀로 전망 조회 상태
+    var roDest by remember { mutableStateOf("") }
+    var roLoading by remember { mutableStateOf(false) }
+    var roResult by remember { mutableStateOf<JSONObject?>(null) }
     var destBasis by remember { mutableStateOf("") }   // [v44] "me"=내 기록 / "all"=전체 기사(폴백). 정직 표기용.
     var hzone by remember { mutableStateOf<List<Pair<String, Double>>>(emptyList()) }
     var hzScope by remember { mutableStateOf(0) }   // 0=전체(지금 시간대) · 1=내 누적 · 2=오늘(내)
@@ -336,6 +340,53 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
                         Text("숫자 = 그 동네에 내리면 다음 콜까지 평균 대기(짧을수록 좋음)", color = muted, fontSize = 10.sp)
                     } else {
                         Text("운행이 더 쌓이면 '어디 내리면 콜 빨리 잡히는지'를 알려드려요.", color = muted, fontSize = 12.sp)
+                    }
+                }
+            }
+
+            // [귀로내비] 🧭 귀로 전망 — 목적지 동네 입력 → 이 시간대 복귀 대기 + 인근 더 나은 동네
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("🧭 귀로 전망 — 거기 가면 복귀 콜은?", color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = roDest, onValueChange = { roDest = it }, placeholder = { Text("동네 이름 (예: 인계동)", fontSize = 12.sp, color = muted) },
+                            singleLine = true, modifier = Modifier.weight(1f), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, color = AppTheme.text))
+                        Button(onClick = {
+                            val d = roDest.trim(); if (d.isEmpty()) return@Button
+                            roLoading = true; roResult = null
+                            scope.launch {
+                                try {
+                                    val o = withContext(Dispatchers.IO) { JSONObject(rget("/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(d, "UTF-8"))) }
+                                    roResult = o
+                                } catch (e: Exception) { roResult = null } finally { roLoading = false }
+                            }
+                        }, colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text("조회", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    }
+                    if (roLoading) Text("계산 중…", color = muted, fontSize = 11.sp)
+                    roResult?.let { o ->
+                        if (o.optBoolean("locked")) {
+                            Text(if (o.optString("reason") == "outskirt") "🔒 시외 전망은 시외 운행 기록이 있어야 열려요 (최근 30일 ${o.optInt("have",0)}/${o.optInt("need",2)}건)"
+                                 else "🔒 최근 7일 운행 ${o.optInt("need",5)}건 기록되면 열려요 (지금 ${o.optInt("have",0)}건)", color = muted, fontSize = 12.sp)
+                        } else {
+                            val gap = o.optDouble("avgGap", -1.0); val smp = o.optInt("sample", 0)
+                            if (gap > 0) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text(o.optString("dest"), color = AppTheme.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text("복귀 평균 ${gap.toInt()}분", color = if (gap <= 10) green else if (gap >= 25) red else accent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text(if (o.optString("scope").startsWith("동네")) "이 시간대 · 표본 ${smp}건" else "표본 부족 — 전체 시간대 평균으로 추정", color = muted, fontSize = 10.sp)
+                                val nb = o.optJSONArray("nearby")
+                                if (nb != null && nb.length() > 0) {
+                                    Text("근처 더 나은 곳", color = muted, fontSize = 11.sp)
+                                    for (i in 0 until nb.length()) { val e = nb.getJSONObject(i)
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("${e.optString("name")} · ${e.optDouble("km",0.0)}km", color = AppTheme.text, fontSize = 13.sp)
+                                            Text("${e.optDouble("gap",0.0).toInt()}분", color = green, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else Text("이 동네는 아직 데이터가 부족해요 — 기사님이 다녀오시면 쌓입니다", color = muted, fontSize = 12.sp)
+                        }
                     }
                 }
             }

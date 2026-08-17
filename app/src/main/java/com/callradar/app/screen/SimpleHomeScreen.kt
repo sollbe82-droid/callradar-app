@@ -71,6 +71,7 @@ fun SimpleHomeScreen(
     var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
     var lastLocalChange by remember { mutableStateOf(0L) }
     var todayFare by remember { mutableStateOf(0) }
+    var supplyInfo by remember { mutableStateOf<Pair<String, String>?>(null) }   // [귀로내비] (라벨, 부제)
     var showEndConfirm by remember { mutableStateOf(false) }
     val distEnabled = prefs.getBoolean("work_dist_enabled", true)
     val active = workStart > 0L
@@ -118,6 +119,25 @@ fun SimpleHomeScreen(
             }
             delay(30000)
         }
+    }
+    // [귀로내비] 수급 지수 1회 조회 (서버 5분 캐시) — 실패 시 조용히 미표시
+    LaunchedEffect(Unit) {
+        if (userId.isEmpty()) return@LaunchedEffect
+        try {
+            val o = withContext(Dispatchers.IO) {
+                JSONObject((URL("$SERVER_URL/api/supply-index/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText())
+            }
+            supplyInfo = if (o.optBoolean("locked")) {
+                "잠김" to "최근 7일 운행 ${o.optInt("need", 5)}건 기록되면 열려요 (지금 ${o.optInt("have", 0)}건)"
+            } else {
+                val label = o.optString("label", "보통"); val pct = o.optInt("pct", 0)
+                label to when {
+                    pct >= 20 -> "평소보다 ${pct}% 빨리 잡혀요 — 적극 운행 추천"
+                    pct <= -20 -> "평소보다 ${-pct}% 느리게 잡혀요 — 핫존 위주로"
+                    else -> "평소와 비슷한 흐름이에요"
+                }
+            }
+        } catch (e: Exception) {}
     }
     // 라이브 타이머 + 거리 갱신
     // [버그수정] 예전엔 매초 nowTick을 갱신해 히어로 전체가 초당 재구성 → 근무중 '일시정지/퇴근' 버튼 탭이
@@ -272,6 +292,27 @@ fun SimpleHomeScreen(
         Spacer(Modifier.height(12.dp))
 
         // [자동설정] 3종 토글은 이제 '자동설정' 콜카드로 내림 → 아래 콜카드 그리드 + showRecordSettings 다이얼로그.
+
+        // [귀로내비] 수급 지수 배지 — 오늘 콜 시장 온도(풍년/보통/가뭄). 기여 게이트(7일 5건) 미달이면 잠금 안내.
+        supplyInfo?.let { s ->
+            Spacer(Modifier.height(12.dp))
+            val (emoji, col) = when (s.first) {
+                "풍년" -> "🔥" to Color(0xFF10B981)
+                "가뭄" -> "🥶" to Color(0xFFEF4444)
+                "잠김" -> "🔒" to Color(0xFF6B7280)
+                else -> "🌤" to Color(0xFFF59E0B)
+            }
+            Card(colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(emoji, fontSize = 16.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(if (s.first == "잠김") "수급 지수" else "오늘 콜 시장: ${s.first}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (s.first == "잠김") muted else col)
+                        Text(s.second, fontSize = 11.sp, color = muted)
+                    }
+                }
+            }
+        }
 
         Spacer(Modifier.height(14.dp))
 

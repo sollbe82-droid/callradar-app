@@ -649,11 +649,54 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.responseCode
                 Log.d(TAG, "📍 목적지 갱신: #$tripId -> $destName")
                 conn.disconnect()
+                announceReturnOutlook(tripId, destName)   // [귀로내비] 목적지 확정 → 복귀 전망 알림(트립당 1회)
             } catch (e: Exception) {
                 Log.e(TAG, "목적지 갱신 실패: ${e.message}")
             } finally {
                 tripDestUpdateInFlight = false
             }
+        }.start()
+    }
+
+    // [귀로내비] 목적지 확정 시 복귀 전망을 알림으로 — "도착지 다음 콜 평균 N분 · 근처 더 나은 곳".
+    //  트립당 1회만(재갱신 시 중복 방지). 서버 기여 게이트(locked)면 조용히 생략. 실패는 무시(운행 방해 금지).
+    private val outlookAnnounced = HashSet<Int>()
+    private fun announceReturnOutlook(tripId: Int, destName: String) {
+        if (tripId <= 0 || destName.isBlank()) return
+        synchronized(outlookAnnounced) { if (!outlookAnnounced.add(tripId)) return }
+        Thread {
+            try {
+                val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                val userId = prefs.getString("user_id", "") ?: return@Thread
+                if (userId.isEmpty()) return@Thread
+                val dong = destName.trim().split(" ")[0]
+                val body = (URL("$SERVER_URL/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(dong, "UTF-8")).openConnection()
+                    .apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection)
+                    .apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText()
+                val o = org.json.JSONObject(body)
+                if (o.optBoolean("locked")) return@Thread
+                val gap = o.optDouble("avgGap", -1.0)
+                if (gap <= 0) return@Thread
+                var txt = "$dong 도착 후 다음 콜까지 평균 ${gap.toInt()}분"
+                val nb = o.optJSONArray("nearby")
+                if (nb != null && nb.length() > 0) {
+                    val e = nb.getJSONObject(0)
+                    if (e.optDouble("gap", 99.0) < gap - 3) txt += " · 더 나은 곳: ${e.optString("name")} ${e.optDouble("gap",0.0).toInt()}분(${e.optDouble("km",0.0)}km)"
+                }
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    nm.createNotificationChannel(android.app.NotificationChannel("callradar_outlook", "귀로 전망", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+                    val n = android.app.Notification.Builder(this, "callradar_outlook")
+                        .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                        .setContentTitle("🧭 귀로 전망")
+                        .setContentText(txt)
+                        .setStyle(android.app.Notification.BigTextStyle().bigText(txt))
+                        .setAutoCancel(true)
+                        .build()
+                    nm.notify(7777, n)
+                }
+                Log.d(TAG, "🧭 귀로 전망 알림: $txt")
+            } catch (e: Exception) { Log.d(TAG, "귀로 전망 생략: ${e.message}") }
         }.start()
     }
 
