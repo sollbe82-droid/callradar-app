@@ -29,12 +29,20 @@ object CloudinaryUploader {
         } catch (e: Exception) { null }
     }
 
-    // 이미지 압축: 리사이즈 + JPEG 품질 조정으로 500KB 이하
+    // 이미지 압축: 다운샘플링 + 리사이즈 + JPEG 품질 조정으로 500KB 이하
+    // [구글 권장] inJustDecodeBounds로 크기만 먼저 읽고 inSampleSize로 다운샘플링 디코드 —
+    //  고해상도 사진(예: 108MP 1.2억 화소)을 풀사이즈로 메모리에 올리던 문제 해결(OOM 방지·로딩 단축).
     private fun compressImage(context: Context, uri: Uri): ByteArray? {
-        val input = context.contentResolver.openInputStream(uri) ?: return null
-        val original = BitmapFactory.decodeStream(input)
-        input.close()
-        if (original == null) return null
+        // 1) 크기만 읽기 (픽셀 디코드 없음)
+        val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, boundsOpts) } ?: return null
+        val rawW = boundsOpts.outWidth; val rawH = boundsOpts.outHeight
+        if (rawW <= 0 || rawH <= 0) return null
+        // 2) MAX_DIMENSION의 2배 이하가 될 때까지 절반씩 다운샘플(2의 거듭제곱)
+        var sample = 1
+        while (maxOf(rawW, rawH) / (sample * 2) >= MAX_DIMENSION) sample *= 2
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val original = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, decodeOpts) } ?: return null
 
         // 긴 변 기준 리사이즈
         val w = original.width; val h = original.height

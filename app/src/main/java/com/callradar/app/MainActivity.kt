@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         // 이번 프로세스에서 방금 로그인했는지(딥링크 recreate·구성변경에도 유지). 콜드스타트 시 false로 리셋.
         var sessionLoggedIn = false
+        // [설치 도움말 재진입] 메뉴에서 온보딩 마법사를 복습 모드로 다시 열기
+        val wizardReopen = androidx.compose.runtime.mutableStateOf(false)
     }
 
     private var manualEntryTrigger = false
@@ -272,6 +274,8 @@ class MainActivity : ComponentActivity() {
         var isSetupComplete by remember { mutableStateOf(prefs.getBoolean("setup_complete", false) && androidx.core.content.ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
         // [v23] 온보딩 갇힘 해소: 전체화면 권한게이트 제거 → 홈 바로 진입 + 작은 위치권한 팝업. 신규 설치만 1회 노출.
         var showSetupPopup by remember { mutableStateOf(!prefs.getBoolean("setup_complete", false)) }
+        // [온보딩 자동 마법사] 위치 팝업 다음 1회 — 자동화 권한 3종(오버레이·접근성·알림접근) 단계 안내
+        var showAutoWizard by remember { mutableStateOf(!prefs.getBoolean("auto_wizard_done", false)) }
         when {
             !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
                 prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
@@ -300,13 +304,25 @@ class MainActivity : ComponentActivity() {
                 }
                 // 팝업은 한 번에 하나씩: 온보딩 → 기사유형 → 위치권한 설정
                 if (!onboardingDone) OnboardingPopup(nickname = userNickname, onDone = {
-                    prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply(); onboardingDone = true
+                    // [정식버전] 신규 유저는 간편모드로 시작 (기존 유저의 미설정 상태는 건드리지 않음 — 온보딩 시점에만)
+                    val e = prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true)
+                    if (prefs.getString("home_mode", null) == null) e.putString("home_mode", "simple")
+                    e.apply(); onboardingDone = true
                 })
                 else if (!driverTypeChosen) DriverTypePopup(onPicked = { type ->
                     if (type != null) prefs.edit().putString("driver_type", type).apply()
                     prefs.edit().putBoolean("driver_type_chosen", true).apply(); driverTypeChosen = true
                 })
                 else if (showSetupPopup) com.callradar.app.screen.SetupPopup(onFinish = { showSetupPopup = false })
+                else if (showAutoWizard) com.callradar.app.screen.AutoSetupWizardPopup(onFinish = { startFloat ->
+                    showAutoWizard = false
+                    if (startFloat) startFloatingButton()   // 오버레이 허용됐으면 운행 버튼 즉시 표시
+                })
+                // [설치 도움말] 메뉴에서 재진입한 복습 모드 — 다 켜져 있어도 화면 표시
+                if (wizardReopen.value) com.callradar.app.screen.AutoSetupWizardPopup(force = true, onFinish = { startFloat ->
+                    wizardReopen.value = false
+                    if (startFloat) startFloatingButton()
+                })
             }
         }
     }
@@ -434,6 +450,9 @@ class MainActivity : ComponentActivity() {
             when (id) {
                 "track" -> try { com.callradar.app.TrackActivity.start(this@MainActivity) } catch (e: Exception) {}
                 "settlement" -> showSettle = true
+                "knowhow" -> try { com.callradar.app.KnowhowActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 내 노하우 콜카드
+                "salary" -> try { com.callradar.app.CompanyProfileActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 월급 예상
+                "tax" -> try { com.callradar.app.TaxReportActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 세무 리포트 노출
                 else -> route = id
             }
         }
@@ -445,10 +464,10 @@ class MainActivity : ComponentActivity() {
                     onToggleNotifCapture = { on -> if (on && !isNotifAccessGranted()) openNotifAccessSettings() },
                     isNotifAccessGranted = { isNotifAccessGranted() })
                 "menu" -> com.callradar.app.screen.SimpleMenuScreen(onBack = { route = "home" }, onOpen = openCard, onFullMenu = { route = "full" }, onSwitchClassic = switchClassic)
-                "records" -> SimpleWrap("기록", { route = "home" }) { com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showSettle = true }, onOpenSettings = { route = "full" }) }
-                "radar" -> SimpleWrap("레이더", { route = "home" }) { com.callradar.app.screen.RadarScreen(userId = userId) }
+                "records" -> SimpleWrap("기록·정산", { route = "home" }) { com.callradar.app.screen.RecordsScreen(userId = userId, onOpenDailySettlement = { showSettle = true }, onOpenSettings = { route = "full" }, embedded = true) }
+                "radar" -> SimpleWrap("레이더", { route = "home" }) { com.callradar.app.screen.RadarScreen(userId = userId, embedded = true) }
                 "airport" -> SimpleWrap("공항", { route = "home" }) { com.callradar.app.screen.AirportScreen() }
-                "stats" -> SimpleWrap("분석", { route = "home" }) { com.callradar.app.screen.StatsScreen(userId = userId) }
+                "stats" -> SimpleWrap("분석", { route = "home" }) { com.callradar.app.screen.Stats2Screen(userId = userId) }   // [분석 2.0] 브리핑·KPI·히트맵
                 "ranking" -> SimpleWrap("랭킹", { route = "home" }) { com.callradar.app.screen.RankingScreen(userId = userId) }
                 "full" -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showSettle = true })
                 else -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
@@ -464,7 +483,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SimpleWrap(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
         Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
-            Row(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 40.dp, start = 10.dp, end = 16.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 34.dp, start = 10.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("‹", fontSize = 24.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold); Spacer(Modifier.width(4.dp)); Text("홈", fontSize = 14.sp, color = Color(0xFFF59E0B)) }
                 Spacer(Modifier.width(4.dp))
                 Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)

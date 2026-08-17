@@ -40,7 +40,7 @@ private data class Hotspot(val id: Int, val name: String, val timeBand: String, 
 private data class RSpot(val name: String, val cnt: Int, val avg: Int, val dist: Double)   // [v26] 개인레이더 스팟(거리 포함)
 
 @Composable
-fun RadarScreen(userId: String) {
+fun RadarScreen(userId: String, embedded: Boolean = false) {
     val ctx = LocalContext.current
     val prefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     val scope = rememberCoroutineScope()
@@ -289,14 +289,16 @@ fun RadarScreen(userId: String) {
     var showTrack by remember { mutableStateOf(true) }
     val maxHz = (hzone.maxOfOrNull { it.second } ?: 1.0).coerceAtLeast(0.0001)
     Column(Modifier.fillMaxSize().background(AppTheme.bg)) {
-        // 헤더 (상태바 침범 방지 top 여백)
-        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 44.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("📡 레이더", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.background((if (live) green else muted).copy(alpha = 0.18f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
-                Text(if (live) "🟢 근무중" else "⚪ 대기", color = if (live) green else muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        // 헤더 — [상단여백 수정] 간편모드(embedded)에선 SimpleWrap 헤더가 이미 있어 자기 헤더 생략(이중 헤더·큰 공백 방지).
+        if (!embedded) {
+            Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 44.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("📡 레이더", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.background((if (live) green else muted).copy(alpha = 0.18f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                    Text(if (live) "🟢 근무중" else "⚪ 대기", color = if (live) green else muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
-        }
+        } else Spacer(Modifier.height(6.dp))
 
         // 지도 (상단 고정 높이) + 우상단 작은 토글 2개(음성/궤적)
         Box(Modifier.fillMaxWidth().height(240.dp)) {

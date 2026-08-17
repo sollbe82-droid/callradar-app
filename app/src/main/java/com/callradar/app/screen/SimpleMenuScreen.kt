@@ -29,48 +29,64 @@ fun SimpleMenuScreen(
     val context = LocalContext.current
     val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
 
-    // 앱 내 화면으로 라우팅되는 주요 기능(B 그리드). 나머지 전체는 '전체 메뉴'.
-    val tiles = listOf(
-        MenuTile("records", "📋", "기록"),
-        MenuTile("radar", "📡", "레이더"),
-        MenuTile("airport", "✈️", "공항"),
-        MenuTile("settlement", "🧮", "정산"),
-        MenuTile("track", "🗺️", "궤적"),
-        MenuTile("stats", "📊", "분석"),
-        MenuTile("ranking", "🏆", "랭킹"),
-        MenuTile("namecard", "📇", "명함"),
-        MenuTile("expense", "🧾", "지출촬영")
+    // [3그룹 리빌딩] 기능명 나열 대신 기사의 하루 언어로: 오늘 일 / 더 벌기 / 내 살림
+    val groups = listOf(
+        "오늘 일" to listOf(
+            MenuTile("records", "📋", "기록·정산"),
+            MenuTile("expense", "🧾", "지출촬영"),
+            MenuTile("track", "🗺️", "궤적")
+        ),
+        "더 벌기" to listOf(
+            MenuTile("radar", "📡", "레이더"),
+            MenuTile("airport", "✈️", "공항"),
+            MenuTile("stats", "📊", "분석"),
+            MenuTile("ranking", "🏆", "랭킹")
+        ),
+        "내 살림" to listOf(
+            MenuTile("salary", "💰", "월급 예상"),
+            MenuTile("tax", "🧾", "세무 리포트"),
+            MenuTile("knowhow", "📝", "내 노하우"),
+            MenuTile("namecard", "📇", "명함"),
+            MenuTile("setup_help", "📖", "설치 도움말")
+        )
     )
 
     fun handle(id: String) {
         when (id) {
             "namecard" -> try { com.callradar.app.NameCardActivity.start(context) } catch (e: Exception) {}
             "expense" -> try { com.callradar.app.ReceiptScanActivity.start(context, "지출") } catch (e: Exception) {}
+            "knowhow" -> try { com.callradar.app.KnowhowActivity.start(context) } catch (e: Exception) {}
+            "salary" -> try { com.callradar.app.CompanyProfileActivity.start(context) } catch (e: Exception) {}
+            "tax" -> try { com.callradar.app.TaxReportActivity.start(context) } catch (e: Exception) {}
+            "setup_help" -> { com.callradar.app.MainActivity.wizardReopen.value = true; onBack() }   // 홈으로 돌아가면 마법사가 위에 뜸
             else -> onOpen(id)
         }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
         // B 스타일 뒤로가기 헤더
-        Row(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 40.dp, start = 10.dp, end = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 34.dp, start = 10.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("‹", fontSize = 24.sp, color = accent, fontWeight = FontWeight.Bold); Spacer(Modifier.width(4.dp)); Text("홈", fontSize = 14.sp, color = accent) }
             Spacer(Modifier.width(4.dp))
             Text("메뉴", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(14.dp)) {
-            // 3열 그리드
-            tiles.chunked(3).forEach { row ->
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { t ->
-                        Card(modifier = Modifier.weight(1f).height(84.dp).clickable { handle(t.id) }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
-                            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(t.icon, fontSize = 22.sp); Spacer(Modifier.height(6.dp))
-                                Text(t.label, fontSize = 12.sp, color = AppTheme.text, fontWeight = FontWeight.Medium)
+            // [3그룹] 섹션 제목 + 3열 그리드
+            groups.forEach { (title, tiles) ->
+                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp, top = 4.dp))
+                tiles.chunked(3).forEach { row ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { t ->
+                            Card(modifier = Modifier.weight(1f).height(84.dp).clickable { handle(t.id) }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
+                                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(t.icon, fontSize = 22.sp); Spacer(Modifier.height(6.dp))
+                                    Text(t.label, fontSize = 11.5.sp, color = AppTheme.text, fontWeight = FontWeight.Medium, maxLines = 1)
+                                }
                             }
                         }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
 

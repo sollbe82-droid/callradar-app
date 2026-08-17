@@ -134,6 +134,9 @@ class TrackActivity : ComponentActivity() {
         try { renderTrackOnMap(pts)?.let { return it } } catch (e: Exception) {}
         var minLat = pts[0].lat; var maxLat = pts[0].lat; var minLng = pts[0].lng; var maxLng = pts[0].lng
         for (p in pts) { minLat = min(minLat, p.lat); maxLat = max(maxLat, p.lat); minLng = min(minLng, p.lng); maxLng = max(maxLng, p.lng) }
+        // [과확대] 폴백(단색) 렌더도 최소 ~1km 창 확보
+        if (maxLat - minLat < 0.009) { val c = (minLat + maxLat) / 2; minLat = c - 0.0045; maxLat = c + 0.0045 }
+        if (maxLng - minLng < 0.009) { val c = (minLng + maxLng) / 2; minLng = c - 0.0045; maxLng = c + 0.0045 }
         val midLat = (minLat + maxLat) / 2.0
         val latRange = max(1e-5, maxLat - minLat)
         val lngRange = max(1e-5, (maxLng - minLng) * cos(Math.toRadians(midLat)))
@@ -174,13 +177,15 @@ class TrackActivity : ComponentActivity() {
     private fun renderTrackOnMap(pts: List<LocalTrackDatabase.Pt>): Bitmap? {
         var minLat = pts[0].lat; var maxLat = pts[0].lat; var minLng = pts[0].lng; var maxLng = pts[0].lng
         for (p in pts) { minLat = min(minLat, p.lat); maxLat = max(maxLat, p.lat); minLng = min(minLng, p.lng); maxLng = max(maxLng, p.lng) }
-        if (maxLat - minLat < 1e-5) { minLat -= 5e-4; maxLat += 5e-4 }
-        if (maxLng - minLng < 1e-5) { minLng -= 5e-4; maxLng += 5e-4 }
+        // [과확대] 궤적 범위가 좁아도(정차·짧은 이동) 최소 ~1km 창을 확보 → 동네 골목까지 확대되던 문제 수정
+        val minSpanDeg = 0.009  // 위도 기준 약 1km
+        if (maxLat - minLat < minSpanDeg) { val c = (minLat + maxLat) / 2; minLat = c - minSpanDeg / 2; maxLat = c + minSpanDeg / 2 }
+        if (maxLng - minLng < minSpanDeg) { val c = (minLng + maxLng) / 2; minLng = c - minSpanDeg / 2; maxLng = c + minSpanDeg / 2 }
         // 웹메르카토르 픽셀 좌표
         fun pxX(lon: Double, z: Int): Double = (lon + 180.0) / 360.0 * 256.0 * (1 shl z)
         fun pxY(lat: Double, z: Int): Double { val s = Math.sin(Math.toRadians(lat)).coerceIn(-0.9999, 0.9999); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256.0 * (1 shl z) }
         // bbox가 ~900px 안에 들어오는 가장 큰(상세한) 줌 선택
-        var z = 18
+        var z = 16   // [과확대] 최대 줌 18→16 (도로·동네 맥락이 보이는 수준으로 제한)
         while (z > 3) {
             val spanX = pxX(maxLng, z) - pxX(minLng, z)
             val spanY = pxY(minLat, z) - pxY(maxLat, z)

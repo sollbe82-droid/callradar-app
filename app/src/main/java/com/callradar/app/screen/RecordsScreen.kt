@@ -157,13 +157,13 @@ private fun shareDayRecordsImage(context: android.content.Context, dateLabel: St
     } catch (e: Exception) { android.widget.Toast.makeText(context, "공유 이미지 생성 실패", android.widget.Toast.LENGTH_SHORT).show() }
 }
 
-data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "", val rawDate: String = "", val tip: Int = 0, val promo: Int = 0, val promoType: String = "")
+data class TripRecord(val id: Int, val origin: String, val destination: String, val fare: Int, val platform: String, val time: String, val date: String, val paymentType: String = "auto", val endTime: String = "", val rawDate: String = "", val tip: Int = 0, val promo: Int = 0, val promoType: String = "", val startMs: Long = 0L, val endMs: Long = 0L)
 data class DailyRecord(val date: String, val tripCount: Int, val totalFare: Int, val cardFare: Int = 0, val cashFare: Int = 0, val expense: Int = 0)
 data class ExpenseRecord(val id: Int, val category: String, val amount: Int, val expenseType: String, val memo: String, val date: String, val liters: Double = 0.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
+fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpenSettings: () -> Unit = {}, embedded: Boolean = false) {   // embedded=간편모드 SimpleWrap 안 (상단 여백 축소)
     val bg = AppTheme.bg; val card = AppTheme.card; val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val red = Color(0xFFEF4444); val muted = Color(0xFF6B7280)
     var selectedTab by remember { mutableStateOf(0) }
     var trips by remember { mutableStateOf<List<TripRecord>>(emptyList()) }
@@ -257,7 +257,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     val rawDateStr = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawTime); val out = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
                     val rawEndTime = obj.optString("ended_at", "")
                     val formattedEndTime = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); val date = sdf.parse(rawEndTime); val out = SimpleDateFormat("HH:mm", Locale.KOREA); out.timeZone = TimeZone.getTimeZone("Asia/Seoul"); out.format(date!!) } catch (e: Exception) { "" }
-                    tripList.add(TripRecord(obj.optInt("id", 0), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto"), formattedEndTime, rawDateStr, obj.optInt("tip", 0), obj.optInt("promo", 0), obj.optString("promo_type", "")))
+                    // [삭제정합] 삭제 시 궤적 실차 구간을 되돌리기 위해 epoch(ms)도 보관
+                    val startMsV = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); sdf.parse(rawTime)?.time ?: 0L } catch (e: Exception) { 0L }
+                    val endMsV = try { val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()); sdf.timeZone = TimeZone.getTimeZone("UTC"); sdf.parse(rawEndTime)?.time ?: 0L } catch (e: Exception) { 0L }
+                    tripList.add(TripRecord(obj.optInt("id", 0), obj.optString("origin", ""), obj.optString("destination", "목적지 없음"), obj.optInt("fare", 0), obj.optString("platform", ""), formattedTime, formattedDate, obj.optString("payment_type", "auto"), formattedEndTime, rawDateStr, obj.optInt("tip", 0), obj.optInt("promo", 0), obj.optString("promo_type", ""), startMsV, endMsV))
                 }
                 trips = tripList; isLoading = false
             } catch (e: Exception) { isLoading = false }
@@ -408,7 +411,9 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         AlertDialog(onDismissRequest = { showDeleteConfirm = false },
             title = { Text("삭제", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("이 운행 기록을 삭제합니다.", color = Color(0xFF9CA3AF), fontSize = 14.sp) },
-            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode in 200..299 }.let { ok -> if (ok) loadData(false) else android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } catch (e: Exception) { android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
+            confirmButton = { Button(onClick = { val trip = deletingTrip!!; scope.launch { try { withContext(Dispatchers.IO) { val json = JSONObject().apply { put("user_id", userId) }; val conn = (URL("$SERVER_URL/api/trips/${trip.id}").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }; conn.outputStream.write(json.toString().toByteArray()); conn.responseCode in 200..299 }.let { ok -> if (ok) { // [삭제정합] 삭제한 운행 시간대의 로컬 궤적을 공차로 되돌림(실차율·실차시간 요약 잔존 방지)
+                if (trip.startMs > 0L) { val endW = if (trip.endMs > trip.startMs) trip.endMs else trip.startMs + 40 * 60_000L; try { com.callradar.app.LocalTrackDatabase.getInstance(ctx).markVacant(trip.startMs - 60_000L, endW + 60_000L) } catch (e: Exception) {} }
+                loadData(false) } else android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } } catch (e: Exception) { android.widget.Toast.makeText(ctx, "삭제 실패 · 다시 시도해 주세요", android.widget.Toast.LENGTH_SHORT).show() } }; showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("삭제", color = AppTheme.text) } },
             dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
@@ -637,7 +642,7 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
 
     Column(modifier = Modifier.fillMaxSize().background(bg)) {
         // 헤더 (컴팩트)
-        Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().background(card).padding(top = if (embedded) 6.dp else 48.dp, bottom = 10.dp, start = 14.dp, end = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("내역", "월별", "지출").forEachIndexed { index, title -> FilterChip(selected = selectedTab == index, onClick = { selectedTab = index; if (index == 2) loadExpenses() }, label = { Text(title, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 // [v19] 실적 가져오기 (카메라/갤러리/파일 → 확인표) — 모든 탭에서 진입

@@ -87,6 +87,14 @@ class LocalTrackDatabase private constructor(context: Context) :
     /** [v44] 서버에서 불러온 점 목록으로 통계 계산(로컬에 없을 때 복원용). */
     fun statsOf(pts: List<Pt>): DayStats = computeStats(pts)
 
+    /** [삭제정합] 운행 기록 삭제 시 해당 시간대 궤적 점을 공차(loaded=0)로 되돌림.
+     *  오작동·중복 트립을 지워도 실차율/실차시간 요약에 남던 문제 수정. */
+    fun markVacant(since: Long, until: Long) {
+        try {
+            writableDatabase.execSQL("UPDATE track_points SET loaded=0 WHERE ts>=? AND ts<=?", arrayOf(since.toString(), until.toString()))
+        } catch (e: Exception) {}
+    }
+
     /** 오래된 궤적 정리(기본 7일 이전 삭제) — 저장 누수 방지. */
     fun purgeBefore(ts: Long) {
         try { writableDatabase.delete("track_points", "ts<?", arrayOf(ts.toString())) } catch (e: Exception) {}

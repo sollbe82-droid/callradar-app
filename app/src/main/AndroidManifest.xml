@@ -132,6 +132,12 @@
             android:exported="false"
             android:label="기사 명함" />
 
+        <!-- [v83] 내 노하우 — 비공개=로컬 온리 노트 (서버 미전송) -->
+        <activity
+            android:name=".KnowhowActivity"
+            android:exported="false"
+            android:label="내 노하우" />
+
         <!-- [v19] 요금 미터기(추정) -->
         <activity
             android:name=".MeterActivity"

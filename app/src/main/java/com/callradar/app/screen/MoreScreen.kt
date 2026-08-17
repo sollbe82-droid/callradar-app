@@ -767,8 +767,11 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             }
         )),
         MoreGroup("정보", listOfNotNull(
+            MoreEntry("📖", "설치 도움말 (자동설정 다시 보기)", "운행버튼·자동기록·금액입력 설정을 그림으로 다시 안내", chevron = true) {
+                com.callradar.app.MainActivity.wizardReopen.value = true
+            },
             if (!CORE_ONLY) MoreEntry("🤖", "AI 운행 비서", "시외·귀로콜 기록 → 데이터 쌓이면 수요 분석", right = "준비 중", rightKind = 0, chevron = true) { onNavigate(R_AI) } else null,
-            if (!CORE_ONLY) MoreEntry("📝", "내 노하우", "내가 아는 콜 패턴을 적어두면 비서가 알려줘요", right = "씨앗", chevron = true) { onNavigate(R_KNOWHOW) } else null,
+            if (!CORE_ONLY) MoreEntry("📝", "내 노하우", "🔒 폰에만 저장되는 영업수첩 · 공유는 선택", right = "비공개", chevron = true) { try { com.callradar.app.KnowhowActivity.start(context) } catch (e: Exception) {} } else null,
             MoreEntry("🗺️", "내 운행 지도", "내 출발지 밀도를 지도로 (카카오맵)", right = "지도", chevron = true) { onNavigate(R_MAP) },
             MoreEntry("📈", "사용성 개선 참여 (익명)", "익명 통계로 앱을 함께 개선 · 개인정보 없음", right = if (telemetryOn) "참여중" else "끔", rightKind = if (telemetryOn) 1 else 2) {
                 telemetryOn = !telemetryOn; prefs.edit().putBoolean("telemetry_on", telemetryOn).apply()

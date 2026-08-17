@@ -367,3 +367,303 @@ private fun checkBatteryOptimization(context: Context): Boolean {
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
 }
+
+// ══════════════════════════════════════════════════════════════════
+// [온보딩 자동 마법사] 가입→실사용 전환 25% 병목 해소용.
+//  위치 팝업 다음 1회 노출. 자동기록에 필요한 권한을 단계별 ✅ 체크로 안내.
+//  - onestore: 오버레이(운행버튼) → 접근성(완전 자동기록) → 알림접근(금액 자동입력)
+//  - play    : 오버레이 → 알림접근 + "완전자동은 원스토어" 전환 카드 (구글 정책상 접근성 미제공)
+//  권한을 켠 항목은 완료 시 해당 토글(prefs)도 자동 ON → 마법사만 끝내면 바로 작동.
+// ══════════════════════════════════════════════════════════════════
+@Composable
+fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boolean) -> Unit) {
+    // force=true: 메뉴의 '설치 도움말'에서 재진입 — 다 켜져 있어도 화면을 보여주는 복습 모드.
+    val context = LocalContext.current
+    val accent = Color(0xFF00C896)
+    val muted = Color(0xFF9CA3AF)
+    val isOnestore = com.callradar.app.BuildConfig.FLAVOR == "onestore"
+
+    fun overlayOk() = Settings.canDrawOverlays(context)
+    fun accOk() = (Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains(context.packageName)
+    fun notifOk() = (Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: "").contains(context.packageName)
+
+    var overlay by remember { mutableStateOf(overlayOk()) }
+    var acc by remember { mutableStateOf(accOk()) }
+    var notif by remember { mutableStateOf(notifOk()) }
+
+    fun finish() {
+        val p = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+        val e = p.edit().putBoolean("auto_wizard_done", true)
+        if (overlay) e.putBoolean("floating_on", true)
+        if (isOnestore && acc) e.putBoolean("auto_record_on", true).putBoolean("auto_record_touched", true)
+        if (notif) e.putBoolean("notif_capture_on", true)
+        e.apply()
+        onFinish(overlay)
+    }
+
+    // 이미 다 켜져 있으면(기존 유저) 조용히 통과 — 괴롭히지 않기 (복습 모드는 예외)
+    val allDone = overlay && notif && (!isOnestore || acc)
+    LaunchedEffect(Unit) { if (allDone && !force) finish() }
+    if (allDone && !force) return
+
+    // ── 단계 정의 (한 화면 = 한 단계, 뭘 누르는지 순서대로 다 알려줌) ──
+    data class Step(
+        val emoji: String, val title: String, val why: String,
+        val howSteps: List<String>, val trouble: String, val granted: Boolean, val onOpen: () -> Unit
+    )
+    val steps = mutableListOf<Step>()
+    steps.add(Step(
+        "🚕", "운행 버튼 띄우기",
+        "화면 위에 항상 떠 있는 버튼이에요.\n손님 태울 때 한 번, 내릴 때 한 번 — 그게 다예요.",
+        listOf(
+            "아래 [설정 열기]를 누르세요",
+            "새 화면에서 스위치를 눌러 켜세요 (파란색/초록색이 되면 켜진 거예요)",
+            "◀ 뒤로 버튼으로 콜레이더로 돌아오세요",
+            "돌아오면 자동으로 다음 단계로 넘어가요"
+        ),
+        "스위치가 안 보이면: 화면에 '다른 앱 위에 표시'라는 글자를 찾아 누르세요.",
+        overlay
+    ) { try { context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))) } catch (e: Exception) {} })
+    if (isOnestore) steps.add(Step(
+        "🤖", "완전 자동 기록 (핵심!)",
+        "이것만 켜면 카카오T·우버 운행이 시작·종료·요금까지\n전부 자동으로 기록돼요. 손댈 게 없어요.",
+        listOf(
+            "아래 [설정 열기]를 누르세요",
+            "'설치된 앱' 또는 '다운로드한 앱' 목록에서 [콜레이더]를 찾아 누르세요",
+            "스위치를 켜고, 경고창이 뜨면 [허용]을 누르세요",
+            "◀ 뒤로 두 번 — 콜레이더로 돌아오면 자동으로 다음으로 넘어가요"
+        ),
+        "스위치가 회색이라 안 눌리면(제한된 설정): 휴대폰 설정 → 애플리케이션 → 콜레이더 → 오른쪽 위 ⋮ 점 세 개 → '제한된 설정 허용'을 누른 뒤 다시 해보세요.",
+        acc
+    ) { android.widget.Toast.makeText(context, "목록에서 '콜레이더'를 찾아 스위치를 켜세요", android.widget.Toast.LENGTH_LONG).show()
+        try { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (e: Exception) {} })
+    steps.add(Step(
+        "💰", "금액 자동 입력",
+        "카드 결제 알림이 뜨면 요금을 콜레이더가 읽어서\n운행 기록에 자동으로 채워 넣어요.",
+        listOf(
+            "아래 [설정 열기]를 누르세요",
+            "목록에서 [콜레이더]를 찾아 스위치를 켜세요",
+            "'알림 접근을 허용하시겠습니까?' 창이 뜨면 [허용]을 누르세요",
+            "◀ 뒤로 — 돌아오면 자동으로 완료돼요"
+        ),
+        "콜레이더가 목록에 없으면: 휴대폰을 한 번 껐다 켠 뒤 다시 해보세요.",
+        notif
+    ) { android.widget.Toast.makeText(context, "목록에서 '콜레이더'를 켜세요", android.widget.Toast.LENGTH_LONG).show()
+        try { context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {} })
+
+    var idx by remember { mutableStateOf(if (force) 0 else steps.indexOfFirst { !it.granted }.coerceAtLeast(0)) }
+    var justDone by remember { mutableStateOf(false) }
+
+    // 설정 갔다 돌아오면 재확인 → 현재 단계가 완료됐으면 자동으로 다음 단계
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = LifecycleEventObserver { _, ev ->
+            if (ev == Lifecycle.Event.ON_RESUME) { overlay = overlayOk(); acc = accOk(); notif = notifOk() }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    val grantedNow = listOf(overlay, if (isOnestore) acc else true, notif)
+    val stepGranted: (Int) -> Boolean = { i ->
+        when (steps[i].emoji) { "🚕" -> overlay; "🤖" -> acc; else -> notif }
+    }
+    // 자동 다음 단계: 첫 조합 때가 아니라 '설정 갔다 와서 새로 켜졌을 때'만 발동 (복습 모드는 수동 이동)
+    var seenGranted by remember { mutableStateOf(listOf(overlay, acc, notif)) }
+    LaunchedEffect(overlay, acc, notif) {
+        val now = listOf(overlay, acc, notif)
+        val newlyOn = now.zip(seenGranted).any { (a, b) -> a && !b }
+        seenGranted = now
+        if (!force && newlyOn && idx < steps.size && stepGranted(idx)) {
+            justDone = true
+            android.widget.Toast.makeText(context, "✅ ${steps[idx].title} 완료!", android.widget.Toast.LENGTH_SHORT).show()
+            kotlinx.coroutines.delay(600)
+            justDone = false
+            val next = (idx + 1 until steps.size).firstOrNull { !stepGranted(it) }
+            if (next != null) idx = next
+            else idx = steps.size   // 전부 완료 → 마지막 축하 화면
+        }
+    }
+    val doneCount = (0 until steps.size).count { stepGranted(it) }
+
+    // ── 전체 화면 마법사 ──
+    Box(Modifier.fillMaxSize().background(AppTheme.bg)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+            Spacer(Modifier.height(48.dp))
+
+            // 진행 표시 (크고 명확하게)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                steps.forEachIndexed { i, s ->
+                    val on = stepGranted(i)
+                    Box(Modifier.size(34.dp).background(if (on) accent else if (i == idx) AppTheme.surface2 else AppTheme.card, RoundedCornerShape(17.dp)), contentAlignment = Alignment.Center) {
+                        Text(if (on) "✓" else "${i + 1}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (on) Color.Black else AppTheme.text)
+                    }
+                    if (i < steps.size - 1) Box(Modifier.weight(1f).height(3.dp).background(if (on) accent else AppTheme.card))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("$doneCount / ${steps.size} 완료", fontSize = 13.sp, color = muted)
+            Spacer(Modifier.height(24.dp))
+
+            if (idx >= steps.size) {
+                // ── 완료 화면 ──
+                Text("🎉", fontSize = 56.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("설정 끝! 이제 자동이에요", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                Spacer(Modifier.height(10.dp))
+                Text(if (isOnestore) "오늘부터 운행하시면 시작·종료·요금이\n알아서 기록됩니다. 퇴근할 때 앱만 열어보세요."
+                     else "운행 버튼과 금액 자동 입력이 켜졌어요.\n화면 위 🚕 버튼으로 시작·완료만 눌러주세요.",
+                    fontSize = 15.sp, color = muted, lineHeight = 24.sp)
+                Spacer(Modifier.height(28.dp))
+                Button(onClick = { finish() }, modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(14.dp)) {
+                    Text("콜레이더 시작하기", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            } else {
+                val s = steps[idx]
+                // ── 단계 화면 ──
+                Text(s.emoji, fontSize = 52.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("${idx + 1}단계 · ${s.title}", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                Spacer(Modifier.height(8.dp))
+                Text(s.why, fontSize = 15.sp, color = muted, lineHeight = 23.sp)
+                Spacer(Modifier.height(20.dp))
+
+                // 이렇게 하세요 — 번호 붙은 큰 카드
+                Card(colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("이렇게 하세요", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent)
+                        Spacer(Modifier.height(10.dp))
+                        s.howSteps.forEachIndexed { i, h ->
+                            Row(Modifier.padding(vertical = 6.dp)) {
+                                Box(Modifier.size(24.dp).background(AppTheme.surface2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                    Text("${i + 1}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Text(h, fontSize = 14.5.sp, color = AppTheme.text, lineHeight = 21.sp, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                // [갤럭시 화면 그림] 설정 화면이 어떻게 생겼는지 미리 보여줌 — 글만으론 못 따라오는 분들용
+                GalaxySettingsMock(s.emoji, accent, muted)
+
+                Spacer(Modifier.height(12.dp))
+                // 안 될 때 (트러블슈팅 — 접기 없이 항상 노출)
+                Card(colors = CardDefaults.cardColors(containerColor = AppTheme.surface2.copy(alpha = 0.5f)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("⚠️ 안 될 때", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B))
+                        Text(s.trouble, fontSize = 12.5.sp, color = muted, lineHeight = 19.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                val thisGranted = stepGranted(idx)
+                if (thisGranted) {
+                    // 이미 켜져 있음(복습 모드 등) → 다음으로
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.15f)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Text("✅ 이 설정은 이미 켜져 있어요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981), modifier = Modifier.padding(14.dp))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Button(onClick = { if (idx < steps.size - 1) idx++ else idx = steps.size }, modifier = Modifier.fillMaxWidth().height(58.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(14.dp)) {
+                        Text(if (idx < steps.size - 1) "다음 단계 →" else "완료 화면으로 →", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    }
+                    TextButton(onClick = { s.onOpen() }, modifier = Modifier.fillMaxWidth()) { Text("설정 화면 다시 열어보기", fontSize = 12.sp, color = muted) }
+                } else {
+                    Button(onClick = { s.onOpen() }, modifier = Modifier.fillMaxWidth().height(58.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent), shape = RoundedCornerShape(14.dp)) {
+                        Text("설정 열기", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("설정을 켜고 돌아오면 자동으로 다음 단계로 넘어가요",
+                        fontSize = 12.sp, color = muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    if (force) {
+                        TextButton(onClick = { if (idx < steps.size - 1) idx++ else idx = steps.size }, modifier = Modifier.fillMaxWidth()) {
+                            Text("다음 단계 보기 →", fontSize = 13.sp, color = accent)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = {
+                        val next = (idx + 1 until steps.size).firstOrNull { !stepGranted(it) }
+                        if (next != null) idx = next else idx = steps.size
+                    }) { Text("이 단계 건너뛰기", fontSize = 13.sp, color = muted) }
+                    TextButton(onClick = { finish() }) { Text("전부 나중에 하기", fontSize = 13.sp, color = muted) }
+                }
+
+                // [구글판] 완전자동 원스토어 전환 카드 — 마지막 단계 아래에
+                if (!isOnestore && idx == steps.size - 1) {
+                    Spacer(Modifier.height(8.dp))
+                    Card(colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("⚡ 버튼도 누르기 귀찮다면?", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text("원스토어 버전은 택시앱을 감지해 시작·종료·요금까지 전부 자동으로 기록해요. (구글 정책상 이 버전엔 넣을 수 없어요)", fontSize = 12.sp, color = muted, lineHeight = 18.sp)
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = {
+                                com.callradar.app.Telemetry.log(context, "onestore_guide_tap", "wizard")
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("onestore://common/product/0001007971")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                catch (e: Exception) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.onestore.co.kr/v2/ko-kr/app/0001007971")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) {} }
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                Text("원스토어에서 완전자동 버전 받기", fontSize = 14.sp, color = accent, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+// ── [갤럭시 화면 그림] 실제 설정 화면을 흉내 낸 미니 목업 — "이 화면이 나오면 여길 누르세요" ──
+@Composable
+private fun GalaxySettingsMock(stepEmoji: String, accent: Color, muted: Color) {
+    val rowBg = Color(0xFF2A2F3A); val screenBg = Color(0xFF1C202A)
+    Card(colors = CardDefaults.cardColors(containerColor = screenBg), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("📱 갤럭시 설정 화면은 이렇게 생겼어요", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = muted)
+            Spacer(Modifier.height(10.dp))
+            when (stepEmoji) {
+                "🚕" -> {   // 오버레이: '다른 앱 위에 표시' 스위치
+                    Text("다른 앱 위에 표시", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    MockRow("📡  콜레이더", true, switchOn = true, accent = accent)
+                    Text("👆 이 스위치를 눌러 켜세요", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(top = 6.dp))
+                }
+                "🤖" -> {   // 접근성: 설치된 앱 목록에서 콜레이더
+                    Text("접근성 › 설치된 앱", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    MockRow("TalkBack", false, switchOn = false, accent = accent)
+                    Spacer(Modifier.height(6.dp))
+                    MockRow("📡  콜레이더", true, switchOn = true, accent = accent)
+                    Text("👆 '콜레이더'를 눌러 들어간 뒤 스위치를 켜고 [허용]", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(top = 6.dp))
+                }
+                else -> {   // 알림접근
+                    Text("알림 접근 허용", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    MockRow("📡  콜레이더", true, switchOn = true, accent = accent)
+                    Text("👆 스위치를 켜고 '허용'을 누르세요", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockRow(label: String, highlight: Boolean, switchOn: Boolean, accent: Color) {
+    val rowBg = if (highlight) Color(0xFF2F3A4A) else Color(0xFF232833)
+    Row(Modifier.fillMaxWidth().background(rowBg, RoundedCornerShape(10.dp))
+            .let { if (highlight) it.padding(2.dp).background(Color.Transparent) else it }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 14.sp, color = Color.White, fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
+        // 가짜 스위치
+        Box(Modifier.width(44.dp).height(24.dp).background(if (switchOn) Color(0xFF10B981) else Color(0xFF4B5563), RoundedCornerShape(12.dp))) {
+            Box(Modifier.size(18.dp).align(if (switchOn) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 3.dp).background(Color.White, RoundedCornerShape(9.dp)))
+        }
+    }
+}

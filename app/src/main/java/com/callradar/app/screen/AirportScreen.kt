@@ -401,6 +401,37 @@ fun AirportScreen() {
                                 Text("${String.format("%,d", curData?.immigrationTotal ?: 0)} 명", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = green)
                                 Spacer(Modifier.height(6.dp))
                                 Text("현재 입국장으로 들어오는 승객 규모입니다", fontSize = 11.sp, color = muted)
+                                // [예측] 도착 항공편 예정시각+인원을 합산해 30분·1시간 후 유입 예상 표시 (약속 사양)
+                                run {
+                                    val calF = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
+                                    val nowMinF = calF.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calF.get(java.util.Calendar.MINUTE)
+                                    var in30 = 0; var in60 = 0
+                                    (curData?.flights ?: emptyList()).forEach { f ->
+                                        val ps = f.estimatedTime.split(":")
+                                        val fh = ps.getOrNull(0)?.trim()?.toIntOrNull(); val fm = ps.getOrNull(1)?.trim()?.take(2)?.toIntOrNull()
+                                        if (fh != null && fm != null && f.total > 0) {
+                                            var diff = fh * 60 + fm - nowMinF
+                                            if (diff < -720) diff += 1440   // 자정 넘김 보정
+                                            if (diff in 0..29) { in30 += f.total; in60 += f.total }
+                                            else if (diff in 30..59) in60 += f.total
+                                        }
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                    HorizontalDivider(color = AppTheme.surface2)
+                                    Spacer(Modifier.height(10.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column {
+                                            Text("30분 내 도착 예정", fontSize = 11.sp, color = muted)
+                                            Text("+${String.format("%,d", in30)} 명", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (in30 > 300) red else accent)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("1시간 내 도착 예정", fontSize = 11.sp, color = muted)
+                                            Text("+${String.format("%,d", in60)} 명", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (in60 > 600) red else accent)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("도착편 예정시각·탑승인원 기준 예상치예요", fontSize = 10.sp, color = muted)
+                                }
                             }
                         }
                     }

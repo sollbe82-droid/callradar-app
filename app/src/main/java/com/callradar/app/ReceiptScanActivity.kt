@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -124,6 +125,7 @@ class ReceiptScanActivity : ComponentActivity() {
                 if (result != null) {
                     scanResult = result
                     statusMessage = "분석 완료!"
+                    aiRefine(result)   // [AI] 서버 Claude 보정 — 성공하면 확인화면 값이 더 정확해짐(실패해도 로컬값 유지)
                 } else {
                     statusMessage = "분석 실패 - 다시 촬영해주세요"
                 }
@@ -131,7 +133,49 @@ class ReceiptScanActivity : ComponentActivity() {
         }
     }
 
-    private fun saveResult(result: ReceiptOcrService.ReceiptResult) {
+    // [AI 연동 1호] 로컬 OCR 원문을 서버 Claude가 교차검증(단가×리터≈금액)·구조화 → 값 보정.
+    //  네트워크/서버 실패 시 조용히 무시(로컬 파싱 그대로) — 폴백 안전.
+    private fun aiRefine(local: ReceiptOcrService.ReceiptResult) {
+        if (local.rawText.isBlank()) return
+        statusMessage = "AI 정밀 확인 중.. ✨"
+        Thread {
+            try {
+                val json = JSONObject().apply { put("raw_text", local.rawText.take(3000)) }
+                val conn = (URL("$SERVER_URL/api/ai/receipt-parse").openConnection().apply {
+                    com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
+                } as HttpURLConnection).apply {
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    doOutput = true; connectTimeout = 12000; readTimeout = 20000
+                }
+                conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8))
+                val code = conn.responseCode
+                val body = if (code in 200..299) conn.inputStream.bufferedReader(Charsets.UTF_8).readText() else ""
+                conn.disconnect()
+                if (code in 200..299 && body.isNotBlank()) {
+                    val o = JSONObject(body)
+                    val amt = o.optInt("amount", 0)
+                    val lit = o.optDouble("liters", 0.0)
+                    val ppl = o.optInt("price_per_liter", 0)
+                    val date = o.optString("date", "")
+                    runOnUiThread {
+                        val cur = scanResult
+                        if (cur != null && cur.rawText == local.rawText) {   // 그 사이 재촬영 안 했을 때만
+                            scanResult = cur.copy(
+                                amount = if (amt > 0) amt else cur.amount,
+                                liters = if (lit > 0) lit.toFloat() else cur.liters,
+                                pricePerLiter = if (ppl > 0) ppl else cur.pricePerLiter,
+                                date = if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(date)) date else cur.date
+                            )
+                            statusMessage = "분석 완료 · AI 보정됨 ✨"
+                        }
+                    }
+                } else runOnUiThread { if (scanResult != null) statusMessage = "분석 완료!" }
+            } catch (e: Exception) { runOnUiThread { if (scanResult != null) statusMessage = "분석 완료!" } }
+        }.start()
+    }
+
+    // [확인화면 편집] oAmt 등 오버라이드가 있으면 유저가 확인·수정한 값으로 저장 (음수/빈값 = OCR 원본 사용)
+    private fun saveResult(result: ReceiptOcrService.ReceiptResult, oAmt: Int = -1, oLiters: Double = -1.0, oPpl: Int = -1, oDate: String = "", oExpType: String = "", oCat: String = "") {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getString("user_id", null)
 
@@ -141,7 +185,7 @@ class ReceiptScanActivity : ComponentActivity() {
                 if (preset == "가스" || preset == "전기" || preset == "지출") {
                     // [v31] 원터치 지출 — 정식 expenses 경로(기록 캘린더에 반영)
                     // [v32] 일반 '지출'은 OCR 자동 분류한 카테고리로 저장(식비/세차/주차/정비/통행료/LPG…)
-                    val cat = when (preset) {
+                    val cat = if (oCat.isNotBlank()) oCat else when (preset) {
                         "가스" -> "LPG"
                         "전기" -> "전기충전"
                         else -> when (result.type) {
@@ -155,16 +199,20 @@ class ReceiptScanActivity : ComponentActivity() {
                         }
                     }
                     val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA).format(java.util.Date())
-                    // [v31] 영수증 OCR 날짜 사용(yyyy-MM-dd로 정규화됨). 못 읽으면 오늘.
-                    val expDate = if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(result.date)) result.date else today
+                    // [v31] 영수증 OCR 날짜 사용. [확인화면] 유저 수정값 우선.
+                    val expDate = if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(oDate)) oDate
+                        else if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(result.date)) result.date else today
                     val memo = when (preset) { "가스" -> "가스(LPG) 영수증"; "전기" -> "전기충전 영수증"; else -> "${result.typeName} 영수증(자동분류)" }
                     val cuid = java.util.UUID.randomUUID().toString()   // 멱등키(온라인 POST=오프라인 큐 동일) → 재전송 중복 방지
-                    val litersD = result.liters.toDouble(); val ppl = result.pricePerLiter
+                    val amtF = if (oAmt >= 0) oAmt else result.amount
+                    val litersD = if (oLiters >= 0.0) oLiters else result.liters.toDouble()
+                    val ppl = if (oPpl >= 0) oPpl else result.pricePerLiter
+                    val expTypeF = if (oExpType.isNotBlank()) oExpType else "business"
                     val json = JSONObject().apply {
                         put("user_id", userId)
                         put("category", cat)
-                        put("amount", result.amount)
-                        put("expense_type", "business")
+                        put("amount", amtF)
+                        put("expense_type", expTypeF)
                         put("memo", memo)
                         if (litersD > 0) put("liters", litersD)
                         if (ppl > 0) put("price_per_liter", ppl)
@@ -181,7 +229,7 @@ class ReceiptScanActivity : ComponentActivity() {
                         conn.disconnect()
                     } catch (e: Exception) { ok = false }
                     // [유실 방지] 전송 실패(오프라인 등) 시 로컬 큐에 저장 → 다음 실행 때 재전송(같은 uuid로 중복 없음).
-                    if (!ok) { try { com.callradar.app.LocalTripDatabase.getInstance(this).savePendingExpense(userId, cat, result.amount, "business", memo, litersD, ppl, true, expDate, cuid) } catch (e: Exception) {} }
+                    if (!ok) { try { com.callradar.app.LocalTripDatabase.getInstance(this).savePendingExpense(userId, cat, amtF, expTypeF, memo, litersD, ppl, true, expDate, cuid) } catch (e: Exception) {} }
                     savedOk = ok
                 } else {
                     val json = JSONObject().apply {
@@ -218,8 +266,7 @@ class ReceiptScanActivity : ComponentActivity() {
             val isExpense = (preset == "가스" || preset == "전기" || preset == "지출")
             runOnUiThread {
                 if (isExpense) {
-                    if (result.amount <= 0) android.widget.Toast.makeText(this, "금액을 못 읽었어요 — 기록에서 수정해 주세요", android.widget.Toast.LENGTH_LONG).show()
-                    else android.widget.Toast.makeText(this, if (savedOk) "지출 저장됨 ✓" else "오프라인 저장 — 연결되면 자동 전송돼요", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, if (savedOk) "지출 저장됨 ✓" else "오프라인 저장 — 연결되면 자동 전송돼요", android.widget.Toast.LENGTH_SHORT).show()
                 }
                 val intent = Intent().apply {
                     putExtra("type", result.type.name)
@@ -257,22 +304,48 @@ class ReceiptScanActivity : ComponentActivity() {
             }
 
             scanResult?.let { result ->
+                // [확인화면 편집] 지출 프리셋은 저장 전 모든 항목 수정 가능 + 단가×충전량 교차검증
+                val isExpensePreset = preset == "가스" || preset == "전기" || preset == "지출"
+                val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA).format(java.util.Date()) }
+                var eAmt by remember(result) { mutableStateOf(
+                    if (result.amount > 0) result.amount.toString()
+                    else if (result.pricePerLiter > 0 && result.liters > 0) (result.pricePerLiter * result.liters).toInt().toString()   // 금액 못 읽으면 단가×리터로 제안
+                    else "") }
+                var eLit by remember(result) { mutableStateOf(if (result.liters > 0) result.liters.toString() else "") }
+                var ePpl by remember(result) { mutableStateOf(if (result.pricePerLiter > 0) result.pricePerLiter.toString() else "") }
+                var eDate by remember(result) { mutableStateOf(if (Regex("\\d{4}-\\d{2}-\\d{2}").matches(result.date)) result.date else todayStr) }
+                var eBiz by remember(result) { mutableStateOf(true) }   // true=사업(경비) false=개인
+
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    // 카카오택시 정산 전용 카드
                     if (result.type == ReceiptOcrService.ReceiptType.KAKAO_TAXI) {
                         KakaoTaxiResultCard(result, card, accent, green, red, muted)
+                    } else if (isExpensePreset) {
+                        EditableReceiptCard(result, eAmt, eLit, ePpl, eDate, eBiz,
+                            { eAmt = it.filter { c -> c.isDigit() }.take(9) }, { eLit = it.filter { c -> c.isDigit() || c == '.' }.take(7) },
+                            { ePpl = it.filter { c -> c.isDigit() }.take(6) }, { eDate = it.take(10) }, { eBiz = it },
+                            card, accent, green, red, muted)
                     } else {
                         NormalReceiptCard(result, card, accent, green, red, muted)
                     }
 
                     Spacer(Modifier.height(12.dp))
 
+                    val amtOk = !isExpensePreset || (eAmt.toIntOrNull() ?: 0) > 0
                     Button(
-                        onClick = { saveResult(result) },
+                        onClick = {
+                            if (isExpensePreset) saveResult(result,
+                                oAmt = eAmt.toIntOrNull() ?: 0,
+                                oLiters = eLit.toDoubleOrNull() ?: -1.0,
+                                oPpl = ePpl.toIntOrNull() ?: -1,
+                                oDate = eDate,
+                                oExpType = if (eBiz) "business" else "personal")
+                            else saveResult(result)
+                        },
+                        enabled = amtOk,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = accent),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent, disabledContainerColor = card),
                         shape = RoundedCornerShape(12.dp)
-                    ) { Text("저장하기", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+                    ) { Text(if (amtOk) "이대로 저장" else "금액을 입력하세요", color = if (amtOk) Color.Black else muted, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 
                     Spacer(Modifier.height(8.dp))
 
@@ -358,6 +431,77 @@ class ReceiptScanActivity : ComponentActivity() {
                             Text("${detail.amount.formatAmount()}원", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // [확인화면 편집] 지출 영수증: OCR 결과를 전부 수정 가능한 폼으로. 단가×충전량≈금액 교차검증 경고 포함.
+    @Composable
+    fun EditableReceiptCard(
+        result: ReceiptOcrService.ReceiptResult,
+        eAmt: String, eLit: String, ePpl: String, eDate: String, eBiz: Boolean,
+        onAmt: (String) -> Unit, onLit: (String) -> Unit, onPpl: (String) -> Unit, onDate: (String) -> Unit, onBiz: (Boolean) -> Unit,
+        card: Color, accent: Color, green: Color, red: Color, muted: Color
+    ) {
+        val isGas = preset == "가스" || result.type == ReceiptOcrService.ReceiptType.LPG
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getTypeEmoji(result.type) + " " + (if (preset == "가스") "가스(LPG)" else if (preset == "전기") "전기충전" else result.typeName), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("읽은 값을 확인·수정하세요", fontSize = 11.sp, color = muted)
+                }
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(value = eAmt, onValueChange = onAmt, label = { Text("금액 (원)", color = muted) },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = green),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151)))
+
+                if (isGas) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = eLit, onValueChange = onLit, label = { Text("충전량 (L)", color = muted) },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                            singleLine = true, modifier = Modifier.weight(1f),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151)))
+                        OutlinedTextField(value = ePpl, onValueChange = onPpl, label = { Text("단가 (원/L)", color = muted) },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                            singleLine = true, modifier = Modifier.weight(1f),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151)))
+                    }
+                    // 교차검증: 단가×충전량 ≈ 금액 (±5% 넘게 어긋나면 경고 + 탭 한 번으로 보정)
+                    val a = eAmt.toIntOrNull() ?: 0; val l = eLit.toDoubleOrNull() ?: 0.0; val p = ePpl.toIntOrNull() ?: 0
+                    if (a > 0 && l > 0 && p > 0) {
+                        val calc = (l * p).toInt()
+                        val diffPct = if (calc > 0) kotlin.math.abs(a - calc) * 100.0 / calc else 0.0
+                        Spacer(Modifier.height(6.dp))
+                        if (diffPct > 5.0) {
+                            Text("⚠️ 단가×충전량 = ${String.format("%,d", calc)}원 — 금액과 안 맞아요. 탭해서 ${String.format("%,d", calc)}원으로 바꾸기",
+                                fontSize = 12.sp, color = accent, modifier = Modifier.clickable { onAmt(calc.toString()) }.padding(vertical = 2.dp))
+                        } else {
+                            Text("✓ 단가×충전량과 금액 일치", fontSize = 11.sp, color = green)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = eDate, onValueChange = onDate, label = { Text("날짜 (yyyy-MM-dd)", color = muted) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = Color.White),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151)))
+
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("구분", fontSize = 13.sp, color = muted, modifier = Modifier.padding(end = 10.dp))
+                    FilterChip(selected = eBiz, onClick = { onBiz(true) }, label = { Text("사업(경비)", fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.25f), selectedLabelColor = accent))
+                    Spacer(Modifier.width(8.dp))
+                    FilterChip(selected = !eBiz, onClick = { onBiz(false) }, label = { Text("개인", fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.25f), selectedLabelColor = accent))
                 }
             }
         }

@@ -4,6 +4,7 @@ package com.callradar.app.screen
 // 근무세션은 기존과 동일한 prefs 키/서버 엔드포인트를 공유해 모드를 바꿔도 상태가 이어진다.
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -36,11 +37,14 @@ private val SIMPLE_CARD_REGISTRY = listOf(
     SimpleCard("record_settings", "🤖", "자동설정", 0xFF10B981, "운행버튼·자동기록·금액입력"),
     SimpleCard("radar", "📡", "레이더", 0xFFF59E0B, "지금 콜 잘 잡히는 자리·핫존"),
     SimpleCard("airport", "✈️", "공항", 0xFF38BDF8, "인천공항 실시간 입국·수요"),
-    SimpleCard("records", "📋", "기록", 0xFF3B82F6, "운행 기록 보기·수정"),
-    SimpleCard("settlement", "🧮", "정산", 0xFF94A3B8, "일일마감·급여 계산"),
+    SimpleCard("records", "📋", "기록·정산", 0xFF3B82F6, "운행 기록·월별 정산·지출"),
+    // [기록·정산 통합] '정산' 콜카드 제거 — 기록 안에 월별 탭 존재 + 퇴근 시 일일정산 자동 표시
     SimpleCard("track", "🗺️", "궤적", 0xFF4ADE80, "오늘 실차·공차 경로"),
     SimpleCard("stats", "📊", "분석", 0xFF22D3EE, "수입 추세·시간대 통계"),
-    SimpleCard("ranking", "🏆", "랭킹", 0xFFFBBF24, "내 순위·지역 랭킹")
+    SimpleCard("ranking", "🏆", "랭킹", 0xFFFBBF24, "내 순위·지역 랭킹"),
+    SimpleCard("knowhow", "📝", "내 노하우", 0xFFA78BFA, "🔒 폰에만 저장 · 나만의 영업수첩"),
+    SimpleCard("salary", "💰", "월급 예상", 0xFF34D399, "사납·기본급 규칙으로 실수령 계산"),
+    SimpleCard("tax", "🧾", "세무 리포트", 0xFFF87171, "개인·도급 종소세와 경비 한눈에")
 )
 
 @Composable
@@ -94,7 +98,12 @@ fun SimpleHomeScreen(
     }
 
     // 오늘 매출 폴링 (classic /api/today와 동일: 콜제보 제외 서버측 처리)
+    // [로딩개선] 마지막 값을 캐시해 열자마자 표시(0원 깜빡임·서버 슬립 30~60초 공백 제거), 서버 응답 오면 갱신
     LaunchedEffect(Unit) {
+        val dayKeyNow = (System.currentTimeMillis() + 9 * 3600_000L) / 86400_000L   // KST 날짜 키
+        if (prefs.getLong("cache_today_day", -1L) == dayKeyNow) {
+            val c = prefs.getInt("cache_today_fare", -1); if (c >= 0) todayFare = c
+        }
         while (true) {
             if (userId.isNotEmpty()) {
                 try {
@@ -104,6 +113,7 @@ fun SimpleHomeScreen(
                         JSONObject(conn.inputStream.bufferedReader().readText())
                     }
                     todayFare = o.optInt("todayFare", 0)
+                    try { prefs.edit().putInt("cache_today_fare", todayFare).putLong("cache_today_day", dayKeyNow).apply() } catch (e: Exception) {}
                 } catch (e: Exception) {}
             }
             delay(30000)
@@ -200,13 +210,13 @@ fun SimpleHomeScreen(
             onDismissRequest = { showEndConfirm = false },
             title = { Text("퇴근할까요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
             text = { Text("지금까지 근무 ${hh}시간 ${mm}분. 퇴근하면 세션이 끝나요.", fontSize = 13.sp, color = muted) },
-            confirmButton = { Button(onClick = { showEndConfirm = false; doEnd() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
+            confirmButton = { Button(onClick = { showEndConfirm = false; doEnd(); onOpenCard("settlement") }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },   // [기록·정산 통합] 퇴근 즉시 일일정산 자동 표시
             dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
             containerColor = AppTheme.card
         )
     }
 
-    val defCards = "record_settings,radar,airport,records,settlement,stats"
+    val defCards = "record_settings,radar,airport,records,stats"   // [통합] settlement 제거
     val selCards = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll((prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").map { it.trim() }.filter { it.isNotBlank() }) } }
     fun saveCards() { prefs.edit().putString("simple_home_cards", selCards.joinToString(",")).apply() }
     var editMode by remember { mutableStateOf(false) }
@@ -227,7 +237,12 @@ fun SimpleHomeScreen(
         Row(modifier = Modifier.fillMaxWidth().padding(top = 34.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("콜레이더", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = accent)
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://open.kakao.com/o/gsyuVMCi")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {} }) { Text("📢 공지", fontSize = 13.sp, color = muted) }
+            // [모드 전환] 상단 원터치 — 기본홈으로 (기본홈에도 동일 버튼, 언제든 왕복)
+            TextButton(onClick = {
+                prefs.edit().putString("home_mode", "classic").apply()
+                (context as? android.app.Activity)?.recreate()
+            }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("⇄ 기본홈", fontSize = 12.sp, color = muted) }
+            TextButton(onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://open.kakao.com/o/gsyuVMCi")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {} }) { Text("💬 톡방", fontSize = 13.sp, color = muted) }
             TextButton(onClick = onOpenMenu) { Text("☰ 메뉴", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
         }
 
@@ -265,11 +280,21 @@ fun SimpleHomeScreen(
             Text("콜카드", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
             if (editMode) { Spacer(Modifier.width(8.dp)); Text("탭해서 홈에 켜고 끄기", fontSize = 11.sp, color = muted) }
             Spacer(Modifier.weight(1f))
-            Button(onClick = { if (editMode) saveCards(); editMode = !editMode },
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (editMode) accent else AppTheme.surface2),
-                shape = RoundedCornerShape(999.dp)) {
-                Text(if (editMode) "완료" else "✏️ 편집", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (editMode) Color.Black else accent)
+            if (editMode) {
+                // 편집 중일 때만 채운 버튼(활성 상태 표시)
+                Button(onClick = { saveCards(); editMode = false },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent),
+                    shape = RoundedCornerShape(999.dp)) {
+                    Text("완료", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            } else {
+                // 평소엔 조작버튼임이 드러나게 투명 텍스트 버튼(카드처럼 안 보이게)
+                TextButton(onClick = { editMode = true }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text("✏️", fontSize = 13.sp)
+                    Spacer(Modifier.width(4.dp))
+                    Text("편집", fontSize = 13.sp, color = muted)
+                }
             }
         }
 
@@ -306,10 +331,11 @@ fun SimpleHomeScreen(
         }
 
         if (!editMode) {
-            // [목업] 전체 콜카드 버튼 — 모든 메뉴 열기
-            Button(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(54.dp).padding(top = 2.dp), shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.surface2)) {
-                Text("⋯  전체 콜카드", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+            // [역제안] 전체 콜카드 = 채운 카드가 아니라 외곽선(고스트) 버튼 → '더보기 조작'임이 드러남
+            OutlinedButton(onClick = onOpenMenu, modifier = Modifier.fillMaxWidth().height(52.dp).padding(top = 2.dp), shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, muted.copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent)) {
+                Text("⋯  전체 콜카드", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = muted)
             }
         }
 
@@ -353,6 +379,25 @@ fun SimpleHomeScreen(
                                 Text("카드결제 알림 금액 자동 입력", fontSize = 11.sp, color = muted)
                             }
                             Switch(checked = capOn, onCheckedChange = { on -> prefs.edit().putBoolean("notif_capture_on", on).apply(); onToggleNotifCapture(on); capOn = if (on) isNotifAccessGranted() else false; com.callradar.app.Telemetry.log(context, if (on) "notif_capture_on" else "notif_capture_off", "simple_home") })
+                        }
+                    }
+                    // [구글 정책] play 버전은 접근성 완전자동 미제공 → 자동화 원하면 원스토어로 안내
+                    if (com.callradar.app.BuildConfig.FLAVOR != "onestore") {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppTheme.surface2))
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                            Text("🤖 완전 자동 기록을 원하세요?", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                            Text("구글플레이 버전은 정책상 수동·반자동만 제공해요. 택시앱 운행·요금을 손대지 않고 자동 기록하려면 원스토어 버전(콜레이더:택시의 신)을 설치하세요.", fontSize = 11.sp, color = muted, lineHeight = 16.sp)
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    com.callradar.app.Telemetry.log(context, "onestore_guide_tap", "simple_home")
+                                    val web = "https://m.onestore.co.kr/v2/ko-kr/app/0001007971"
+                                    try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("onestore://common/product/0001007971")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                    catch (e: Exception) { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(web)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) {} }
+                                },
+                                border = BorderStroke(1.dp, accent),
+                                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent)
+                            ) { Text("원스토어에서 자동 버전 받기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold) }
                         }
                     }
                 }

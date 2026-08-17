@@ -479,6 +479,13 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 } ?: Text("${nickname}님", fontSize = 12.sp, color = muted)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // [모드 전환] 홈 상단 원터치 — 간편모드로 (반대편에도 동일 버튼, 언제든 왕복)
+                Card(modifier = Modifier.height(36.dp).clickable {
+                    context.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE).edit().putString("home_mode", "simple").apply()
+                    (context as? android.app.Activity)?.recreate()
+                }, colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981)), shape = RoundedCornerShape(20.dp)) {
+                    Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 10.dp), contentAlignment = Alignment.Center) { Text("⇄ 간편홈", fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
+                }
                 // [v19] 명함(단골 확보) + 기사 설정
                 Card(modifier = Modifier.height(36.dp).clickable { com.callradar.app.NameCardActivity.start(context) }, colors = CardDefaults.cardColors(containerColor = Color(0xFF7C3AED)), shape = RoundedCornerShape(20.dp)) {
                     Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text("📇 명함", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold) }

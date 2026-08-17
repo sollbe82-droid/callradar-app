@@ -10,10 +10,11 @@ import androidx.compose.ui.graphics.Color
 object AppTheme {
     var isDark by mutableStateOf(true)
 
-    val bg: Color get() = if (isDark) Color(0xFF0A0E1A) else Color(0xFFF2F4F7)
-    val card: Color get() = if (isDark) Color(0xFF111827) else Color(0xFFFFFFFF)
-    val surface2: Color get() = if (isDark) Color(0xFF1F2937) else Color(0xFFE8EBF0)
-    val text: Color get() = if (isDark) Color.White else Color(0xFF0F172A)
+    // 라이트: 순백 대신 오프화이트로 눈부심↓ (카드 F5F6F8 / 배경 E7E9EE, 텍스트도 살짝 완화)
+    val bg: Color get() = if (isDark) Color(0xFF0A0E1A) else Color(0xFFE7E9EE)
+    val card: Color get() = if (isDark) Color(0xFF111827) else Color(0xFFF5F6F8)
+    val surface2: Color get() = if (isDark) Color(0xFF1F2937) else Color(0xFFDCE0E7)
+    val text: Color get() = if (isDark) Color.White else Color(0xFF1E293B)
     val muted: Color get() = if (isDark) Color(0xFF6B7280) else Color(0xFF64748B)
 
     // 강조색은 두 모드 공통
