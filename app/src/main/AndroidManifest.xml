@@ -134,6 +134,10 @@
 
         <!-- [v83] 내 노하우 — 비공개=로컬 온리 노트 (서버 미전송) -->
         <activity
+            android:name=".EventsActivity"
+            android:exported="false"
+            android:label="행사 수요 예보" />
+        <activity
             android:name=".KnowhowActivity"
             android:exported="false"
             android:label="내 노하우" />

@@ -35,6 +35,7 @@ class WorkSessionService : Service() {
     private val NOTI_ID = 3101
     private var lastNotiKm = -1f   // [v32] 알림에 마지막 표시한 km — 0.1km 이상 늘 때만 갱신(스팸 방지)
     private var lastTrackTs = 0L    // [v32] 궤적 점 마지막 기록 시각(저빈도 샘플링)
+    private var lastEventChk = 0L   // [GPS행사알림] 주변 대형행사 체크 주기(10분)
     private var locThread: android.os.HandlerThread? = null   // [v33] 위치 콜백·DB를 메인 스레드 밖에서 처리(ANR 방지)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -116,7 +117,53 @@ class WorkSessionService : Service() {
                 (com.callradar.app.NaviIntentReceiver.activeTripId > 0 && com.callradar.app.NaviIntentReceiver.autoBoarded)
             try { com.callradar.app.LocalTrackDatabase.getInstance(this).addPoint(lat, lng, now, loaded) } catch (e: Exception) {}
         }
+        // [GPS행사알림] 근무 중 10분마다 내 위치 7km 내 '오늘 진행 중인 대형 행사' 확인 → 행사당 하루 1회 알림.
+        //  "잠실야구장 2.1km — ⚾ KT vs LG · 19:00 시작 · 예상 종료 22:10" — 이동하며 자연히 새 지역 행사를 만나는 구조.
+        if (now - lastEventChk >= 10 * 60_000L) {
+            lastEventChk = now
+            checkNearbyEvents(lat, lng)
+        }
         lastLat = lat; lastLng = lng; lastLocTs = nowMs
+    }
+
+    // [GPS행사알림] 서버 /api/events/nearby 조회 → 아직 안 알린 행사만 알림(행사당 하루 1회, prefs 기록)
+    private fun checkNearbyEvents(lat: Double, lng: Double) {
+        Thread {
+            try {
+                val uid = prefs().getString("user_id", "") ?: ""
+                if (uid.isEmpty()) return@Thread
+                val body = (java.net.URL("https://callradar-server.onrender.com/api/events/nearby?lat=$lat&lng=$lng&km=7").openConnection()
+                    .apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as java.net.HttpURLConnection)
+                    .apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()
+                val arr = org.json.JSONArray(body)
+                if (arr.length() == 0) return@Thread
+                val dayKey = (System.currentTimeMillis() + 9 * 3600_000L) / 86400_000L
+                val notiKey = "evt_notified_$dayKey"
+                val done = (prefs().getString(notiKey, "") ?: "").split(",").filter { it.isNotBlank() }.toMutableSet()
+                for (i in 0 until minOf(arr.length(), 3)) {
+                    val e = arr.getJSONObject(i)
+                    val id = e.optInt("id", 0).toString()
+                    if (id in done) continue
+                    done.add(id)
+                    val title = e.optString("title"); val venue = e.optString("venue"); val km = e.optDouble("km", 0.0)
+                    val memo = e.optString("memo").takeIf { it.isNotBlank() && it != "null" }
+                    val txt = "${if (venue.isNotBlank() && venue != "null") venue else title} ${km}km — $title" + (memo?.let { " · $it" } ?: "")
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        nm.createNotificationChannel(android.app.NotificationChannel("callradar_events", "주변 대형 행사", NotificationManager.IMPORTANCE_DEFAULT))
+                        val n = Notification.Builder(this, "callradar_events")
+                            .setSmallIcon(android.R.drawable.ic_menu_compass)
+                            .setContentTitle("🎪 근처 대형 행사")
+                            .setContentText(txt)
+                            .setStyle(Notification.BigTextStyle().bigText(txt))
+                            .setAutoCancel(true)
+                            .build()
+                        nm.notify(7800 + (id.toIntOrNull() ?: 0) % 100, n)
+                    }
+                }
+                prefs().edit().putString(notiKey, done.joinToString(",")).apply()
+            } catch (e: Exception) {}
+        }.start()
     }
 
     private fun buildNoti(km: Float): Notification {

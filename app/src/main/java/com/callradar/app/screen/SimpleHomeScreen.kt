@@ -40,6 +40,7 @@ private val SIMPLE_CARD_REGISTRY = listOf(
     SimpleCard("records", "📋", "기록·정산", 0xFF3B82F6, "운행 기록·월별 정산·지출"),
     // [기록·정산 통합] '정산' 콜카드 제거 — 기록 안에 월별 탭 존재 + 퇴근 시 일일정산 자동 표시
     SimpleCard("track", "🗺️", "궤적", 0xFF4ADE80, "오늘 실차·공차 경로"),
+    SimpleCard("events", "🎪", "행사", 0xFFF472B6, "야구 종료·대형 행사 수요 예보"),
     SimpleCard("stats", "📊", "분석", 0xFF22D3EE, "수입 추세·시간대 통계"),
     SimpleCard("ranking", "🏆", "랭킹", 0xFFFBBF24, "내 순위·지역 랭킹"),
     SimpleCard("knowhow", "📝", "내 노하우", 0xFFA78BFA, "🔒 폰에만 저장 · 나만의 영업수첩"),

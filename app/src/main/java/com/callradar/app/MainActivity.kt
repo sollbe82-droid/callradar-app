@@ -451,6 +451,7 @@ class MainActivity : ComponentActivity() {
                 "track" -> try { com.callradar.app.TrackActivity.start(this@MainActivity) } catch (e: Exception) {}
                 "settlement" -> showSettle = true
                 "knowhow" -> try { com.callradar.app.KnowhowActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 내 노하우 콜카드
+                "events" -> try { com.callradar.app.EventsActivity.start(this@MainActivity) } catch (e: Exception) {}   // [행사개편] 행사 수요 예보
                 "salary" -> try { com.callradar.app.CompanyProfileActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 월급 예상
                 "tax" -> try { com.callradar.app.TaxReportActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 세무 리포트 노출
                 else -> route = id

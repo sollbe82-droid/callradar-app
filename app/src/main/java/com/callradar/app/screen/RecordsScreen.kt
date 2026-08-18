@@ -729,7 +729,12 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                     Column(horizontalAlignment = Alignment.End) {
                                         if (trip.fare > 0) { Text("${String.format("%,d", trip.fare)}원", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = green) }
                                         else { Text("금액입력", fontSize = 12.sp, color = accent, modifier = Modifier.clickable { quickFareTrip = trip; quickFareInput = ""; quickFarePlatform = ""; showQuickFare = true }) }
-                                        if (trip.tip + trip.promo > 0) Text("+${String.format("%,d", trip.tip + trip.promo)} ${trip.promoType.ifBlank { "보너스" }}", fontSize = 10.sp, color = accent)
+                                        // [#592 제보] promoType이 "null" 문자열/공백이면 그대로 노출되던 문제 → 팁·추가금 구분 라벨로 정리
+                                        if (trip.tip + trip.promo > 0) {
+                                            val ptLabel = trip.promoType.takeIf { it.isNotBlank() && it != "null" }
+                                                ?: when { trip.tip > 0 && trip.promo > 0 -> "팁·추가금"; trip.tip > 0 -> "팁"; else -> "추가금" }
+                                            Text("+${String.format("%,d", trip.tip + trip.promo)} $ptLabel", fontSize = 10.sp, color = accent)
+                                        }
                                     }
                                     Spacer(Modifier.width(8.dp))
                                     TextButton(onClick = { shareTrip(ctx, trip.origin, trip.destination, trip.time.split(":").getOrElse(0) { "" }, trip.time.split(":").getOrElse(1) { "" }, if (trip.fare > 0) trip.fare.toString() else "") }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(28.dp)) { Text("🔗", fontSize = 14.sp) }

@@ -41,6 +41,7 @@ fun SimpleMenuScreen(
         "더 벌기" to listOf(
             MenuTile("radar", "📡", "레이더"),
             MenuTile("airport", "✈️", "공항"),
+            MenuTile("events", "🎪", "행사"),
             MenuTile("stats", "📊", "분석"),
             MenuTile("ranking", "🏆", "랭킹")
         ),
@@ -58,6 +59,7 @@ fun SimpleMenuScreen(
             "namecard" -> try { com.callradar.app.NameCardActivity.start(context) } catch (e: Exception) {}
             "expense" -> try { com.callradar.app.ReceiptScanActivity.start(context, "지출") } catch (e: Exception) {}
             "knowhow" -> try { com.callradar.app.KnowhowActivity.start(context) } catch (e: Exception) {}
+            "events" -> try { com.callradar.app.EventsActivity.start(context) } catch (e: Exception) {}
             "salary" -> try { com.callradar.app.CompanyProfileActivity.start(context) } catch (e: Exception) {}
             "tax" -> try { com.callradar.app.TaxReportActivity.start(context) } catch (e: Exception) {}
             "setup_help" -> { com.callradar.app.MainActivity.wizardReopen.value = true; onBack() }   // 홈으로 돌아가면 마법사가 위에 뜸
