@@ -1,0 +1,15 @@
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:packagePlayReleaseBundle'.
+> A failure occurred while executing com.android.build.gradle.internal.tasks.PackageBundleTask$BundleToolWorkAction
+   > java.nio.file.FileAlreadyExistsException: C:\CallRadar\app\build\intermediates\intermediary_bundle\playRelease\packagePlayReleaseBundle\intermediary-bundle.aab
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 8m 35s
