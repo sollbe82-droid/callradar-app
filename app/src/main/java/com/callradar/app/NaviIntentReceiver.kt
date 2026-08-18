@@ -192,7 +192,11 @@ class NaviIntentReceiver : AccessibilityService() {
         }.start()
         try {
             // [관리자 게이트] 관리자 해금 기기에서만 위치서비스 시작(비관리자는 자동기록 대기, GPS도 안 켬)
-            if (isAdmin() && autoOn()) {
+            // [재부팅 유령실행 수정 #103] 접근성은 재부팅 시 OS가 자동 재연결됨 → 여기서 무조건 GPS·배지를 켜면
+            //  콜도 안 잡았는데 앱이 '자동 실행'된 것처럼 보임(배터리·오해 유발). 근무 중(work_start>0)일 때만
+            //  즉시 복구(OS가 접근성을 죽였다 살린 경우)하고, 그 외(재부팅 등)엔 첫 택시앱 이벤트에서 lazy 시작.
+            val working = getSharedPreferences("callradar_prefs", MODE_PRIVATE).getLong("work_start", 0L) > 0L
+            if (isAdmin() && autoOn() && working) {
                 startForegroundService(Intent(this, LocationTrackingService::class.java)); locStarted = true
                 // [자동기록 배지] 플로팅 버튼과 무관하게, 자동기록 켜지면 배지 서비스도 띄워 '자동기록 중/대기'가 항상 보이게.
                 try { startService(Intent(this, com.callradar.app.FloatingTripService::class.java)) } catch (e: Exception) {}
@@ -234,8 +238,11 @@ class NaviIntentReceiver : AccessibilityService() {
         if (!isAdmin() || !autoOn()) return   // [게이트] 관리자 아니거나 자동기록 OFF면: 자동 파싱·트립생성 전부 스킵
         val pkg = event.packageName?.toString() ?: return
         if (pkg !in TAXI_APPS) return
-        // [관리자 게이트] 접근성 켠 뒤에 관리자 해금한 경우엔 onServiceConnected에서 GPS를 안 켰으므로 여기서 1회 지연 시작.
-        if (!locStarted) { try { startForegroundService(Intent(this, LocationTrackingService::class.java)); locStarted = true } catch (e: Exception) {} }
+        // [관리자 게이트] 접근성 켠 뒤에 관리자 해금한 경우 + [#103] 재부팅 대기 상태에서 첫 택시앱 이벤트 → 여기서 1회 지연 시작.
+        if (!locStarted) { try {
+            startForegroundService(Intent(this, LocationTrackingService::class.java)); locStarted = true
+            try { startService(Intent(this, com.callradar.app.FloatingTripService::class.java)) } catch (e: Exception) {}   // 배지도 이때 함께
+        } catch (e: Exception) {} }
         val now = System.currentTimeMillis()
 
         // [v3.1x2] 타임아웃 90분 → 6시간 안전상한
