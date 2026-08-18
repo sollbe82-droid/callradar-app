@@ -675,8 +675,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
                     try {
                         val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
-                        log.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
-                        val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
+                        // [중복영수증 수정] 영수증은 '하루 누적 스냅샷' → 같은 날(KST) 재퇴근이면 이전 항목 대체.
+                        //  (퇴근 후 자동대기 배지 탭 → 자동 재출근 → 재퇴근 시 같은 값이 두 줄 쌓이던 문제)
+                        val dayOf = { ms: Long -> (ms + 9L * 3600_000L) / 86_400_000L }
+                        val kept = JSONArray()
+                        for (i in 0 until log.length()) {
+                            val e0 = log.optJSONObject(i) ?: continue
+                            if (dayOf(e0.optLong("end", 0L)) != dayOf(now)) kept.put(e0)
+                        }
+                        kept.put(JSONObject().apply { put("end", now); put("grossMin", sumGrossMin); put("netMin", sumNetMin); put("distKm", sumDistKm.toDouble()); put("fare", sFare); put("perHour", sumPerHour) })
+                        val trimmed = if (kept.length() > 90) JSONArray().also { for (i in kept.length() - 90 until kept.length()) it.put(kept.get(i)) } else kept
                         prefs.edit().putString("work_session_log", trimmed.toString()).apply()
                     } catch (e: Exception) {}
                     // [v56] 근무세션 요약(시간·km·매출) 서버 저장 — 퇴근 시 1회. 진단·크로스디바이스용, 좌표 아닌 집계값이라 부담 거의 없음.

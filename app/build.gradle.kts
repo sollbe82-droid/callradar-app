@@ -28,8 +28,8 @@ android {
         applicationId = "com.callradar.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 84
-        versionName = "2.8.4"
+        versionCode = 85
+        versionName = "2.8.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // [v22] 카카오맵 네이티브 앱 키 — local.properties의 KAKAO_NATIVE_KEY 사용(코드/깃에 하드코딩 X)
         buildConfigField("String", "KAKAO_NATIVE_KEY", "\"${keystoreProps.getProperty("KAKAO_NATIVE_KEY") ?: ""}\"")
