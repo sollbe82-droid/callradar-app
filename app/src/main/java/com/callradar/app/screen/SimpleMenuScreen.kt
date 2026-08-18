@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -71,7 +73,7 @@ fun SimpleMenuScreen(
             Text("메뉴", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
         }
 
-        Column(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
             // [3그룹] 섹션 제목 + 3열 그리드
             groups.forEach { (title, tiles) ->
                 Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp, top = 4.dp))
@@ -90,11 +92,43 @@ fun SimpleMenuScreen(
                 }
             }
 
+            // [간편모드 피드백] "전체 메뉴로 3번 클릭" 제거 — 더보기의 주요 항목을 여기 직접 펼침(설정 · 도구)
+            Text("설정 · 도구", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp, top = 4.dp))
+            @Composable fun MenuRow(icon: String, label: String, desc: String, onClick: () -> Unit) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { onClick() }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(icon, fontSize = 17.sp); Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(label, fontSize = 13.5.sp, color = AppTheme.text, fontWeight = FontWeight.Bold)
+                            Text(desc, fontSize = 10.5.sp, color = muted, maxLines = 1)
+                        }
+                        Text("›", fontSize = 16.sp, color = muted)
+                    }
+                }
+            }
+            MenuRow("⚙️", "기사 설정", "유형·사납금·가스·수수료·연차") { onOpen("settlement") }
+            MenuRow("📄", "급여명세서 스캔", "촬영 한 번으로 전 항목 인식·실수령 역산") { try { com.callradar.app.PayslipScanActivity.start(context) } catch (e: Exception) {} }
+            MenuRow("🧾", "매출 영수증 정산", "미터기 상세내역 촬영 → 빠진 금액 자동 채움") { try { com.callradar.app.ReceiptReconcileActivity.start(context) } catch (e: Exception) {} }
+            MenuRow("📷", "과거기록 가져오기", "다른 앱 장부를 사진으로 불러오기") { try { com.callradar.app.ImageImportActivity.start(context) } catch (e: Exception) {} }
+            run {
+                val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                MenuRow(if (AppTheme.isDark) "☀️" else "🌙", if (AppTheme.isDark) "라이트 모드로" else "다크 모드로", "화면 테마 전환") {
+                    val nd = !AppTheme.isDark
+                    prefs.edit().putBoolean("dark_mode", nd).apply(); AppTheme.isDark = nd
+                }
+            }
+            MenuRow("📤", "데이터 내보내기", "전체 운행기록 CSV 다운로드") {
+                try {
+                    val uid = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
+                    if (uid.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://callradar-server.onrender.com/api/export/$uid")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (e: Exception) {}
+            }
+
             Spacer(Modifier.height(6.dp))
-            // 전체 메뉴(기존 더보기 — 설정·로그아웃·기타 기능 전부)
+            // 나머지(계정 연결·이름·공유설정·로그아웃 등)만 전체 메뉴로
             Card(modifier = Modifier.fillMaxWidth().clickable { onFullMenu() }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(14.dp)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("⚙️ 전체 메뉴 · 설정", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("⋯ 계정 · 연결 · 고급 설정", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text("›", fontSize = 18.sp, color = muted)
                 }
             }
