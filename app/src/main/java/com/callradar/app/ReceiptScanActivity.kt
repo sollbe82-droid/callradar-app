@@ -122,15 +122,58 @@ class ReceiptScanActivity : ComponentActivity() {
         ocrService.processReceipt(bitmap) { result ->
             runOnUiThread {
                 isProcessing = false
-                if (result != null) {
+                if (result != null && result.amount > 0) {
                     scanResult = result
                     statusMessage = "분석 완료!"
                     aiRefine(result)   // [AI] 서버 Claude 보정 — 성공하면 확인화면 값이 더 정확해짐(실패해도 로컬값 유지)
                 } else {
-                    statusMessage = "분석 실패 - 다시 촬영해주세요"
+                    // [비전 폴백] 온디바이스 OCR이 글자를 못 읽는 영수증(감열지·구겨짐·저조도)
+                    //  → 사진 자체를 서버 Claude가 직접 판독. "인식 못한다" 제보의 근본 대응.
+                    visionFallback(bitmap, result)
                 }
             }
         }
+    }
+
+    // [비전 폴백] 사진 업로드(Cloudinary) → /api/ai/receipt-vision → 결과로 확인화면 구성
+    private fun visionFallback(bitmap: Bitmap, local: ReceiptOcrService.ReceiptResult?) {
+        isProcessing = true
+        statusMessage = "🔍 AI가 사진을 직접 읽는 중.. (몇 초)"
+        Thread {
+            try {
+                val f = java.io.File(cacheDir, "receipt_vision.jpg")
+                f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+                val url = com.callradar.app.CloudinaryUploader.upload(this, android.net.Uri.fromFile(f))
+                try { f.delete() } catch (e: Exception) {}
+                if (url == null) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 밝은 곳에서 다시 촬영해주세요" }; return@Thread }
+                val json = JSONObject().apply { put("url", url) }
+                val conn = (URL("$SERVER_URL/api/ai/receipt-vision").openConnection().apply {
+                    com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
+                } as HttpURLConnection).apply {
+                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    doOutput = true; connectTimeout = 12000; readTimeout = 40000
+                }
+                conn.outputStream.write(json.toString().toByteArray(Charsets.UTF_8))
+                val code = conn.responseCode
+                val body = if (code in 200..299) conn.inputStream.bufferedReader(Charsets.UTF_8).readText() else ""
+                conn.disconnect()
+                if (code in 200..299 && body.isNotBlank()) {
+                    val o = JSONObject(body)
+                    val amt = o.optInt("amount", 0)
+                    if (amt <= 0) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" }; return@Thread }
+                    val cat = o.optString("category", "기타")
+                    val type = when (cat) { "LPG", "전기충전" -> ReceiptOcrService.ReceiptType.LPG; "정비" -> ReceiptOcrService.ReceiptType.REPAIR; "세차" -> ReceiptOcrService.ReceiptType.WASH; "주차" -> ReceiptOcrService.ReceiptType.PARKING; "식비" -> ReceiptOcrService.ReceiptType.FOOD; "통행료" -> ReceiptOcrService.ReceiptType.HIPASS; else -> ReceiptOcrService.ReceiptType.UNKNOWN }
+                    val vr = ReceiptOcrService.ReceiptResult(
+                        type = type, typeName = cat, amount = amt, time = "",
+                        date = o.optString("date", local?.date ?: ""),
+                        memo = o.optString("station", ""), rawText = local?.rawText ?: "(AI 비전 판독)",
+                        liters = o.optDouble("liters", 0.0).toFloat(),
+                        pricePerLiter = o.optInt("price_per_liter", 0)
+                    )
+                    runOnUiThread { isProcessing = false; scanResult = vr; statusMessage = "분석 완료 · AI 사진 판독 ✨" }
+                } else runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" }
+            } catch (e: Exception) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" } }
+        }.start()
     }
 
     // [AI 연동 1호] 로컬 OCR 원문을 서버 Claude가 교차검증(단가×리터≈금액)·구조화 → 값 보정.

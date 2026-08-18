@@ -942,8 +942,8 @@ private fun CalendarView(userId: String) {
                     val dayNet = dayIncome - dayExpense
                     Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            // [중복 제거 합의] '수입'은 홈·내역에 이미 있음 → 여기선 지출·순수익만 (요청 반영)
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("수입", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayIncome)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green) }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("지출", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayExpense)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = red) }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("순수익", fontSize = 10.sp, color = muted); Text("${String.format("%,d", dayNet)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (dayNet >= 0) accent else red) }
                             }
