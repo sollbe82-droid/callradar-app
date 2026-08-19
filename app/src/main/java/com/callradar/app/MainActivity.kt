@@ -441,6 +441,7 @@ class MainActivity : ComponentActivity() {
     fun SimpleMain(nickname: String, userId: String, onEndShift: () -> Unit, onLogout: () -> Unit) {
         var route by remember { mutableStateOf("home") }
         var showSettle by remember { mutableStateOf(false) }
+        var fullTick by remember { mutableStateOf(0) }   // [#기사설정 버그] MoreScreen을 정산설정으로 직행시키는 틱
         val switchClassic: () -> Unit = {
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString("home_mode", "classic").apply()
             recreate()
@@ -450,6 +451,9 @@ class MainActivity : ComponentActivity() {
             when (id) {
                 "track" -> try { com.callradar.app.TrackActivity.start(this@MainActivity) } catch (e: Exception) {}
                 "settlement" -> showSettle = true
+                // [#기사설정 버그 수정] 간편메뉴 '기사 설정'이 'settlement'로 와서 일일마감이 열리던 문제
+                //  → 전용 id로 분리, MoreScreen의 정산 설정 화면으로 직행
+                "driver_settings" -> { fullTick++; route = "full" }
                 "knowhow" -> try { com.callradar.app.KnowhowActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 내 노하우 콜카드
                 "events" -> try { com.callradar.app.EventsActivity.start(this@MainActivity) } catch (e: Exception) {}   // [행사개편] 행사 수요 예보
                 "salary" -> try { com.callradar.app.CompanyProfileActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 월급 예상
@@ -470,7 +474,7 @@ class MainActivity : ComponentActivity() {
                 "airport" -> SimpleWrap("공항", { route = "home" }) { com.callradar.app.screen.AirportScreen() }
                 "stats" -> SimpleWrap("분석", { route = "home" }) { com.callradar.app.screen.Stats2Screen(userId = userId) }   // [분석 2.0] 브리핑·KPI·히트맵
                 "ranking" -> SimpleWrap("랭킹", { route = "home" }) { com.callradar.app.screen.RankingScreen(userId = userId) }
-                "full" -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showSettle = true })
+                "full" -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showSettle = true }, openSettleTick = fullTick)
                 else -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
             }
             if (showSettle) {
