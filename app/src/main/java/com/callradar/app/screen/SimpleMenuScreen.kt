@@ -115,26 +115,7 @@ fun SimpleMenuScreen(
                 var dsh by remember { mutableStateOf(prefs2.getInt("day_start_hour", 0)) }
                 var showDsh by remember { mutableStateOf(false) }
                 MenuRow("📅", "영업일 시작시각", if (dsh == 0) "자정 기준 · 야간·일차 기사님은 새벽으로" else "${dsh}시 기준 — 자정 넘긴 운행을 한 날로") { showDsh = true }
-                if (showDsh) {
-                    AlertDialog(onDismissRequest = { showDsh = false },
-                        title = { Text("영업일 시작 시각", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                        text = { Column {
-                            Text("하루의 시작을 이 시각으로 잡아요. 야간·일차 기사님은 새벽(5~6시)이나 오전(9~10시)으로 맞추면 심야 운행이 한 '오늘'로 묶여요.", fontSize = 12.sp, color = muted)
-                            Spacer(Modifier.height(10.dp))
-                            listOf(listOf(0, 4, 5, 6), listOf(7, 8, 9, 10), listOf(11, 12)).forEach { rowOpts ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-                                    rowOpts.forEach { h ->
-                                        FilterChip(selected = dsh == h, onClick = {
-                                            dsh = h; prefs2.edit().putInt("day_start_hour", h).putBoolean("day_start_set", true).apply(); showDsh = false
-                                        }, label = { Text(if (h == 0) "자정" else "${h}시", fontSize = 12.sp) },
-                                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
-                                    }
-                                }
-                            }
-                        } },
-                        confirmButton = {}, dismissButton = { OutlinedButton(onClick = { showDsh = false }) { Text("닫기") } },
-                        containerColor = AppTheme.card)
-                }
+                if (showDsh) DayStartDialog(onDismiss = { showDsh = false }, onSaved = { dsh = it })   // [영업일 단일화] 공용 다이얼로그
             }
             MenuRow("📄", "급여명세서 스캔", "촬영 한 번으로 전 항목 인식·실수령 역산") { try { com.callradar.app.PayslipScanActivity.start(context) } catch (e: Exception) {} }
             MenuRow("🧾", "매출 영수증 정산", "미터기 상세내역 촬영 → 빠진 금액 자동 채움") { try { com.callradar.app.ReceiptReconcileActivity.start(context) } catch (e: Exception) {} }

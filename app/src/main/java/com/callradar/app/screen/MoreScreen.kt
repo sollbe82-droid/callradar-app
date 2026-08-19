@@ -830,33 +830,8 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             dismissButton = { OutlinedButton(onClick = { showNameDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
 
-    if (showDayStartDlg) {
-        AlertDialog(onDismissRequest = { showDayStartDlg = false },
-            title = { Text("영업일 시작 시각", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-            text = { Column {
-                Text("하루의 시작을 이 시각으로 잡아요. 개인·일차·야간 누구나 설정할 수 있어요.\n· 일차 기사님: 오전 9시로 맞추면 '오전 9시 ~ 다음날 오전 9시'가 하루로 묶여요.\n· 야간 기사님: 오전 6시 등으로 맞추면 심야 운행이 한 '오늘'이 돼요.\n기본은 자정(0시)이에요.", fontSize = 12.sp, color = muted)
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { dayStartHour = if (dayStartHour <= 0) 23 else dayStartHour - 1 }) { Text("−", color = accent, fontSize = 18.sp) }
-                    Spacer(Modifier.width(16.dp))
-                    Text(if (dayStartHour == 0) "자정 (0시)" else "${dayStartHour}시", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                    Spacer(Modifier.width(16.dp))
-                    OutlinedButton(onClick = { dayStartHour = if (dayStartHour >= 23) 0 else dayStartHour + 1 }) { Text("+", color = accent, fontSize = 18.sp) }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0 to "자정", 5 to "새벽5시", 6 to "오전6시", 9 to "오전9시").forEach { (h, lbl) ->
-                        FilterChip(selected = dayStartHour == h, onClick = { dayStartHour = h }, label = { Text(lbl, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
-                    }
-                }
-            } },
-            confirmButton = { Button(onClick = {
-                prefs.edit().putInt("day_start_hour", dayStartHour).apply(); showDayStartDlg = false
-                // [v23] 계정에도 저장 → 서브폰(2·3폰)도 같은 영업일 기준 사용
-                Thread { try { val conn = (java.net.URL("${Config.SERVER_URL}/api/user-settings").openConnection() as java.net.HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 6000 }; conn.outputStream.use { it.write(org.json.JSONObject().apply { put("user_id", userId.toIntOrNull() ?: userId); put("day_start", dayStartHour) }.toString().toByteArray()) }; conn.responseCode } catch (e: Exception) {} }.start()
-            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
-            dismissButton = { OutlinedButton(onClick = { showDayStartDlg = false }) { Text("취소") } }, containerColor = AppTheme.card)
-    }
+    // [영업일 단일화] 기본홈·간편메뉴와 동일한 공용 다이얼로그 사용 (서버 동기화 포함)
+    if (showDayStartDlg) DayStartDialog(onDismiss = { showDayStartDlg = false }, onSaved = { dayStartHour = it })
 
     if (showShareCfg) {
         var roomInput by remember { mutableStateOf(shareRoom) }

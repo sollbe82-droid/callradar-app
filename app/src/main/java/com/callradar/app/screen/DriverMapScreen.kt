@@ -86,7 +86,8 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
         // [지도필터] 오늘/30k/50k 전환 시 히트맵 다시 그림 (지도 준비 후에도 1회)
         LaunchedEffect(mapRef, mapFilter) {
             val km = mapRef ?: return@LaunchedEffect
-            loadMyHeatmap(km, userId, scope, mapFilter) { pts, _, msg -> pointCount = pts; status = msg }
+            loadMyHeatmap(km, userId, scope, mapFilter, { pts, _, msg -> pointCount = pts; status = msg },
+                ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE).getInt("day_start_hour", 0))   // [영업일 반영]
         }
 
         // [#1] 지도 열릴 때 내 위치로 중심 (GPS 준비되면 1회)
@@ -231,7 +232,8 @@ private fun loadMyHeatmap(
     userId: String,
     scope: kotlinx.coroutines.CoroutineScope,
     filter: Int,   // 0=오늘 1=30k+ 2=50k+
-    onDone: (Int, Int, String) -> Unit
+    onDone: (Int, Int, String) -> Unit,
+    dayStartHour: Int = 0   // [영업일 반영] '오늘' 필터가 자정이 아니라 유저 영업일 시작시각 기준으로 리셋
 ) {
     scope.launch {
         try {
@@ -243,14 +245,16 @@ private fun loadMyHeatmap(
             val cells = HashMap<String, Int>()
             var pts = 0
             val kstDay = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
-            val todayStr = kstDay.format(java.util.Date())
+            // [영업일 반영] 시각을 영업일 시작만큼 당겨서 날짜 비교 → 새벽 운행이 유저 기준 '오늘'에 남음
+            val shiftMs = dayStartHour * 3600_000L
+            val todayStr = kstDay.format(java.util.Date(System.currentTimeMillis() - shiftMs))
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val lat = o.optDouble("origin_lat", Double.NaN)
                 val lng = o.optDouble("origin_lng", Double.NaN)
                 if (lat.isNaN() || lng.isNaN() || lat == 0.0 || lng == 0.0) continue
                 when (filter) {   // [지도필터] 오늘 / 30k+ / 50k+
-                    0 -> { val d = parseUtcLoose(o.optString("started_at", "")) ?: continue; if (kstDay.format(d) != todayStr) continue }
+                    0 -> { val d = parseUtcLoose(o.optString("started_at", "")) ?: continue; if (kstDay.format(java.util.Date(d.time - shiftMs)) != todayStr) continue }
                     1 -> { if (o.optInt("fare", 0) < 30000) continue }
                     2 -> { if (o.optInt("fare", 0) < 50000) continue }
                 }

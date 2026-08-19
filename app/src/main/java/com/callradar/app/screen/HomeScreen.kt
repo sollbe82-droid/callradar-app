@@ -945,26 +945,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Text("📅 영업일 시작시각(자정 넘김 귀속)", fontSize = 12.sp, color = muted)
                                     Text(if (prefs.getBoolean("day_start_set", false)) (if (dsh == 0) "자정(0시)" else "${dsh}시") + " · 탭변경" else "미설정 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (prefs.getBoolean("day_start_set", false)) accent else muted)
                                 }
-                                if (showDshDlg) {
-                                    AlertDialog(onDismissRequest = { showDshDlg = false },
-                                        title = { Text("영업일 시작시각", color = AppTheme.text, fontWeight = FontWeight.Bold) },
-                                        text = { Column {
-                                            Text("자정 넘긴 운행을 어느 날 매출로 묶을지 기준이에요. 야간·일차 기사님은 새벽 시각을 권해요.", fontSize = 12.sp, color = muted)
-                                            Spacer(Modifier.height(10.dp))
-                                            listOf(listOf(0, 4, 5, 6), listOf(7, 8, 9, 10), listOf(11, 12)).forEach { rowOpts ->
-                                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-                                                    rowOpts.forEach { h ->
-                                                        FilterChip(selected = dsh == h, onClick = {
-                                                            dsh = h; prefs.edit().putInt("day_start_hour", h).putBoolean("day_start_set", true).apply(); showDshDlg = false
-                                                        }, label = { Text(if (h == 0) "자정" else "${h}시", fontSize = 12.sp) },
-                                                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
-                                                    }
-                                                }
-                                            }
-                                        } },
-                                        confirmButton = {}, dismissButton = { OutlinedButton(onClick = { showDshDlg = false }) { Text("닫기") } },
-                                        containerColor = AppTheme.card)
-                                }
+                                if (showDshDlg) DayStartDialog(onDismiss = { showDshDlg = false }, onSaved = { dsh = it })   // [영업일 단일화] 공용 다이얼로그
                             }
                             Spacer(Modifier.height(10.dp))
                             if (!active) {
