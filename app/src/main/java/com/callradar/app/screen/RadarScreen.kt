@@ -356,7 +356,9 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
                             roLoading = true; roResult = null
                             scope.launch {
                                 try {
-                                    val o = withContext(Dispatchers.IO) { JSONObject(rget("/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(d, "UTF-8"))) }
+                                    // [지방 존중] 기사 현재 좌표 동봉 → 동명 동네는 내 반경 우선, 표본 부족 폴백도 주변 40km 평균
+                                    val rq = if (curLat != 0.0) "&rlat=$curLat&rlng=$curLng" else ""
+                                    val o = withContext(Dispatchers.IO) { JSONObject(rget("/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(d, "UTF-8") + rq)) }
                                     roResult = o
                                 } catch (e: Exception) { roResult = null } finally { roLoading = false }
                             }

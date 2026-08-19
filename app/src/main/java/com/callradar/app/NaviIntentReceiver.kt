@@ -656,7 +656,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.responseCode
                 Log.d(TAG, "📍 목적지 갱신: #$tripId -> $destName")
                 conn.disconnect()
-                announceReturnOutlook(tripId, destName)   // [귀로내비] 목적지 확정 → 복귀 전망 알림(트립당 1회)
+                announceReturnOutlook(tripId, destName, lat, lng)   // [귀로내비] 목적지 확정 → 복귀 전망 알림(트립당 1회, 좌표 기준 — 동명이역 방지)
             } catch (e: Exception) {
                 Log.e(TAG, "목적지 갱신 실패: ${e.message}")
             } finally {
@@ -668,7 +668,7 @@ class NaviIntentReceiver : AccessibilityService() {
     // [귀로내비] 목적지 확정 시 복귀 전망을 알림으로 — "도착지 다음 콜 평균 N분 · 근처 더 나은 곳".
     //  트립당 1회만(재갱신 시 중복 방지). 서버 기여 게이트(locked)면 조용히 생략. 실패는 무시(운행 방해 금지).
     private val outlookAnnounced = HashSet<Int>()
-    private fun announceReturnOutlook(tripId: Int, destName: String) {
+    private fun announceReturnOutlook(tripId: Int, destName: String, dLat: Double = Double.NaN, dLng: Double = Double.NaN) {
         if (tripId <= 0 || destName.isBlank()) return
         synchronized(outlookAnnounced) { if (!outlookAnnounced.add(tripId)) return }
         Thread {
@@ -677,7 +677,9 @@ class NaviIntentReceiver : AccessibilityService() {
                 val userId = prefs.getString("user_id", "") ?: return@Thread
                 if (userId.isEmpty()) return@Thread
                 val dong = destName.trim().split(" ")[0]
-                val body = (URL("$SERVER_URL/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(dong, "UTF-8")).openConnection()
+                // [동명이역] 목적지 좌표 전달 → 서버가 좌표 3km 기준으로 통계(신사동 강남/은평 혼선 방지)
+                val coordQ = if (!dLat.isNaN() && !dLng.isNaN()) "&lat=$dLat&lng=$dLng" else ""
+                val body = (URL("$SERVER_URL/api/return-outlook/$userId?dest=" + java.net.URLEncoder.encode(dong, "UTF-8") + coordQ).openConnection()
                     .apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection)
                     .apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText()
                 val o = org.json.JSONObject(body)
