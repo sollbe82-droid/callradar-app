@@ -1625,6 +1625,29 @@ private fun BookingsView(userId: String, context: Context, accent: Color, muted:
                                 Button(onClick = { setStatus(id, "accepted") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("수락", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                                 OutlinedButton(onClick = { setStatus(id, "declined") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("거절", fontSize = 13.sp, color = muted) }
                             }
+                            // [#46 캘린더] 날짜 있는 예약은 폰 캘린더에 원터치 등록 (수락 여부 무관 — 잊어버림 방지)
+                            if (d.isNotBlank() && d != "null") {
+                                OutlinedButton(onClick = {
+                                    try {
+                                        val cal = java.util.Calendar.getInstance()
+                                        val dp = d.split("-").map { it.toInt() }
+                                        val tp = (if (t.isNotBlank() && t != "null") t else "09:00").split(":").map { it.toIntOrNull() ?: 0 }
+                                        cal.set(dp[0], dp[1] - 1, dp[2], tp.getOrElse(0) { 9 }, tp.getOrElse(1) { 0 }, 0)
+                                        val begin = cal.timeInMillis
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+                                            data = android.provider.CalendarContract.Events.CONTENT_URI
+                                            putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin)
+                                            putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, begin + 3600_000L)
+                                            putExtra(android.provider.CalendarContract.Events.TITLE, "🚕 예약: $nm${if (ph.isNotBlank()) " ($ph)" else ""}")
+                                            putExtra(android.provider.CalendarContract.Events.DESCRIPTION, "콜레이더 예약\n${o.ifBlank { "?" }} → ${ds.ifBlank { "?" }}${if (memo.isNotBlank() && memo != "null") "\n메모: $memo" else ""}")
+                                            putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, o)
+                                            putExtra(android.provider.CalendarContract.Events.HAS_ALARM, 1)
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) { android.widget.Toast.makeText(context, "캘린더 앱을 열 수 없어요", android.widget.Toast.LENGTH_SHORT).show() }
+                                }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("📅 캘린더", fontSize = 13.sp, color = accent) }
+                            }
                         }
                     }
                 }

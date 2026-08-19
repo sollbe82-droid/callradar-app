@@ -931,6 +931,27 @@ class NaviIntentReceiver : AccessibilityService() {
         stopDestUpdateTimer()
         val lat = LocationTrackingService.currentLat
         val lng = LocationTrackingService.currentLng
+        // [#679 저요금 방어] 장거리(15km+)인데 요금이 비상식(km당 500원 미만)이면 호출료만 파싱된 오기록 의심
+        //  → 저장은 그대로 하되(데이터 유지) 기사에게 확인 알림. (연남→운서 50km가 3,200원으로 기록된 실사례)
+        try {
+            if (actualFare > 0 && originLat != 0.0 && lat != 0.0) {
+                val distKm = distanceMeters(originLat, originLng, lat, lng) / 1000.0
+                if (distKm >= 15.0 && actualFare < distKm * 500) {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                        nm.createNotificationChannel(android.app.NotificationChannel("callradar_farecheck", "요금 확인", android.app.NotificationManager.IMPORTANCE_HIGH))
+                        val txt = "${String.format("%.0f", distKm)}km 운행이 ${String.format("%,d", actualFare)}원으로 기록됐어요. 호출료만 잡혔을 수 있으니 기록에서 요금을 확인해 주세요."
+                        val n = android.app.Notification.Builder(this, "callradar_farecheck")
+                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                            .setContentTitle("⚠️ 요금 확인 필요")
+                            .setContentText(txt).setStyle(android.app.Notification.BigTextStyle().bigText(txt))
+                            .setAutoCancel(true).build()
+                        nm.notify(7900, n)
+                    }
+                    sendDebugLog("FARE_SUSPECT", "#$tripId | ${actualFare}원 | ${String.format("%.1f", distKm)}km")
+                }
+            }
+        } catch (e: Exception) {}
         val destScr = screenAddrDest   // [v50] 운행 중 마지막으로 긁은 목적지 주소
         Thread {
             try {

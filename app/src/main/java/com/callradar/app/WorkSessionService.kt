@@ -122,6 +122,7 @@ class WorkSessionService : Service() {
         if (now - lastEventChk >= 10 * 60_000L) {
             lastEventChk = now
             checkNearbyEvents(lat, lng)
+            checkNewBookings()   // [#46] 명함 QR 예약 요청이 오면 근무 중에도 놓치지 않게 알림
         }
         lastLat = lat; lastLng = lng; lastLocTs = nowMs
     }
@@ -162,6 +163,44 @@ class WorkSessionService : Service() {
                     }
                 }
                 prefs().edit().putString(notiKey, done.joinToString(",")).apply()
+            } catch (e: Exception) {}
+        }.start()
+    }
+
+    // [#46 예약 알림] 새 예약 요청(requested) 중 아직 알리지 않은 건 → 알림. 확인한 id는 prefs에 기록.
+    private fun checkNewBookings() {
+        Thread {
+            try {
+                val uid = prefs().getString("user_id", "") ?: ""
+                if (uid.isEmpty()) return@Thread
+                val body = (java.net.URL("https://callradar-server.onrender.com/api/bookings/$uid").openConnection()
+                    .apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as java.net.HttpURLConnection)
+                    .apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()
+                val arr = org.json.JSONArray(body)
+                val seen = (prefs().getString("bookings_notified", "") ?: "").split(",").filter { it.isNotBlank() }.toMutableSet()
+                var changed = false
+                for (i in 0 until arr.length()) {
+                    val b = arr.getJSONObject(i)
+                    if (b.optString("status") != "requested") continue
+                    val id = b.optInt("id", 0).toString()
+                    if (id in seen) continue
+                    seen.add(id); changed = true
+                    val nm = b.optString("passenger_name", "").ifBlank { "손님" }
+                    val d = b.optString("ride_date", ""); val t = b.optString("ride_time", "")
+                    val o = b.optString("origin", ""); val ds = b.optString("destination", "")
+                    val txt = "$nm · $d $t · ${o.ifBlank { "?" }} → ${ds.ifBlank { "?" }} — 더보기 > 예약에서 수락/캘린더 등록"
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        val nm2 = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        nm2.createNotificationChannel(android.app.NotificationChannel("callradar_booking", "예약 요청", NotificationManager.IMPORTANCE_HIGH))
+                        val n = Notification.Builder(this, "callradar_booking")
+                            .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+                            .setContentTitle("🔔 새 예약 요청")
+                            .setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt))
+                            .setAutoCancel(true).build()
+                        nm2.notify(7950 + (id.toIntOrNull() ?: 0) % 40, n)
+                    }
+                }
+                if (changed) prefs().edit().putString("bookings_notified", seen.joinToString(",")).apply()
             } catch (e: Exception) {}
         }.start()
     }
