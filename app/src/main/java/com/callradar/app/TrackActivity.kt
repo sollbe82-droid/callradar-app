@@ -266,7 +266,10 @@ class TrackActivity : ComponentActivity() {
      *  완성된 비트맵 아래에 패널 한 장을 덧대는 방식으로 한 곳에서 처리한다.
      */
     private fun withSummary(src: Bitmap): Bitmap {
-        val s = stats ?: return src
+        // 요약 수치가 없어도(집계 실패·궤적 없음) 도장은 찍어서 내보낸다 —
+        //  워터마크 없는 이미지가 돌아다니면 넣은 의미가 없다.
+        val s = stats ?: return src.copy(Bitmap.Config.ARGB_8888, true)
+            .also { stamp(Canvas(it), it.width.toFloat(), it.height.toFloat()) }
         val w = src.width
         val panel = (w * 0.34f).toInt()
         val out = Bitmap.createBitmap(w, src.height + panel, Bitmap.Config.ARGB_8888)
@@ -313,9 +316,47 @@ class TrackActivity : ComponentActivity() {
             textSize = w * 0.028f; textAlign = Paint.Align.CENTER
         }
         cv.drawText(
-            String.format("실차 %.1fkm · 공차 %.1fkm   |   %s · 콜레이더", lkm, ekm, dateLabel),
+            String.format("실차 %.1fkm · 공차 %.1fkm   |   %s", lkm, ekm, dateLabel),
             w / 2f, panelTop + panel * 0.80f, detailP)
+
+        stamp(cv, w.toFloat(), src.height.toFloat())
         return out
+    }
+
+    /**
+     * [v92] 콜레이더 도장 — 화면 캡처(ScreenCaptureService.watermark)와 같은 모양.
+     *
+     *  궤적 공유는 좌상단에 작은 제목 글자만 있어서, 톡방에 올라가면 어느 앱으로 뽑은
+     *  그림인지 알아볼 수가 없었다. 캡처 쪽엔 이미 기울어진 도장이 있으니 같은 모양을 쓴다 —
+     *  둘이 다르면 같은 앱에서 나온 이미지로 안 보인다.
+     *
+     *  자리는 지도 우하단. 궤적 선은 대개 화면 중앙을 지나가고, 하단 범례 띠 위쪽이 비어 있다.
+     */
+    private fun stamp(c: Canvas, w: Float, mapH: Float) {
+        val gold = android.graphics.Color.rgb(245, 158, 11)
+        val label = "콜레이더"
+        val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = gold; isFakeBoldText = true
+            textSize = (w * 0.055f).coerceAtLeast(34f)
+            letterSpacing = 0.14f; textAlign = Paint.Align.CENTER
+        }
+        val padX = tp.textSize * 0.52f; val padY = tp.textSize * 0.34f
+        val boxW = tp.measureText(label) + padX * 2
+        val boxH = tp.textSize + padY * 2
+        val cx = w * 0.70f
+        val cy = mapH * 0.79f
+        c.save(); c.rotate(-30f, cx, cy)
+        val r = android.graphics.RectF(cx - boxW / 2f, cy - boxH / 2f, cx + boxW / 2f, cy + boxH / 2f)
+        val radius = boxH * 0.24f
+        // 불투명 박스 — 지도가 밝든(주간 타일) 어둡든 글자가 항상 뜬다
+        c.drawRoundRect(r, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(10, 14, 26) })
+        c.drawRoundRect(r, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = gold; style = Paint.Style.STROKE
+            strokeWidth = (boxH * 0.06f).coerceAtLeast(3f)
+        })
+        val fm = tp.fontMetrics
+        c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, tp)
+        c.restore()
     }
 
     private fun sharePng() {
