@@ -628,7 +628,9 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
     var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
     var floatingPulse by remember { mutableStateOf(prefs.getBoolean("floating_pulse", true)) }   // [v2] 운행중 버튼 펄스
-    var floatingShot by remember { mutableStateOf(prefs.getBoolean("floating_shot", true)) }   // [v91] 캡처 버튼 표시 여부
+    var floatingShot by remember { mutableStateOf(prefs.getBoolean("floating_shot", false)) }   // [v91] 캡처 버튼 표시 여부(기본 꺼짐)
+    var floatShape by remember { mutableStateOf(prefs.getString("floating_shape", "circle") ?: "circle") }
+    var floatAlpha by remember { mutableStateOf(prefs.getInt("floating_alpha", 100)) }
     var telemetryOn by remember { mutableStateOf(prefs.getBoolean("telemetry_on", true)) }
     var isDark by remember { mutableStateOf(AppTheme.isDark) }
     var nickname by remember { mutableStateOf(prefs.getString("nickname", "") ?: "") }
@@ -670,6 +672,25 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 right = if (floatingPulse) "켜짐" else "꺼짐", rightKind = if (floatingPulse) 1 else 2,
                 badge = if (floatingPulse) "켜짐" else "꺼짐", badgeKind = if (floatingPulse) 1 else 2) {
                 floatingPulse = !floatingPulse; prefs.edit().putBoolean("floating_pulse", floatingPulse).apply()
+            },
+            // [v91] 버튼 모양 — 원은 가로가 좁아 "회현동1가" 같은 긴 지명이 밖으로 나갔다.
+            //  사각형은 같은 높이에서 가로를 넓게 써서 긴 이름이 한 줄에 들어간다.
+            MoreEntry("⬛", "버튼 모양", "원 · 사각형 — 긴 동 이름은 사각형이 잘 보여요",
+                right = if (floatShape == "rect") "사각형" else "원", rightKind = 0,
+                badge = if (floatShape == "rect") "사각형" else "원", badgeKind = 0) {
+                floatShape = if (floatShape == "rect") "circle" else "rect"
+                prefs.edit().putString("floating_shape", floatShape).apply()
+                val act = context as? MainActivity
+                if (prefs.getBoolean("floating_on", false)) { act?.stopFloatingButton(); act?.startFloatingButton() }
+            },
+            // 아래 앱 화면을 가린다는 의견 → 투명도 조절. 100 → 80 → 60 → 40 순환.
+            MoreEntry("🌫️", "버튼 투명도", "아래 화면이 비쳐 보이는 정도",
+                right = "${floatAlpha}%", rightKind = 0,
+                badge = "${floatAlpha}%", badgeKind = 0) {
+                floatAlpha = when (floatAlpha) { 100 -> 80; 80 -> 60; 60 -> 40; else -> 100 }
+                prefs.edit().putInt("floating_alpha", floatAlpha).apply()
+                val act = context as? MainActivity
+                if (prefs.getBoolean("floating_on", false)) { act?.stopFloatingButton(); act?.startFloatingButton() }
             },
             // [v91] 캡처 버튼은 화면에 하나 더 뜨는 거라 부담스러워하는 분이 있다 → 끌 수 있게.
             //  끄면 홈 상단 📸로만 찍는다(콜레이더 화면). 플랫폼 콜 화면은 이 버튼이 있어야 찍힌다.

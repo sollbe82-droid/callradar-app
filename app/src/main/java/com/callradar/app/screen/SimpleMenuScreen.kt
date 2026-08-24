@@ -30,6 +30,12 @@ fun SimpleMenuScreen(
 ) {
     val context = LocalContext.current
     val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
+    // [v91] 캡처 버튼 표시 토글 — 간편모드에서도 바로 끌 수 있게.
+    //  고급 설정 안에만 두면 '메뉴 → 고급설정 → 스크롤'로 두 단계라 거슬려서 끄려는 사람에겐 너무 멀다.
+    var shotOn by remember {
+        mutableStateOf(context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            .getBoolean("floating_shot", false))
+    }
 
     // [3그룹 리빌딩] 기능명 나열 대신 기사의 하루 언어로: 오늘 일 / 더 벌기 / 내 살림
     val groups = listOf(
@@ -127,6 +133,15 @@ fun SimpleMenuScreen(
                     val nd = !AppTheme.isDark
                     prefs.edit().putBoolean("dark_mode", nd).apply(); AppTheme.isDark = nd
                 }
+            }
+            MenuRow("📸", if (shotOn) "캡처 버튼 끄기" else "캡처 버튼 켜기",
+                if (shotOn) "운행 버튼 아래 · 콜 화면 찍어 공유" else "지금은 숨겨져 있어요") {
+                shotOn = !shotOn
+                val p = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                p.edit().putBoolean("floating_shot", shotOn).apply()
+                // 플로팅이 떠 있으면 즉시 반영 (앱 껐다 켜야 보이면 켠 건지 만 건지 헷갈린다)
+                val act = context as? com.callradar.app.MainActivity
+                if (p.getBoolean("floating_on", false)) { act?.stopFloatingButton(); act?.startFloatingButton() }
             }
             MenuRow("📤", "데이터 내보내기", "전체 운행기록 CSV 다운로드") {
                 try {

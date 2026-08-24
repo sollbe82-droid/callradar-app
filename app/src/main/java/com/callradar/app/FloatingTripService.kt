@@ -115,8 +115,13 @@ class FloatingTripService : Service() {
             @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
 
         val sizePx = (64 * resources.displayMetrics.density).toInt()
+        // 사각형 모양이면 가로를 넓게 준다 — 그래야 "회현동1가" 같은 긴 지명이 한 줄에 들어간다.
+        //  (원은 가로·세로가 같아야 동그랗게 보이므로 정사각형 유지)
+        val isRect = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            .getString("floating_shape", "circle") == "rect"
+        val wPx = if (isRect) (96 * resources.displayMetrics.density).toInt() else sizePx
         val params = WindowManager.LayoutParams(
-            sizePx, sizePx,
+            wPx, sizePx,
             layoutType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
@@ -126,7 +131,7 @@ class FloatingTripService : Service() {
             //  이전 42%(중앙)는 시간당매출·레이더 버튼을 가려서 아래로 내림. 드래그하면 그 자리에 고정됨.
             val fpPos = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
             val savedX = fpPos.getInt("float_x", -1); val savedY = fpPos.getInt("float_y", -1)
-            x = if (savedX in 0..resources.displayMetrics.widthPixels) savedX else (resources.displayMetrics.widthPixels - sizePx - (16 * resources.displayMetrics.density)).toInt().coerceAtLeast(0)
+            x = if (savedX in 0..resources.displayMetrics.widthPixels) savedX else (resources.displayMetrics.widthPixels - wPx - (16 * resources.displayMetrics.density)).toInt().coerceAtLeast(0)
             y = if (savedY in 0..resources.displayMetrics.heightPixels) savedY else (resources.displayMetrics.heightPixels * 0.72f).toInt()
         }
 
@@ -165,7 +170,7 @@ class FloatingTripService : Service() {
         }
 
         try { windowManager.addView(btn, params) } catch (e: Exception) {}
-        addShotButton(params, sizePx)
+        addShotButton(params, wPx)   // 사각형이면 가로가 넓으니 그 폭 기준으로 캡처 버튼을 가운데 맞춘다
         restoreRideState()
         startAutoBadgeTicker()
     }
@@ -177,11 +182,13 @@ class FloatingTripService : Service() {
      *  콜 화면을 찍고 싶은 때가 대개 운행 중이라 정확히 부딪힌다 — 찍으려다 취소를 누를 판.
      *  그래서 작은 버튼을 하나 더 띄우고 한 번 탭 = 캡처로 뒀다. 길게 누를 필요도 없다.
      *
-     *  설정에서 끌 수 있다(floating_shot). 화면이 복잡한 게 싫은 기사님도 있다.
+     *  [v91] 기본은 꺼둔다. 화면에 버튼이 하나 더 뜨는 걸 부담스러워하는 쪽이 많고,
+     *   운행 버튼 옆이라 급할 때 잘못 누를 여지도 있다. 콜 화면을 자랑하려는 기사만
+     *   메뉴에서 켜면 된다. 콜레이더 화면 캡처는 홈 상단 📸로 충분하다.
      */
     private fun addShotButton(mainParams: WindowManager.LayoutParams, mainSize: Int) {
         val prefs = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
-        if (!prefs.getBoolean("floating_shot", true)) return
+        if (!prefs.getBoolean("floating_shot", false)) return
 
         val d = resources.displayMetrics.density
         val size = (44 * d).toInt()   // 운행 버튼(64dp)보다 작게 — 오조작 방지 겸 시각적 종속
@@ -347,6 +354,23 @@ class FloatingTripService : Service() {
                 }
                 updateButtonSmall(body, "#EF4444"); startPulse()
                 startLocationForeground()   // [플로팅 사라짐 수정] 자동기록 운행 중엔 포그라운드 유지 → 다른 앱 봐도 배지 안 죽음
+            }
+            // [v91] 수동 운행 중에도 어디서 어디로 가는지 보여준다.
+            //  전엔 자동기록만 지역을 띄우고 수동은 "🚕 운행"만 나왔다. 손님 태우고 달리는 동안
+            //  출발동이 어디였는지 확인할 데가 없어서, 나중에 기록 고칠 때 기억에 의존해야 했다.
+            //  출발지는 운행 시작 때 잡은 주소, 현재지는 자동기록이 갱신해 둔 값을 그대로 쓴다(추가 GPS 0).
+            isRiding -> {
+                setFloatVisible(true)
+                val o = dongOnly(startAddr)
+                val c = dongOnly(p.getString("auto_cur_dong", "") ?: "")
+                val body = when {
+                    o.isNotBlank() && c.isNotBlank() && o != c -> "🚕운행\n$o→\n$c"
+                    o.isNotBlank() -> "🚕운행\n$o"
+                    c.isNotBlank() -> "🚕운행\n$c"
+                    else -> "🚕\n운행중"
+                }
+                updateButtonSmall(body, "#EF4444"); startPulse()
+                startLocationForeground()
             }
             floatingOn && armed -> {    // 운행 기록 버튼 ON + 자동 대기
                 setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981"); stopLocationForeground()
@@ -598,33 +622,77 @@ class FloatingTripService : Service() {
         floatingView?.post { floatingView?.alpha = 1f }
     }
 
-    // [v2] 원형 + 흰 외곽 테두리 배경 (상태별 색 채움)
+    /**
+     * 버튼 배경 — 모양·투명도를 설정에서 고를 수 있다.
+     *
+     *  floating_shape : "circle"(기본) | "rect"
+     *   원은 예쁘지만 가로 폭이 좁아 "회현동1가" 같은 긴 지명이 글자가 밖으로 나간다.
+     *   사각형(둥근 모서리)은 같은 크기에서 가로를 더 쓸 수 있어 긴 이름이 들어간다.
+     *
+     *  floating_alpha : 100(불투명) ~ 40(많이 투명). 아래 앱 화면을 가린다는 의견이 있어 넣었다.
+     */
     private fun ovalBg(colorHex: String): android.graphics.drawable.GradientDrawable {
+        val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+        val rect = p.getString("floating_shape", "circle") == "rect"
+        val d = resources.displayMetrics.density
         return android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
+            if (rect) {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 14 * d
+            } else {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+            }
             setColor(Color.parseColor(colorHex))
-            setStroke((3 * resources.displayMetrics.density).toInt(), Color.WHITE)
+            setStroke((3 * d).toInt(), Color.WHITE)
         }
+    }
+
+    /** 설정한 투명도를 뷰에 적용 (운행중 펄스가 돌 때는 펄스가 알파를 쥐므로 건드리지 않는다) */
+    private fun applyAlpha() {
+        if (pulseOn) return
+        val a = getSharedPreferences("callradar_prefs", MODE_PRIVATE).getInt("floating_alpha", 100)
+        floatingView?.alpha = (a.coerceIn(30, 100)) / 100f
+    }
+
+    /**
+     * 글자가 버튼 밖으로 나가지 않게 자동으로 줄인다.
+     *  [유저지적] "회현동1가"처럼 긴 지명에서 폰트가 원을 벗어났다.
+     *  가장 긴 줄의 글자 수로 크기를 정하고, 사각형이면 가로 여유가 있어 조금 더 키운다.
+     */
+    private fun fitTextSize(txt: String, base: Float): Float {
+        val rect = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            .getString("floating_shape", "circle") == "rect"
+        val longest = txt.split("\n").maxOfOrNull { it.length } ?: 0
+        val lines = txt.count { it == '\n' } + 1
+        var s = base
+        if (longest >= 5) s -= 1.5f
+        if (longest >= 6) s -= 1.5f
+        if (longest >= 8) s -= 1.5f
+        if (lines >= 3) s -= 1f
+        if (rect) s += 1.5f          // 사각형은 가로가 넓어 더 크게 보여도 안 넘친다
+        return s.coerceAtLeast(8f)
     }
 
     private fun updateButton(txt: String, colorHex: String) {
         floatingView?.post {
-            floatingView?.textSize = 18f   // 기본 크기 복구 (작은 표시에서 돌아올 때)
+            floatingView?.textSize = fitTextSize(txt, 18f)
             floatingView?.setTextColor(Color.WHITE)
             floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
             floatingView?.text = txt
             floatingView?.background = ovalBg(colorHex)
+            applyAlpha()
         }
     }
 
     // 출발지 동까지 두 줄로 표시할 때 (글자 작게 해서 64dp 안에 들어가게)
     private fun updateButtonSmall(txt: String, colorHex: String) {
         floatingView?.post {
-            floatingView?.textSize = 12f   // 두 줄 + 동이름 담기 위해 작게
+            floatingView?.textSize = fitTextSize(txt, 12f)
             floatingView?.setTextColor(Color.WHITE)
             floatingView?.typeface = android.graphics.Typeface.DEFAULT_BOLD
             floatingView?.text = txt
             floatingView?.background = ovalBg(colorHex)
+            applyAlpha()
         }
     }
 
