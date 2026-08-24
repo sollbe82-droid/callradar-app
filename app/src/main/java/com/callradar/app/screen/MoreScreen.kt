@@ -628,6 +628,7 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
     var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
     var floatingPulse by remember { mutableStateOf(prefs.getBoolean("floating_pulse", true)) }   // [v2] 운행중 버튼 펄스
+    var floatingShot by remember { mutableStateOf(prefs.getBoolean("floating_shot", true)) }   // [v91] 캡처 버튼 표시 여부
     var telemetryOn by remember { mutableStateOf(prefs.getBoolean("telemetry_on", true)) }
     var isDark by remember { mutableStateOf(AppTheme.isDark) }
     var nickname by remember { mutableStateOf(prefs.getString("nickname", "") ?: "") }
@@ -669,6 +670,17 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 right = if (floatingPulse) "켜짐" else "꺼짐", rightKind = if (floatingPulse) 1 else 2,
                 badge = if (floatingPulse) "켜짐" else "꺼짐", badgeKind = if (floatingPulse) 1 else 2) {
                 floatingPulse = !floatingPulse; prefs.edit().putBoolean("floating_pulse", floatingPulse).apply()
+            },
+            // [v91] 캡처 버튼은 화면에 하나 더 뜨는 거라 부담스러워하는 분이 있다 → 끌 수 있게.
+            //  끄면 홈 상단 📸로만 찍는다(콜레이더 화면). 플랫폼 콜 화면은 이 버튼이 있어야 찍힌다.
+            MoreEntry("📸", "캡처 버튼", "운행 버튼 아래 · 콜 화면 찍어 공유",
+                right = if (floatingShot) "켜짐" else "꺼짐", rightKind = if (floatingShot) 1 else 2,
+                badge = if (floatingShot) "켜짐" else "꺼짐", badgeKind = if (floatingShot) 1 else 2) {
+                floatingShot = !floatingShot
+                prefs.edit().putBoolean("floating_shot", floatingShot).apply()
+                // 플로팅이 떠 있으면 즉시 반영 — 껐다 켜야 보이면 껐는지 켰는지 헷갈린다
+                val act = context as? MainActivity
+                if (prefs.getBoolean("floating_on", false)) { act?.stopFloatingButton(); act?.startFloatingButton() }
             },
             if (!CORE_ONLY) MoreEntry("🚕", "요금 미터기", "GPS 추정 요금(재미로) · 배터리 소모 큼", right = "추정") {
                 try { com.callradar.app.MeterActivity.start(context) } catch (e: Exception) {}

@@ -210,15 +210,32 @@ class FloatingTripService : Service() {
         //  [유저지적] 따로 끌리면 운행 버튼과 떨어져 제각각 놀고, 겹치면 운행 버튼이 같이 눌린다.
         //  운행 버튼을 끌면 이 버튼이 따라오는 방식(syncShotToMain)으로 바꿨다.
         var downX = 0f; var downY = 0f; var slid = false
+        // 길게 누르면 숨기기 — 설정까지 들어가는 것보다 빠르다. 다시 켜려면 설정 > 캡처 버튼.
+        val shotLp = android.os.Handler(Looper.getMainLooper()); var shotHeld = false; var shotLpRun: Runnable? = null
         v.setOnTouchListener { _, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; slid = false; true }
+                MotionEvent.ACTION_DOWN -> {
+                    downX = e.rawX; downY = e.rawY; slid = false; shotHeld = false
+                    shotLpRun = Runnable {
+                        if (slid) return@Runnable
+                        shotHeld = true
+                        prefs.edit().putBoolean("floating_shot", false).apply()
+                        try { windowManager.removeView(v) } catch (ex: Exception) {}
+                        shotView = null; shotParams = null
+                        toast("캡처 버튼 숨김 — 설정 > 캡처 버튼에서 다시 켤 수 있어요")
+                    }
+                    shotLp.postDelayed(shotLpRun!!, 700)
+                    true
+                }
                 MotionEvent.ACTION_MOVE -> {
-                    if (kotlin.math.abs(e.rawX - downX) > 28 || kotlin.math.abs(e.rawY - downY) > 28) slid = true
+                    if (kotlin.math.abs(e.rawX - downX) > 28 || kotlin.math.abs(e.rawY - downY) > 28) {
+                        slid = true; shotLpRun?.let { shotLp.removeCallbacks(it) }
+                    }
                     true   // 소비만 하고 안 움직임 → 아래(운행 버튼)로 터치가 새지 않는다
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!slid) {
+                    shotLpRun?.let { shotLp.removeCallbacks(it) }
+                    if (!slid && !shotHeld) {
                         // 캡처 순간 이 버튼들이 사진에 찍히면 지저분하다 → 둘 다 잠깐 숨긴다
                         v.visibility = View.GONE
                         floatingView?.visibility = View.GONE
