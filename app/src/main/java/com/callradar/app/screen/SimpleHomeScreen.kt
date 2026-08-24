@@ -159,7 +159,17 @@ fun SimpleHomeScreen(
             try {
                 val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
                 val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
-                if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalChange > 30000L) {
+                // [v91] 이미 퇴근시킨 세션이 서버에서 되살아나는 것을 막는다.
+                //  전엔 lastLocalChange로 30초만 막았는데, 앱을 다시 켜면 그 값이 0으로 초기화돼
+                //  방어가 사라졌다. 그래서 퇴근을 눌러도 앱을 재실행하면 근무가 다시 켜졌다.
+                //  (휴무일에 근무가 계속 살아나던 원인)
+                //  내가 퇴근한 시각보다 먼저 시작된 출근은 이미 끝낸 세션이므로 무시한다.
+                val endedAt = prefs.getLong("last_work_end", 0L)
+                val resurrect = rws > 0L && endedAt > 0L && rws < endedAt
+                if (resurrect) {
+                    // 서버가 옛 값을 들고 있다 → 내 퇴근을 다시 밀어올려 바로잡는다
+                    pushWorkSession(0L, 0L, 0L, 0)
+                } else if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalChange > 30000L) {
                     workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                     prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
                     // [km폭주 수정③] pull은 미터 자동시작 안 함(유휴 보조폰 유령거리 차단). 원격 퇴근 시 중지+거리리셋.
@@ -344,7 +354,10 @@ fun SimpleHomeScreen(
                     Text("시간당 ${String.format("%,d", perHour)}원 · ${String.format("%.1f", distKm)}km", fontSize = 12.sp, color = muted)
                     // [근무 구간] 일시정지로 나뉜 구간을 그대로 보여준다 — "06:00~11:00 · 15:00~23:00"
                     //  (예전엔 한 덩어리로만 보여서, 중간에 몇 시간 쉬었는지 알 수 없었다)
-                    val segTxt = remember(nowTick, paused) { com.callradar.app.WorkSegments.format(context) }
+                    val segTxt = remember(nowTick, paused) {
+                        com.callradar.app.WorkSegments.ensureOpened(context)   // 자동출근으로 시작된 세션도 구간이 생기게
+                        com.callradar.app.WorkSegments.format(context)
+                    }
                     if (segTxt.isNotBlank() && segTxt.contains("·")) {
                         val restM = remember(nowTick, paused) { com.callradar.app.WorkSegments.restMin(context) }
                         Spacer(Modifier.height(4.dp))

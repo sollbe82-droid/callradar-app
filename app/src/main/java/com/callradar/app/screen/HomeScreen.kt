@@ -757,7 +757,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         try {
                             val o = withContext(Dispatchers.IO) { JSONObject((URL("$SERVER_URL/api/work-session/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()) }
                             val rws = o.optLong("work_start", workStart); val rpt = o.optLong("paused_total", pausedTotal); val rps = o.optLong("pause_start", pauseStart)
-                            if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
+                            // [v91] 이미 퇴근시킨 세션이 서버에서 되살아나는 것을 막는다.
+                            //  lastLocalWorkChange는 앱 재시작 시 0이 되어 30초 방어가 무력해진다.
+                            //  내 퇴근 시각보다 먼저 시작된 출근은 이미 끝낸 세션이므로 무시하고, 서버를 바로잡는다.
+                            val endedAt = prefs.getLong("last_work_end", 0L)
+                            val resurrect = rws > 0L && endedAt > 0L && rws < endedAt
+                            if (resurrect) {
+                                pushWorkSession(0L, 0L, 0L, 0)
+                            } else if ((rws != workStart || rpt != pausedTotal || rps != pauseStart) && System.currentTimeMillis() - lastLocalWorkChange > 30000L) {
                                 workStart = rws; pausedTotal = rpt; pauseStart = rps; nowTick = System.currentTimeMillis()
                                 prefs.edit().putLong("work_start", rws).putLong("work_paused_total", rpt).putLong("work_pause_start", rps).apply()
                                 // [km폭주 수정③] pull은 미터 자동시작 안 함(유휴 보조폰 유령거리 차단). 로컬 출근한 폰만 미터.
@@ -940,7 +947,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             // [근무 구간] 일시정지로 나뉜 실제 근무 구간 — "06:00~11:00 · 15:00~23:00"
                             //  위 '근무 중 N시간'은 휴식을 뺀 순수 근무시간이고, 아래는 그게 어떻게 나뉘었는지 보여준다.
                             if (active) {
-                                val segTxt = remember(nowTick, paused) { com.callradar.app.WorkSegments.format(context) }
+                                val segTxt = remember(nowTick, paused) {
+                            com.callradar.app.WorkSegments.ensureOpened(context)   // 자동출근으로 시작된 세션도 구간이 생기게
+                            com.callradar.app.WorkSegments.format(context)
+                        }
                                 if (segTxt.contains("·")) {
                                     val restM = remember(nowTick, paused) { com.callradar.app.WorkSegments.restMin(context) }
                                     Spacer(Modifier.height(6.dp))

@@ -48,6 +48,29 @@ object WorkSegments {
         prefs(ctx).edit().putString(KEY, arr.toString()).putLong(KEY_DAY, dayKey(ctx)).apply()
     }
 
+    /**
+     * 근무 중인데 구간이 하나도 없으면 출근 시각으로 첫 구간을 열어준다.
+     *
+     * [v91] 구간 기록이 '출근 버튼'에만 걸려 있어서, 자동출근(플랫폼 콜 감지)이나
+     *  서버 동기화로 시작된 세션은 구간이 아예 안 생겼다. 그러면 일시정지를 눌러도
+     *  닫을 구간이 없어 무시되고, 재개하면 그 시점 구간 하나만 남아
+     *  "19:22~19:22"처럼 표시 조건(· 포함)을 못 채워 타임라인이 안 보였다.
+     *  자동기록 쓰는 기사는 출근 버튼을 안 누르므로 이쪽이 오히려 다수다.
+     *
+     *  어느 경로로 시작됐든 화면을 그릴 때 여기서 메운다.
+     */
+    fun ensureOpened(ctx: Context) {
+        val p = prefs(ctx)
+        val ws = p.getLong("work_start", 0L)
+        if (ws <= 0L) return
+        val list = load(ctx)
+        if (list.isNotEmpty()) return
+        // 일시정지 중이면 그 시각까지만, 아니면 열어둔 채로
+        val ps = p.getLong("work_pause_start", 0L)
+        list.add(longArrayOf(ws, if (ps > ws) ps else 0L))
+        save(ctx, list)
+    }
+
     /** 출근 또는 일시정지 해제 → 새 구간 열기 */
     fun open(ctx: Context, t: Long = System.currentTimeMillis()) {
         val list = load(ctx)
@@ -58,6 +81,7 @@ object WorkSegments {
 
     /** 일시정지 또는 퇴근 → 현재 구간 닫기 */
     fun close(ctx: Context, t: Long = System.currentTimeMillis()) {
+        ensureOpened(ctx)   // 자동출근이라 구간이 없던 경우, 출근 시각으로 먼저 열어둔다
         val list = load(ctx)
         if (list.isEmpty() || list.last()[1] != 0L) return      // 열린 구간 없음
         val open = list.last()
