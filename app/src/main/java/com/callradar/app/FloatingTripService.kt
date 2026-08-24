@@ -39,6 +39,8 @@ class FloatingTripService : Service() {
     private val SERVER_URL = "https://callradar-server.onrender.com"
     private lateinit var windowManager: WindowManager
     private var floatingView: TextView? = null
+    // [v91] 캡처 전용 버튼 — 카카오T·우버 화면 위에서 콜을 찍으려면 앱 밖에 떠 있어야 한다.
+    private var shotView: TextView? = null
     // [v53 #124] 자동 운행 수동취소 — 배지 길게누름으로 '취소?' 무장 → 탭하면 취소.
     private var autoCancelArmed = false
     private val autoCancelHandler = android.os.Handler(Looper.getMainLooper())
@@ -137,6 +139,8 @@ class FloatingTripService : Service() {
                     touchX = event.rawX; touchY = event.rawY; moved = false
                     longPressed = false
                     // [v53 #124] 자동 운행 중 길게누름 → 수동취소 무장(가맹 자동취소 놓침·유령콜 안전망). 그 외엔 무동작.
+                    //  [v91] 여기에 캡처를 얹어봤다가 뺐다. 운행 중에 콜 화면을 찍으려고 길게 누르면
+                    //   취소 무장이 떠버린다 — 하필 찍고 싶은 때가 운행 중이라 부딪힌다. 캡처는 별도 버튼으로 뺐다.
                     lpRun = Runnable { if (!moved) { longPressed = true; armAutoCancel() } }
                     lpHandler.postDelayed(lpRun!!, 700)
                     true
@@ -159,8 +163,74 @@ class FloatingTripService : Service() {
         }
 
         try { windowManager.addView(btn, params) } catch (e: Exception) {}
+        addShotButton(params, sizePx)
         restoreRideState()
         startAutoBadgeTicker()
+    }
+
+    /**
+     * [v91] 캡처 전용 버튼 — 운행 버튼과 따로 둔다.
+     *
+     *  처음엔 운행 버튼 길게누르기에 얹었는데, 그 동작은 이미 '자동운행 취소 무장'이 쓰고 있다.
+     *  콜 화면을 찍고 싶은 때가 대개 운행 중이라 정확히 부딪힌다 — 찍으려다 취소를 누를 판.
+     *  그래서 작은 버튼을 하나 더 띄우고 한 번 탭 = 캡처로 뒀다. 길게 누를 필요도 없다.
+     *
+     *  설정에서 끌 수 있다(floating_shot). 화면이 복잡한 게 싫은 기사님도 있다.
+     */
+    private fun addShotButton(mainParams: WindowManager.LayoutParams, mainSize: Int) {
+        val prefs = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+        if (!prefs.getBoolean("floating_shot", true)) return
+
+        val d = resources.displayMetrics.density
+        val size = (44 * d).toInt()   // 운행 버튼(64dp)보다 작게 — 오조작 방지 겸 시각적 종속
+        val v = TextView(this).apply {
+            text = "📸"; textSize = 17f; gravity = Gravity.CENTER
+            background = ovalBg("#1F2937")
+            alpha = 0.92f
+        }
+        val p = WindowManager.LayoutParams(
+            size, size,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            // 운행 버튼 바로 위에 붙인다. 저장된 자리가 있으면 그걸 쓴다(따로 옮길 수 있게).
+            val sx = prefs.getInt("shot_x", -1); val sy = prefs.getInt("shot_y", -1)
+            x = if (sx >= 0) sx else (mainParams.x + (mainSize - size) / 2)
+            y = if (sy >= 0) sy else (mainParams.y - size - (10 * d).toInt()).coerceAtLeast(0)
+        }
+
+        var iX = 0; var iY = 0; var tX = 0f; var tY = 0f; var moved = false
+        v.setOnTouchListener { _, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> { iX = p.x; iY = p.y; tX = e.rawX; tY = e.rawY; moved = false; true }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (e.rawX - tX).toInt(); val dy = (e.rawY - tY).toInt()
+                    if (kotlin.math.abs(dx) > 28 || kotlin.math.abs(dy) > 28) moved = true
+                    p.x = iX + dx; p.y = iY + dy
+                    try { windowManager.updateViewLayout(v, p) } catch (ex: Exception) {}
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (moved) {
+                        try { prefs.edit().putInt("shot_x", p.x).putInt("shot_y", p.y).apply() } catch (ex: Exception) {}
+                    } else {
+                        // 캡처 순간 이 버튼이 사진에 찍히면 지저분하다 → 잠깐 숨겼다가 되돌린다
+                        v.visibility = View.GONE
+                        v.postDelayed({
+                            com.callradar.app.ScreenCaptureService.shareShot(this@FloatingTripService)
+                            v.postDelayed({ v.visibility = View.VISIBLE }, 600)
+                        }, 120)
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        shotView = v
+        try { windowManager.addView(v, p) } catch (e: Exception) {}
     }
 
     // [자동기록 배지] 자동기록이 플랫폼 콜을 기록 중이면(activeTripId>0) 플로팅을 '🔴자동 · 출발동→현재동'으로 변신.
@@ -705,6 +775,7 @@ class FloatingTripService : Service() {
         autoBadgeRunnable?.let { autoBadgeHandler.removeCallbacks(it) }
         stopPulse()
         try { floatingView?.let { windowManager.removeView(it) } } catch (e: Exception) {}
+        try { shotView?.let { windowManager.removeView(it) } } catch (e: Exception) {}   // [v91] 캡처 버튼도 같이 정리
     }
 
     // [퇴근/앱종료] 최근앱에서 콜레이더를 스와이프로 지우면 버튼은 사라지되,
@@ -712,6 +783,7 @@ class FloatingTripService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         try { floatingView?.let { windowManager.removeView(it) } } catch (e: Exception) {}
+        try { shotView?.let { windowManager.removeView(it) } } catch (e: Exception) {}   // [v91] 캡처 버튼도 같이 정리
         stopSelf()
     }
 }

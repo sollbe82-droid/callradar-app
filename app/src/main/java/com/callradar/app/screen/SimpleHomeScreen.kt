@@ -278,6 +278,11 @@ fun SimpleHomeScreen(
             }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("⇄ 기본홈", fontSize = 12.sp, color = muted) }
             // [유저요청⑧] 명함 — 홈모드처럼 간편모드 상단에서도 바로 (손님 앞에서 빨리 꺼내야 하는 기능)
             TextButton(onClick = { try { com.callradar.app.NameCardActivity.start(context) } catch (e: Exception) {} }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📇 명함", fontSize = 13.sp, color = muted) }
+            // [v91] 캡처 — 여긴 콜레이더 화면(매출·영수증)을 찍는 용도다.
+            //  플랫폼 콜 화면은 앱 밖이라 플로팅 캡처 버튼으로 찍는다.
+            IconButton(onClick = { try { com.callradar.app.ScreenCaptureService.shareShot(context) } catch (e: Exception) {} }, modifier = Modifier.size(38.dp)) {
+                Text("📸", fontSize = 19.sp)
+            }
             TextButton(onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://open.kakao.com/o/gsyuVMCi")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {} }) { Text("💬 톡방", fontSize = 13.sp, color = muted) }
             TextButton(onClick = onOpenMenu) { Text("☰ 메뉴", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
         }

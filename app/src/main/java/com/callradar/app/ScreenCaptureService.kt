@@ -59,6 +59,20 @@ class ScreenCaptureService : Service() {
             val i = Intent(ctx, ScreenCaptureService::class.java).setAction(ACTION_CAPTURE)
             try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i) else ctx.startService(i) } catch (e: Exception) {}
         }
+        /**
+         * [v91] 화면 캡처 → 크롭 → 워터마크 → 공유. 어디서든 이 한 줄만 부르면 된다.
+         *
+         *  근무 중이라 화면권한이 살아 있으면 동의창 없이 바로 찍고,
+         *  아니면 동의창을 띄운다(동의하면 그 자리에서 이어서 찍힘).
+         *  전부 유저가 눌러서 시작하고 결과를 눈으로 보는 흐름이라 스토어 심사 범위 안이다.
+         */
+        fun shareShot(ctx: Context) {
+            if (sessionAlive) { captureNow(ctx, "share"); return }
+            ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+                .edit().putString("capture_purpose", "share").apply()
+            ScreenCapturePermissionActivity.start(ctx)
+        }
+
         // 퇴근 시 projection 완전 해제
         fun stopSession(ctx: Context) {
             val wasAlive = sessionAlive
@@ -97,7 +111,13 @@ class ScreenCaptureService : Service() {
                     ensureDisplay()   // [v29] createVirtualDisplay 1회만 — 근무 내내 유지
                     // 출근 확립 시엔 purpose 없음(세션만 확립). 종료가 동의를 부른 경우엔 purpose 있음 → 즉시 캡처.
                     val purpose = readAndClearPurpose()
-                    if (purpose.isNotEmpty()) requestCapture(purpose)
+                    // [v91] 'share'만 예외 — 동의창을 띄우는 순간 콜레이더가 앞으로 나와서
+                    //  정작 찍고 싶던 카카오T 콜 화면이 가려진다. 여기서 바로 찍으면 엉뚱한 화면이 나온다.
+                    //  그래서 권한만 잡아두고, 원하는 화면에서 다시 누르게 안내한다.
+                    //  (근무 중이면 출근 때 이미 권한이 잡혀 있어 이 경로로 오지 않는다)
+                    if (purpose == "share") {
+                        toast("준비됐어요 — 찍고 싶은 화면에서 다시 길게 누르세요")
+                    } else if (purpose.isNotEmpty()) requestCapture(purpose)
                 } catch (e: Exception) { toast("화면 읽기를 시작할 수 없어요"); stopSelfSafe() }
                 return START_STICKY
             }
@@ -169,6 +189,9 @@ class ScreenCaptureService : Service() {
         when (p) {
             "endfare" -> parseFareAndStore(bmp)
             "platform" -> detectPlatformAndStore(bmp)
+            // [v91] 화면 공유 — 이게 연결이 빠져 있어서 캡처 기능이 통째로 죽어 있었다.
+            //  detectCropShare는 구현돼 있었는데 아무 purpose도 그걸 부르지 않았다.
+            "share" -> detectCropShare(bmp)
             else -> { /* 확립용/기타 — 처리 없음, 디스플레이 유지 */ }
         }
         // ★디스플레이/projection 해제하지 않음 — 근무 내내 재사용(재동의 없음)
@@ -198,7 +221,10 @@ class ScreenCaptureService : Service() {
     // 지정 플랫폼 기준 크롭 (OCR 자동판별 결과에 사용)
     private fun cropForShareWith(src: Bitmap, plat: String): Bitmap {
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("shot_crop_on", true)) return src
+        // [v91] 기본값을 끔으로 바꿨다. 기사님들은 톡방에 화면을 통째로 올린다.
+        //  게다가 기존 프리셋(카카오 상단 7~45%)은 정작 자랑거리인 탑승·하차 정보를 잘라냈다.
+        //  손님 이름 같은 게 걸리는 화면에서만 설정에서 켜면 된다.
+        if (!prefs.getBoolean("shot_crop_on", false)) return src
         val (defTop, defBot) = defaultCrop(plat)
         val topF = prefs.getFloat("shot_crop_top_$plat", defTop).coerceIn(0f, 0.9f)
         val botF = prefs.getFloat("shot_crop_bottom_$plat", defBot).coerceIn(topF + 0.05f, 1f)
@@ -275,55 +301,149 @@ class ScreenCaptureService : Service() {
         }.trim()
     }
 
-    /** 콜레이더 브랜드 워터마크 (하단 반투명 바) — 어디에 공유되든 우리 이름이 박힘 */
+    /**
+     * 콜레이더 브랜드 워터마크 — 하단에 큼직한 네모박스, 안에 이름만.
+     *
+     * 카페 매출 인증글에 이 이미지가 올라가면 기사님들이 볼 때마다 앱이 같이 노출된다.
+     * 그래서 설명 문구를 늘어놓기보다 이름 하나를 크게 박는 편이 눈에 남는다.
+     * (이모지는 기기·앱마다 렌더가 달라 깨질 수 있어 글자만 쓴다)
+     */
     private fun watermark(src: Bitmap): Bitmap {
         val out = src.copy(Bitmap.Config.ARGB_8888, true)
         val c = Canvas(out)
-        val barH = (out.height * 0.09f).coerceAtLeast(96f)   // [v24] 크롭 정확해진 만큼 워터마크 더 크게
-        val bg = Paint().apply { color = Color.argb(180, 10, 14, 26) }
-        c.drawRect(0f, out.height - barH, out.width.toFloat(), out.height.toFloat(), bg)
+        val W = out.width.toFloat(); val H = out.height.toFloat()
+
+        val gold = Color.rgb(245, 158, 11)
+        val label = "콜레이더"
+
+        // 기사님들은 크롭 없이 화면 통째로 톡방에 올린다. 하단 바를 깔면 원본을 덮어버려서
+        // 도장처럼 비스듬히 찍는다. 자리는 우하단 — 콜 정보(목적지·요금)를 가리지 않는 유일한 여백이다.
+        // (가운데 찍으면 정작 자랑하려던 목적지 글자가 묻힌다)
         val tp = Paint().apply {
-            color = Color.rgb(245, 158, 11); isAntiAlias = true
-            textSize = barH * 0.42f; isFakeBoldText = true
+            color = gold; isAntiAlias = true; isFakeBoldText = true
+            textSize = (W * 0.059f).coerceAtLeast(34f)
+            letterSpacing = 0.14f
+            textAlign = Paint.Align.CENTER
         }
-        val tp2 = Paint().apply {
-            color = Color.WHITE; isAntiAlias = true; textSize = barH * 0.30f
-        }
-        val y = out.height - barH / 2f
-        c.drawText("📻 콜레이더", 24f, y - 4f, tp)
-        c.drawText("택시기사 수입관리 · 실시간 콜 · 공항정보", 24f, y + tp2.textSize, tp2)
+        val textW = tp.measureText(label)
+        val padX = tp.textSize * 0.52f; val padY = tp.textSize * 0.34f
+        val boxW = textW + padX * 2
+        val boxH = tp.textSize + padY * 2
+
+        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+        val cx = W * prefs.getFloat("wm_x", 0.70f)
+        val cy = H * prefs.getFloat("wm_y", 0.79f)
+        val deg = prefs.getFloat("wm_deg", -30f)
+
+        c.save()
+        c.rotate(deg, cx, cy)
+        val r = android.graphics.RectF(cx - boxW / 2f, cy - boxH / 2f, cx + boxW / 2f, cy + boxH / 2f)
+        val radius = boxH * 0.24f
+        // 불투명 박스 — 밝은 화면이든 어두운 화면이든 글자가 항상 뜬다
+        c.drawRoundRect(r, radius, radius, Paint().apply { color = Color.rgb(10, 14, 26); isAntiAlias = true })
+        c.drawRoundRect(r, radius, radius, Paint().apply {
+            color = gold; style = Paint.Style.STROKE
+            strokeWidth = (boxH * 0.06f).coerceAtLeast(3f); isAntiAlias = true
+        })
+        // 세로 중앙 정렬 — baseline은 글자 중심에서 (ascent+descent)/2 만큼 올린다
+        val fm = tp.fontMetrics
+        c.drawText(label, r.centerX(), r.centerY() - (fm.ascent + fm.descent) / 2f, tp)
+        c.restore()
         return out
     }
 
+    /**
+     * [v91] 찍으면 갤러리에 저장만 하고 끝낸다.
+     *
+     *  전에는 찍자마자 공유 시트를 띄웠는데, 그러면 올릴 데를 매번 골라야 해서 번거로웠다.
+     *  갤럭시 스샷처럼 일단 저장해두고, 올리고 싶을 때 카페든 톡방이든 사진 첨부로
+     *  꺼내 쓰는 게 이미 몸에 밴 흐름이라 손이 덜 간다.
+     *  공유가 급하면 알림의 '공유' 버튼을 한 번 누르면 된다.
+     */
     private fun shareImage(bmp: Bitmap) {
         try {
+            val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            val promo = (prefs.getString("share_promo", "") ?: "").trim()
+            val text = "🚕 콜레이더로 공유\n📻 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
+
+            // 갤러리에 저장 (Android 10+는 권한 없이 MediaStore로 바로 쓸 수 있다)
+            val galleryUri = saveToGallery(bmp)
+
+            // 공유용 파일은 따로 둔다 — 갤러리 Uri를 그대로 넘기면 앱에 따라 권한 문제가 난다
             val dir = File(cacheDir, "shares").apply { mkdirs() }
             val f = File(dir, "callradar_share.png")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 90, it) }
             val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
 
-            // 브랜드 문구는 클립보드에도 (방에 붙여넣기 쉽게)
-            val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-            val promo = (prefs.getString("share_promo", "") ?: "").trim()
-            val room = (prefs.getString("share_room_url", "") ?: "").trim()
-            val text = "🚕 콜레이더로 공유\n📻 택시기사 수입관리·실시간 콜·공항정보" + (if (promo.isNotEmpty()) "\n$promo" else "")
             try {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cm.setPrimaryClip(android.content.ClipData.newPlainText("콜레이더", text))
             } catch (e: Exception) {}
 
+            notifyCaptured(uri, text)
+            toast(if (galleryUri != null) "갤러리에 저장했어요" else "캡처했어요 — 알림에서 공유")
+        } catch (e: Exception) {
+            toast("캡처 저장 실패")
+        }
+    }
+
+    /**
+     * 갤러리(사진/CallRadar)에 저장. Android 10+는 MediaStore RELATIVE_PATH로 권한 없이 쓴다.
+     *  9 이하만 외부저장소 권한이 필요한데, 없으면 조용히 실패시키고 공유 경로로만 간다.
+     */
+    private fun saveToGallery(bmp: Bitmap): android.net.Uri? {
+        return try {
+            val name = "callradar_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA)
+                .format(java.util.Date()) + ".png"
+            val cv = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_PICTURES + "/CallRadar")
+                    put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                }
+            }
+            val cr = contentResolver
+            val uri = cr.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv) ?: return null
+            cr.openOutputStream(uri)?.use { bmp.compress(Bitmap.CompressFormat.PNG, 95, it) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                cv.clear(); cv.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                cr.update(uri, cv, null, null)
+            }
+            uri
+        } catch (e: Exception) { null }
+    }
+
+    /** 캡처 알림 — 탭하면 공유 시트. 안 누르면 그냥 갤러리에 남는다(강제 안 함). */
+    private fun notifyCaptured(shareUri: android.net.Uri, text: String) {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val chId = "callradar_capture"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(android.app.NotificationChannel(
+                    chId, "화면 캡처", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+            }
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "image/png"
-                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_STREAM, shareUri)
                 putExtra(Intent.EXTRA_TEXT, text)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             val chooser = Intent.createChooser(send, "콜레이더 공유").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            startActivity(chooser)
-            if (room.isNotEmpty()) toast("문구 복사됨 — 사진 첨부 후 붙여넣기") else toast("공유할 앱을 선택하세요")
-        } catch (e: Exception) {
-            toast("공유 실패")
-        }
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= 23) android.app.PendingIntent.FLAG_IMMUTABLE else 0)
+            val pi = android.app.PendingIntent.getActivity(this, 91, chooser, flags)
+            val n = androidx.core.app.NotificationCompat.Builder(this, chId)
+                .setSmallIcon(android.R.drawable.ic_menu_camera)
+                .setContentTitle("캡처 저장됨")
+                .setContentText("갤러리에 저장했어요 · 탭하면 공유")
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .addAction(android.R.drawable.ic_menu_share, "공유", pi)
+                .build()
+            nm.notify(7003, n)
+        } catch (e: Exception) {}
     }
 
     /** [v2] 텍스트 공유 — 크롭한 콜 팝업을 한글 OCR로 읽어 글자만 공유(스샷 대신). */
