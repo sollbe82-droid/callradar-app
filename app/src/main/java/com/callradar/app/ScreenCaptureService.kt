@@ -321,7 +321,7 @@ class ScreenCaptureService : Service() {
         // (가운데 찍으면 정작 자랑하려던 목적지 글자가 묻힌다)
         val tp = Paint().apply {
             color = gold; isAntiAlias = true; isFakeBoldText = true
-            textSize = (W * 0.059f).coerceAtLeast(34f)
+            textSize = (W * 0.082f).coerceAtLeast(46f)   // [v91] 톡방에서 축소돼 보여서 키웠다
             letterSpacing = 0.14f
             textAlign = Paint.Align.CENTER
         }

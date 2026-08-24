@@ -454,6 +454,15 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
     var idx by remember { mutableStateOf(if (force) 0 else steps.indexOfFirst { !it.granted }.coerceAtLeast(0)) }
     var justDone by remember { mutableStateOf(false) }
 
+    // [v91] 뒤로가기가 앱을 통째로 종료시키던 버그.
+    //  이 마법사는 전체화면 Box일 뿐 Dialog가 아니라서, BackHandler가 없으면
+    //  뒤로가기가 MainActivity(루트)로 내려가 앱이 꺼진다. '설치 도움말'로 들어온 기사님이
+    //  뒤로 한 번 눌렀다가 앱이 닫히는 걸 겪는다.
+    //  앞 단계가 있으면 그리로, 첫 단계면 마법사만 닫는다.
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (idx > 0) idx -= 1 else finish()
+    }
+
     // 설정 갔다 돌아오면 재확인 → 현재 단계가 완료됐으면 자동으로 다음 단계
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {

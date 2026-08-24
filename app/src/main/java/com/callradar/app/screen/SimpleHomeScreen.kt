@@ -287,6 +287,51 @@ fun SimpleHomeScreen(
             TextButton(onClick = onOpenMenu) { Text("☰ 메뉴", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
         }
 
+        // [v91] 설치 점검 카드 — 톡방에 "왜 자동기록이 안 돼요" 문의가 계속 온다.
+        //  대부분 권한 하나가 꺼져 있는 건데, 정작 본인은 그걸 모른다.
+        //  그래서 묻기 전에 홈에서 먼저 알려준다. 다 켜져 있으면 이 카드는 안 뜬다(잔소리 금지).
+        run {
+            val accOk = remember(nowTick) {
+                (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "")
+                    .contains(context.packageName)
+            }
+            val overlayOk = remember(nowTick) { try { android.provider.Settings.canDrawOverlays(context) } catch (e: Exception) { true } }
+            val notifOk = remember(nowTick) {
+                (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: "")
+                    .contains(context.packageName)
+            }
+            val battOk = remember(nowTick) {
+                try { (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(context.packageName) }
+                catch (e: Exception) { true }
+            }
+            val isOnestore = com.callradar.app.BuildConfig.FLAVOR == "onestore"
+            val missing = buildList {
+                if (isOnestore && !accOk) add("자동기록(접근성)")
+                if (!overlayOk) add("운행 버튼 띄우기")
+                if (!notifOk) add("금액 자동입력")
+                if (!battOk) add("배터리 최적화 해제")
+            }
+            if (missing.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        .clickable { com.callradar.app.MainActivity.wizardReopen.value = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3A2A12)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("⚠️", fontSize = 20.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("아직 ${missing.size}가지가 꺼져 있어요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
+                            Text(missing.joinToString(" · "), fontSize = 11.sp, color = Color(0xFFD6C4A8))
+                            Text("눌러서 켜기 — 1분이면 끝나요", fontSize = 11.sp, color = muted)
+                        }
+                        Text("›", fontSize = 22.sp, color = accent)
+                    }
+                }
+            }
+        }
+
         // 히어로
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(18.dp)) {
             Column(modifier = Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
