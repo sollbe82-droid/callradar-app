@@ -70,6 +70,9 @@ class MainActivity : ComponentActivity() {
         var sessionLoggedIn = false
         // [설치 도움말 재진입] 메뉴에서 온보딩 마법사를 복습 모드로 다시 열기
         val wizardReopen = androidx.compose.runtime.mutableStateOf(false)
+        // [v92] 설정 문제 팝업의 '지금 입력하기' → 기사 설정 화면으로 바로 보낸다.
+        //  간편모드/홈모드가 화면 구조가 달라 각자 이 값을 보고 이동한다.
+        val settingsJump = androidx.compose.runtime.mutableStateOf(false)
     }
 
     private var manualEntryTrigger = false
@@ -296,6 +299,8 @@ class MainActivity : ComponentActivity() {
         var showSetupPopup by remember { mutableStateOf(!prefs.getBoolean("setup_complete", false)) }
         // [온보딩 자동 마법사] 위치 팝업 다음 1회 — 자동화 권한 3종(오버레이·접근성·알림접근) 단계 안내
         var showAutoWizard by remember { mutableStateOf(!prefs.getBoolean("auto_wizard_done", false)) }
+        // [v92] 서버가 판단한 설정 문제 — 사납금 미입력 등. 값이 채워지면 서버가 알아서 빼준다.
+        var settingIssues by remember { mutableStateOf<List<com.callradar.app.SettingsSync.Issue>>(emptyList()) }
         when {
             !isLoggedIn -> LoginScreen(onLoginSuccess = { uid, nickname ->
                 prefs.edit().putString(KEY_USER_ID, uid).putString(KEY_NICKNAME, nickname).apply()
@@ -315,6 +320,21 @@ class MainActivity : ComponentActivity() {
                     stopService(Intent(this, LocationTrackingService::class.java))
                     isLoggedIn = false; userNickname = ""; userId = ""
                 }
+                // [v92] 로그인 상태로 들어오면 서버 설정을 한 번 당겨온다.
+                //  예전엔 '기사 설정' 화면 안에서만 복원돼서, 기기 교체·재설치로 로컬이 빈 기사는
+                //  그 화면에 들어가기 전까지 사납금 0원짜리 정산을 보고 있었다.
+                //  로컬에 값이 있으면 건드리지 않고 빈 칸만 메운다.
+                LaunchedEffect(userId) {
+                    if (userId.isNotBlank()) {
+                        com.callradar.app.SettingsSync.restore(this@MainActivity, userId)
+                        // 복원이 끝난 뒤에 점검한다 — 서버가 채워줄 수 있는 걸 문제라고 띄우면 안 된다
+                        kotlinx.coroutines.delay(2500)
+                        com.callradar.app.SettingsSync.health(this@MainActivity, userId) { list ->
+                            settingIssues = list.filter { !com.callradar.app.SettingsSync.snoozed(this@MainActivity, it.code) }
+                        }
+                    }
+                }
+
                 // [심플 홈 · 옵트인] home_mode=simple이면 무탭 심플 UI, 아니면 기존 탭 UI. 전환은 recreate()로 재읽기.
                 val homeMode = prefs.getString("home_mode", "classic") ?: "classic"
                 if (homeMode == "simple") {
@@ -343,6 +363,32 @@ class MainActivity : ComponentActivity() {
                     wizardReopen.value = false
                     if (startFloat) startFloatingButton()
                 })
+
+                // [v92] 설정 문제 알림 — 온보딩·권한 팝업이 다 끝난 뒤에만 뜬다(팝업 겹침 방지).
+                //  severity=high만 팝업으로. 나머지는 홈 카드가 맡는다.
+                val urgent = settingIssues.firstOrNull { it.severity == "high" }
+                if (urgent != null && onboardingDone && driverTypeChosen && !showSetupPopup && !showAutoWizard && !wizardReopen.value) {
+                    AlertDialog(
+                        onDismissRequest = { },   // 바깥 탭으로 닫히면 못 보고 지나친다 — 버튼으로만 닫게
+                        title = { Text("⚠️ ${urgent.title}", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+                        text = { Text(urgent.body, color = AppTheme.text, fontSize = 14.sp, lineHeight = 21.sp) },
+                        confirmButton = {
+                            Button(onClick = {
+                                settingIssues = settingIssues.filter { it.code != urgent.code }
+                                settingsJump.value = true   // 기사 설정 화면으로 바로 — 어디 있는지 찾게 하지 않는다
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))) {
+                                Text(urgent.cta, color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            OutlinedButton(onClick = {
+                                com.callradar.app.SettingsSync.snooze(this@MainActivity, urgent.code)
+                                settingIssues = settingIssues.filter { it.code != urgent.code }
+                            }) { Text("나중에", color = AppTheme.muted) }
+                        },
+                        containerColor = AppTheme.card
+                    )
+                }
             }
         }
     }
@@ -498,6 +544,10 @@ class MainActivity : ComponentActivity() {
                 "full" -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showSettle = true }, openSettleTick = fullTick)
                 else -> com.callradar.app.screen.SimpleHomeScreen(userId = userId, onOpenMenu = { route = "menu" }, onOpenCard = openCard)
             }
+            // [v92] 설정 문제 팝업에서 '지금 입력하기' → 기사 설정 화면으로 이동
+            LaunchedEffect(settingsJump.value) {
+                if (settingsJump.value) { settingsJump.value = false; fullTick++; route = "full" }
+            }
             if (showSettle) {
                 Box(modifier = Modifier.fillMaxSize().background(AppTheme.bg)) {
                     com.callradar.app.screen.DailySettlementScreen(userId = userId, onClose = { showSettle = false })
@@ -537,6 +587,11 @@ class MainActivity : ComponentActivity() {
         // [v19] 홈이 아닌 탭에서 폰 뒤로가기 → 앱 종료 대신 홈 탭으로.
         // (더보기 하위화면이 열려 있으면 MoreScreen의 BackHandler가 먼저 처리)
         BackHandler(enabled = selectedTab != 0 && !showDailySettlement) { selectedTab = 0 }
+
+        // [v92] 설정 문제 팝업에서 '지금 입력하기' → 더보기 탭의 기사 설정으로
+        LaunchedEffect(settingsJump.value) {
+            if (settingsJump.value) { settingsJump.value = false; moreRoute = ""; selectedTab = 4; openSettleTick++ }
+        }
 
         if (showLogoutDialog) {
             AlertDialog(

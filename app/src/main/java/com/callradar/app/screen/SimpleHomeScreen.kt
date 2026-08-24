@@ -297,6 +297,51 @@ fun SimpleHomeScreen(
             TextButton(onClick = onOpenMenu) { Text("☰ 메뉴", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
         }
 
+        // [v92] 설정 안내 카드 — 서버가 판단한 문제만 보여준다(가맹 미선택 등).
+        //  high(사납금 등)는 MainActivity가 팝업으로 처리하므로 여기선 normal만.
+        //  판단을 서버 한 곳에 둔 이유: 값이 채워지면 다음 호출에서 그냥 빠진다.
+        //  (앱이 상태를 기억하면 '켰는데도 안 사라지는' 문제가 또 생긴다 — v91에서 겪었다)
+        run {
+            var tips by remember { mutableStateOf<List<com.callradar.app.SettingsSync.Issue>>(emptyList()) }
+            val uid = remember { prefs.getString("user_id", "") ?: "" }
+            // 설정하고 돌아왔을 때 사라져야 한다 → 화면이 다시 보일 때 다시 묻는다.
+            //  (nowTick에 걸면 안 된다. 그건 근무 중에만 도는 타이머라 출근 전엔 멈춰 있다)
+            var checkTick by remember { mutableStateOf(0) }
+            val lo = androidx.compose.ui.platform.LocalLifecycleOwner.current
+            DisposableEffect(lo) {
+                val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                    if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) checkTick++
+                }
+                lo.lifecycle.addObserver(obs); onDispose { lo.lifecycle.removeObserver(obs) }
+            }
+            LaunchedEffect(uid, checkTick) {
+                com.callradar.app.SettingsSync.health(context, uid) { list ->
+                    tips = list.filter { it.severity != "high" && !com.callradar.app.SettingsSync.snoozed(context, it.code) }
+                }
+            }
+            tips.firstOrNull()?.let { t ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        .clickable { com.callradar.app.MainActivity.settingsJump.value = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF14293D)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("🚖", fontSize = 20.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(t.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA))
+                            Text(t.body, fontSize = 11.sp, color = Color(0xFFB6C8DA), lineHeight = 16.sp)
+                        }
+                        TextButton(onClick = { com.callradar.app.SettingsSync.snooze(context, t.code); tips = emptyList() }) {
+                            Text("나중에", fontSize = 11.sp, color = muted)
+                        }
+                        Text("›", fontSize = 22.sp, color = Color(0xFF60A5FA))
+                    }
+                }
+            }
+        }
+
         // [v91] 설치 점검 카드 — 톡방에 "왜 자동기록이 안 돼요" 문의가 계속 온다.
         //  대부분 권한 하나가 꺼져 있는 건데, 정작 본인은 그걸 모른다.
         //  그래서 묻기 전에 홈에서 먼저 알려준다. 다 켜져 있으면 이 카드는 안 뜬다(잔소리 금지).
