@@ -387,9 +387,19 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
     fun accOk() = (Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains(context.packageName)
     fun notifOk() = (Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: "").contains(context.packageName)
 
+    // [v92] 배터리 최적화 제외 — 홈의 설치 점검 카드는 이걸 세는데 마법사엔 단계가 없었다.
+    //  그래서 마법사를 끝까지 다 해도 카드가 "1가지 꺼져 있어요"로 남았고,
+    //  카드를 눌러도 켤 방법이 나오지 않았다. 끌 수 없는 경고는 잔소리일 뿐이다.
+    //  기능상으로도 중요하다 — 이게 꺼져 있으면 삼성 기기는 백그라운드에서 근무 추적을 끊는다.
+    fun battOk() = try {
+        (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+            .isIgnoringBatteryOptimizations(context.packageName)
+    } catch (e: Exception) { true }
+
     var overlay by remember { mutableStateOf(overlayOk()) }
     var acc by remember { mutableStateOf(accOk()) }
     var notif by remember { mutableStateOf(notifOk()) }
+    var batt by remember { mutableStateOf(battOk()) }
 
     fun finish() {
         val p = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
@@ -402,7 +412,7 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
     }
 
     // 이미 다 켜져 있으면(기존 유저) 조용히 통과 — 괴롭히지 않기 (복습 모드는 예외)
-    val allDone = overlay && notif && (!isOnestore || acc)
+    val allDone = overlay && notif && batt && (!isOnestore || acc)
     LaunchedEffect(Unit) { if (allDone && !force) finish() }
     if (allDone && !force) return
 
@@ -450,6 +460,27 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
         notif
     ) { android.widget.Toast.makeText(context, "목록에서 '콜레이더'를 켜세요", android.widget.Toast.LENGTH_LONG).show()
         try { context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {} })
+    // [v92] 배터리 — 앞의 셋과 달리 시스템이 확인창 하나로 끝내준다(설정 화면을 헤맬 필요 없음).
+    steps.add(Step(
+        "🔋", "배터리 최적화 해제",
+        "안드로이드가 절전한다고 콜레이더를 재우면\n근무 중에 기록이 끊겨요. 예외로 빼두면 끝까지 돌아가요.",
+        listOf(
+            "아래 [설정 열기]를 누르세요",
+            "'배터리 사용량 최적화를 무시하시겠습니까?' 창이 떠요",
+            "[허용]을 누르세요",
+            "바로 완료돼요"
+        ),
+        "창이 안 뜨면: 휴대폰 설정 → 배터리 → 백그라운드 사용 제한 → '제한 없음'을 고르세요. (삼성은 이쪽이 확실합니다)",
+        batt
+    ) {
+        try {
+            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            // 일부 기기는 위 인텐트를 막는다 → 목록 화면으로 폴백
+            try { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } catch (e2: Exception) {}
+        }
+    })
 
     var idx by remember { mutableStateOf(if (force) 0 else steps.indexOfFirst { !it.granted }.coerceAtLeast(0)) }
     var justDone by remember { mutableStateOf(false) }
@@ -467,19 +498,19 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val obs = LifecycleEventObserver { _, ev ->
-            if (ev == Lifecycle.Event.ON_RESUME) { overlay = overlayOk(); acc = accOk(); notif = notifOk() }
+            if (ev == Lifecycle.Event.ON_RESUME) { overlay = overlayOk(); acc = accOk(); notif = notifOk(); batt = battOk() }
         }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
-    val grantedNow = listOf(overlay, if (isOnestore) acc else true, notif)
+    val grantedNow = listOf(overlay, if (isOnestore) acc else true, notif, batt)
     val stepGranted: (Int) -> Boolean = { i ->
-        when (steps[i].emoji) { "🚕" -> overlay; "🤖" -> acc; else -> notif }
+        when (steps[i].emoji) { "🚕" -> overlay; "🤖" -> acc; "🔋" -> batt; else -> notif }
     }
     // 자동 다음 단계: 첫 조합 때가 아니라 '설정 갔다 와서 새로 켜졌을 때'만 발동 (복습 모드는 수동 이동)
-    var seenGranted by remember { mutableStateOf(listOf(overlay, acc, notif)) }
-    LaunchedEffect(overlay, acc, notif) {
-        val now = listOf(overlay, acc, notif)
+    var seenGranted by remember { mutableStateOf(listOf(overlay, acc, notif, batt)) }
+    LaunchedEffect(overlay, acc, notif, batt) {
+        val now = listOf(overlay, acc, notif, batt)
         val newlyOn = now.zip(seenGranted).any { (a, b) -> a && !b }
         seenGranted = now
         if (!force && newlyOn && idx < steps.size && stepGranted(idx)) {

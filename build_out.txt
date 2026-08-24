@@ -1,0 +1,52 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugAssets UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:desugarOnestoreDebugFileDependencies UP-TO-DATE
+> Task :app:javaPreCompileOnestoreDebug UP-TO-DATE
+> Task :app:generateOnestoreDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeOnestoreDebugAssets UP-TO-DATE
+> Task :app:createOnestoreDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:checkOnestoreDebugDuplicateClasses UP-TO-DATE
+> Task :app:compressOnestoreDebugAssets UP-TO-DATE
+> Task :app:mergeLibDexOnestoreDebug UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreDebug UP-TO-DATE
+> Task :app:mergeOnestoreDebugJniLibFolders UP-TO-DATE
+> Task :app:checkOnestoreDebugAarMetadata UP-TO-DATE
+> Task :app:validateSigningOnestoreDebug UP-TO-DATE
+> Task :app:writeOnestoreDebugAppMetadata UP-TO-DATE
+> Task :app:writeOnestoreDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:mapOnestoreDebugSourceSetPaths UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeLibs UP-TO-DATE
+> Task :app:compileOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:mergeExtDexOnestoreDebug UP-TO-DATE
+> Task :app:stripOnestoreDebugDebugSymbols UP-TO-DATE
+> Task :app:mergeOnestoreDebugResources UP-TO-DATE
+> Task :app:processOnestoreDebugMainManifest UP-TO-DATE
+> Task :app:processOnestoreDebugManifest UP-TO-DATE
+> Task :app:processOnestoreDebugManifestForPackage UP-TO-DATE
+> Task :app:processOnestoreDebugResources UP-TO-DATE
+
+> Task :app:compileOnestoreDebugKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:82:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:498:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+> Task :app:processOnestoreDebugJavaRes UP-TO-DATE
+> Task :app:mergeOnestoreDebugJavaResource UP-TO-DATE
+> Task :app:compileOnestoreDebugJavaWithJavac UP-TO-DATE
+> Task :app:dexBuilderOnestoreDebug
+> Task :app:mergeProjectDexOnestoreDebug
+> Task :app:packageOnestoreDebug
+> Task :app:assembleOnestoreDebug
+> Task :app:createOnestoreDebugApkListingFileRedirect UP-TO-DATE
+
+BUILD SUCCESSFUL in 6s
+38 actionable tasks: 4 executed, 34 up-to-date
+Configuration cache entry reused.

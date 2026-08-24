@@ -301,16 +301,33 @@ fun SimpleHomeScreen(
         //  대부분 권한 하나가 꺼져 있는 건데, 정작 본인은 그걸 모른다.
         //  그래서 묻기 전에 홈에서 먼저 알려준다. 다 켜져 있으면 이 카드는 안 뜬다(잔소리 금지).
         run {
-            val accOk = remember(nowTick) {
+            // [v92] 권한 재확인 시점 — 화면이 다시 보일 때(ON_RESUME)마다.
+            //
+            //  예전엔 remember(nowTick)에 물려 있었는데, nowTick은 '근무 중'일 때만 도는
+            //  타이머 값이다(while (active && !paused)). 출근 전에는 영영 안 바뀐다.
+            //  그래서 설정에서 권한을 켜고 돌아와도 카드가 "4가지가 꺼져 있어요" 그대로였다.
+            //  시키는 대로 다 켰는데 앱이 여전히 아니라고 하니, 줄이려던 문의를 오히려 늘렸다.
+            //
+            //  권한은 설정 화면(=앱 밖)에서 바뀌므로 '돌아왔을 때' 다시 읽는 게 유일하게 맞는 시점이다.
+            var permTick by remember { mutableStateOf(0) }
+            val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                    if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) permTick++
+                }
+                lifecycleOwner.lifecycle.addObserver(obs)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+            }
+            val accOk = remember(permTick) {
                 (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "")
                     .contains(context.packageName)
             }
-            val overlayOk = remember(nowTick) { try { android.provider.Settings.canDrawOverlays(context) } catch (e: Exception) { true } }
-            val notifOk = remember(nowTick) {
+            val overlayOk = remember(permTick) { try { android.provider.Settings.canDrawOverlays(context) } catch (e: Exception) { true } }
+            val notifOk = remember(permTick) {
                 (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: "")
                     .contains(context.packageName)
             }
-            val battOk = remember(nowTick) {
+            val battOk = remember(permTick) {
                 try { (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(context.packageName) }
                 catch (e: Exception) { true }
             }
