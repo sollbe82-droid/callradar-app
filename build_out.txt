@@ -1,52 +1,59 @@
-Reusing configuration cache.
+Calculating task graph as configuration cache cannot be reused because file 'app\build.gradle.kts' has changed.
 > Task :app:preBuild UP-TO-DATE
-> Task :app:generateOnestoreDebugAssets UP-TO-DATE
-> Task :app:preOnestoreDebugBuild UP-TO-DATE
-> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
-> Task :app:generateOnestoreDebugResources UP-TO-DATE
-> Task :app:desugarOnestoreDebugFileDependencies UP-TO-DATE
-> Task :app:javaPreCompileOnestoreDebug UP-TO-DATE
-> Task :app:generateOnestoreDebugGlobalSynthetics UP-TO-DATE
-> Task :app:mergeOnestoreDebugAssets UP-TO-DATE
-> Task :app:createOnestoreDebugCompatibleScreenManifests UP-TO-DATE
-> Task :app:checkOnestoreDebugDuplicateClasses UP-TO-DATE
-> Task :app:compressOnestoreDebugAssets UP-TO-DATE
-> Task :app:mergeLibDexOnestoreDebug UP-TO-DATE
-> Task :app:packageOnestoreDebugResources UP-TO-DATE
-> Task :app:extractDeepLinksOnestoreDebug UP-TO-DATE
-> Task :app:mergeOnestoreDebugJniLibFolders UP-TO-DATE
-> Task :app:checkOnestoreDebugAarMetadata UP-TO-DATE
-> Task :app:validateSigningOnestoreDebug UP-TO-DATE
-> Task :app:writeOnestoreDebugAppMetadata UP-TO-DATE
-> Task :app:writeOnestoreDebugSigningConfigVersions UP-TO-DATE
-> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
-> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
-> Task :app:generateOnestoreDebugRFile UP-TO-DATE
-> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
-> Task :app:mapOnestoreDebugSourceSetPaths UP-TO-DATE
-> Task :app:mergeOnestoreDebugNativeLibs UP-TO-DATE
-> Task :app:compileOnestoreDebugNavigationResources UP-TO-DATE
-> Task :app:mergeExtDexOnestoreDebug UP-TO-DATE
-> Task :app:stripOnestoreDebugDebugSymbols UP-TO-DATE
-> Task :app:mergeOnestoreDebugResources UP-TO-DATE
-> Task :app:processOnestoreDebugMainManifest UP-TO-DATE
-> Task :app:processOnestoreDebugManifest UP-TO-DATE
-> Task :app:processOnestoreDebugManifestForPackage UP-TO-DATE
-> Task :app:processOnestoreDebugResources UP-TO-DATE
+> Task :app:generateOnestoreReleaseAssets UP-TO-DATE
+> Task :app:preOnestoreReleaseBuild UP-TO-DATE
+> Task :app:generateOnestoreReleaseResources UP-TO-DATE
+> Task :app:javaPreCompileOnestoreRelease UP-TO-DATE
+> Task :app:generateOnestoreReleaseBuildConfig UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJniLibFolders UP-TO-DATE
+> Task :app:mapOnestoreReleaseSourceSetPaths UP-TO-DATE
+> Task :app:packageOnestoreReleaseResources UP-TO-DATE
+> Task :app:createOnestoreReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreRelease UP-TO-DATE
+> Task :app:checkOnestoreReleaseAarMetadata UP-TO-DATE
+> Task :app:mergeOnestoreReleaseStartupProfile UP-TO-DATE
+> Task :app:processOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:compileOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreReleaseLocalResources UP-TO-DATE
+> Task :app:mergeOnestoreReleaseResources UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:checkOnestoreReleaseDuplicateClasses UP-TO-DATE
+> Task :app:generateOnestoreReleaseRFile UP-TO-DATE
+> Task :app:validateSigningOnestoreRelease UP-TO-DATE
+> Task :app:processOnestoreReleaseMainManifest UP-TO-DATE
+> Task :app:writeOnestoreReleaseAppMetadata UP-TO-DATE
+> Task :app:processOnestoreReleaseManifest UP-TO-DATE
+> Task :app:writeOnestoreReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:processOnestoreReleaseManifestForPackage UP-TO-DATE
+> Task :app:collectOnestoreReleaseDependencies UP-TO-DATE
+> Task :app:sdkOnestoreReleaseDependencyData UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeLibs UP-TO-DATE
+> Task :app:stripOnestoreReleaseDebugSymbols UP-TO-DATE
+> Task :app:extractOnestoreReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:mergeOnestoreReleaseAssets UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:compressOnestoreReleaseAssets UP-TO-DATE
+> Task :app:mergeOnestoreReleaseArtProfile UP-TO-DATE
+> Task :app:processOnestoreReleaseResources UP-TO-DATE
+> Task :app:optimizeOnestoreReleaseResources UP-TO-DATE
+> Task :app:extractOnestoreReleaseVersionControlInfo
 
-> Task :app:compileOnestoreDebugKotlin
+> Task :app:compileOnestoreReleaseKotlin
 w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:82:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
 w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:498:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt:313:63 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
 
-> Task :app:processOnestoreDebugJavaRes UP-TO-DATE
-> Task :app:mergeOnestoreDebugJavaResource UP-TO-DATE
-> Task :app:compileOnestoreDebugJavaWithJavac UP-TO-DATE
-> Task :app:dexBuilderOnestoreDebug
-> Task :app:mergeProjectDexOnestoreDebug
-> Task :app:packageOnestoreDebug
-> Task :app:assembleOnestoreDebug
-> Task :app:createOnestoreDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:processOnestoreReleaseJavaRes UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJavaResource UP-TO-DATE
+> Task :app:compileOnestoreReleaseJavaWithJavac UP-TO-DATE
+> Task :app:mergeOnestoreReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:expandOnestoreReleaseArtProfileWildcards
+> Task :app:minifyOnestoreReleaseWithR8
+> Task :app:compileOnestoreReleaseArtProfile
+> Task :app:packageOnestoreRelease
+> Task :app:assembleOnestoreRelease
+> Task :app:createOnestoreReleaseApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 6s
-38 actionable tasks: 4 executed, 34 up-to-date
-Configuration cache entry reused.
+BUILD SUCCESSFUL in 2m 44s
+44 actionable tasks: 6 executed, 38 up-to-date
+Configuration cache entry stored.
