@@ -111,12 +111,12 @@ class ScreenCaptureService : Service() {
                     ensureDisplay()   // [v29] createVirtualDisplay 1회만 — 근무 내내 유지
                     // 출근 확립 시엔 purpose 없음(세션만 확립). 종료가 동의를 부른 경우엔 purpose 있음 → 즉시 캡처.
                     val purpose = readAndClearPurpose()
-                    // [v91] 'share'만 예외 — 동의창을 띄우는 순간 콜레이더가 앞으로 나와서
-                    //  정작 찍고 싶던 카카오T 콜 화면이 가려진다. 여기서 바로 찍으면 엉뚱한 화면이 나온다.
-                    //  그래서 권한만 잡아두고, 원하는 화면에서 다시 누르게 안내한다.
-                    //  (근무 중이면 출근 때 이미 권한이 잡혀 있어 이 경로로 오지 않는다)
+                    // [v91] 'share'는 동의창이 닫히기를 잠깐 기다린 뒤 찍는다.
+                    //  권한 액티비티가 Translucent라 뒤 화면(카카오T 등)이 그대로 살아 있어서,
+                    //  0.6초만 기다리면 원하던 화면이 그대로 잡힌다.
+                    //  (안내만 하고 다시 누르게 하면 손이 한 번 더 간다 — 유저가 그걸 불편하다고 했다)
                     if (purpose == "share") {
-                        toast("준비됐어요 — 찍고 싶은 화면에서 다시 길게 누르세요")
+                        handler.postDelayed({ requestCapture("share") }, 600)
                     } else if (purpose.isNotEmpty()) requestCapture(purpose)
                 } catch (e: Exception) { toast("화면 읽기를 시작할 수 없어요"); stopSelfSafe() }
                 return START_STICKY
@@ -492,15 +492,24 @@ class ScreenCaptureService : Service() {
         try { projection?.stop() } catch (e: Exception) {}
         projection = null; sessionAlive = false
     }
-    // 1회 캡처 마무리 — 근무 중이면 projection 유지(다음 종료 때 동의 없이 재사용), 아니면 완전 종료
+    /**
+     * 1회 캡처 마무리 — 아무것도 놓지 않는다. 세션은 퇴근할 때만(stopSession) 끊는다.
+     *
+     * [v91 수정] 스샷 누를 때마다 동의창이 다시 뜨던 원인이 여기였다. 둘이 겹쳐 있었다.
+     *
+     *  ① releaseDisplay()로 VirtualDisplay를 없앴다.
+     *     안드로이드 14부터 createVirtualDisplay는 projection당 1회만 허용된다.
+     *     그래서 다음 캡처의 ensureDisplay()가 실패 → 세션이 죽고 → 동의창 재요청.
+     *     (ensureDisplay 주석에 "1회만"이라 적어두고 여기서 그걸 어기고 있었다)
+     *
+     *  ② inShift를 prefs work_start로 판정해서, 근무 중이 아니면 projection을 통째로 버렸다.
+     *     캡처는 근무와 무관하게 쓰는 기능인데 근무 여부로 세션 수명을 정한 게 잘못이다.
+     *
+     *  이제 디스플레이·projection 모두 유지한다. requestCapture가 setSurface로만
+     *  새 프레임을 받으므로 재동의가 필요 없다.
+     */
     private fun finishCapture() {
-        releaseDisplay()
-        val inShift = try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getLong("work_start", 0L) > 0L } catch (e: Exception) { false }
-        if (inShift && projection != null) {
-            sessionAlive = true   // 근무 중 → 유지, 서비스 계속(다음 캡처 대기)
-        } else {
-            releaseProjection(); stopSelfSafe()
-        }
+        sessionAlive = (projection != null)
     }
     private fun cleanup() { releaseProjection() }
 
