@@ -314,7 +314,10 @@ fun AirportScreen() {
         Column(modifier = Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column { Text("✈️ 인천공항", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); if (lastUpdated.isNotEmpty()) Text("업데이트: $lastUpdated", fontSize = 11.sp, color = muted) }
-                TextButton(onClick = { scope.launch { loadAirportData() } }) { Text("새로고침", fontSize = 12.sp, color = accent) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CaptureButton()   // [v92] 입국 수요 화면 캡처
+                    TextButton(onClick = { scope.launch { loadAirportData() } }) { Text("새로고침", fontSize = 12.sp, color = accent) }
+                }
             }
             Spacer(Modifier.height(10.dp))
             // 터미널 + 회화카드 같은 줄

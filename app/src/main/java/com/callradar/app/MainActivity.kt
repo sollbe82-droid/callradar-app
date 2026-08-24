@@ -513,6 +513,10 @@ class MainActivity : ComponentActivity() {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("‹", fontSize = 24.sp, color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold); Spacer(Modifier.width(4.dp)); Text("홈", fontSize = 14.sp, color = Color(0xFFF59E0B)) }
                 Spacer(Modifier.width(4.dp))
                 Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                // [v92] 간편모드는 하위 화면(레이더·기록·공항·분석·랭킹)이 전부 이 헤더를 쓴다.
+                //  여기 한 곳에 넣으면 간편모드 전 화면에서 캡처가 된다. 우측이 원래 비어 있어 겹칠 것도 없다.
+                Spacer(Modifier.weight(1f))
+                com.callradar.app.screen.CaptureButton()
             }
             Box(modifier = Modifier.weight(1f)) { content() }
         }
@@ -580,6 +584,12 @@ class MainActivity : ComponentActivity() {
                     3 -> com.callradar.app.screen.AirportScreen()
                     4 -> com.callradar.app.screen.MoreScreen(userId = userId, onLogout = onLogout, onOpenDailySettlement = { showDailySettlement = true }, openSettleTick = openSettleTick, openRoute = moreRoute)
                 }
+
+                // [v92] 캡처 버튼은 각 화면의 '헤더 안'에 넣는다(CaptureButton).
+                //  처음엔 탭 컨테이너 위에 오버레이 하나로 띄웠는데 두 번 어긋났다:
+                //   ① 인셋이 없어 상태바(배터리 아이콘) 밑에 깔림
+                //   ② 인셋을 주니 이번엔 레이더의 '⚪대기' 배지를 덮음
+                //  화면마다 헤더 높이도, 우측에 뭘 두는지도 달라서 바깥에서 맞출 수가 없다.
             }
             NavigationBar(containerColor = card) {
                listOf("홈" to "🏠", "레이더" to "📡", "기록" to "📋", "공항" to "✈️", "더보기" to "⋯").forEachIndexed { index, (title, emoji) ->

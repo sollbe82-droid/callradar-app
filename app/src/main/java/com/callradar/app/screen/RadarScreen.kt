@@ -326,6 +326,8 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
             Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 44.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("📡 레이더", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.weight(1f))
+                CaptureButton()   // [v92] 수급 화면 캡처 — 근무 배지를 가리지 않게 배지 왼쪽에
+                Spacer(Modifier.width(2.dp))
                 Box(Modifier.background((if (live) green else muted).copy(alpha = 0.18f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
                     Text(if (live) "🟢 근무중" else "⚪ 대기", color = if (live) green else muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }

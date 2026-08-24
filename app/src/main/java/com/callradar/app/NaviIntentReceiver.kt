@@ -662,13 +662,15 @@ class NaviIntentReceiver : AccessibilityService() {
             try {
                 // [v53] 화면주소 파싱 제거 — GPS 역지오코딩만.
                 val destName = reverseGeocode(lat, lng)
-                if (destName.isNullOrEmpty()) return@Thread
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null)
                 // [자동기록 배지] 현재 위치 동 갱신(30초 주기) → 플로팅이 실시간 표시.
-                prefs.edit().putString("auto_cur_dong", destName).apply()
+                if (!destName.isNullOrEmpty()) prefs.edit().putString("auto_cur_dong", destName).apply()
+                // [v92] 지오코딩이 실패해도 좌표는 보낸다. 이름을 못 얻은 것과
+                //  '어디서 내렸는지 모른다'는 건 다른 얘기다. (마감 로직과 동일한 수정)
                 val json = JSONObject().apply {
-                    put("user_id", userId); put("destination", destName)
+                    put("user_id", userId)
+                    if (!destName.isNullOrEmpty()) put("destination", destName)
                     put("dest_lat", lat); put("dest_lng", lng)
                 }
                 val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
@@ -679,7 +681,9 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.responseCode
                 Log.d(TAG, "📍 목적지 갱신: #$tripId -> $destName")
                 conn.disconnect()
-                announceReturnOutlook(tripId, destName, lat, lng)   // [귀로내비] 목적지 확정 → 복귀 전망 알림(트립당 1회, 좌표 기준 — 동명이역 방지)
+                // [귀로내비] 목적지 확정 → 복귀 전망 알림(트립당 1회, 좌표 기준 — 동명이역 방지).
+                //  이름을 못 얻었으면 알릴 내용이 없으니 생략한다(좌표 저장은 위에서 이미 끝냄).
+                if (!destName.isNullOrEmpty()) announceReturnOutlook(tripId, destName, lat, lng)
             } catch (e: Exception) {
                 Log.e(TAG, "목적지 갱신 실패: ${e.message}")
             } finally {
@@ -1024,11 +1028,16 @@ class NaviIntentReceiver : AccessibilityService() {
                     // [v53] 화면주소 파싱 제거 — 완료 순간 GPS(하차점)만. 이동>300m일 때 지오코딩.
                     val hasGps = lat != 0.0 || lng != 0.0
                     val dist = if (hasGps) distanceMeters(originLat, originLng, lat, lng) else 0.0
+                    // [v92] 좌표와 이름을 분리해 저장한다.
+                    //  예전엔 '이름을 못 얻으면 좌표도 안 보내는' 구조였다:
+                    //   ① reverseGeocode는 Geocoder(네트워크 의존)라 지하주차장·터널·음영에서 흔히 null
+                    //   ② 이동 300m 이하면 아예 호출도 안 함
+                    //  둘 중 하나만 걸려도 서버의 도착지가 출발지 그대로 남아
+                    //  '출발=도착' 이상치가 됐다(120일 549건, 그중 513건이 "이름은 있는데 좌표만 같음").
+                    //  하차 GPS는 이름과 무관하게 확실한 사실이므로 항상 남긴다.
+                    if (hasGps) { put("dest_lat", lat); put("dest_lng", lng) }
                     val destName = if (hasGps && dist > 300) reverseGeocode(lat, lng) else null
-                    if (!destName.isNullOrEmpty()) {
-                        put("destination", destName)
-                        if (hasGps) { put("dest_lat", lat); put("dest_lng", lng) }
-                    }
+                    if (!destName.isNullOrEmpty()) put("destination", destName)
                 }
                 val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                     requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")

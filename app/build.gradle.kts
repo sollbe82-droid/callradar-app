@@ -28,8 +28,8 @@ android {
         applicationId = "com.callradar.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 91
-        versionName = "2.9.1"
+        versionCode = 92
+        versionName = "2.9.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // [v22] 카카오맵 네이티브 앱 키 — local.properties의 KAKAO_NATIVE_KEY 사용(코드/깃에 하드코딩 X)
         buildConfigField("String", "KAKAO_NATIVE_KEY", "\"${keystoreProps.getProperty("KAKAO_NATIVE_KEY") ?: ""}\"")
@@ -52,6 +52,14 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+        }
+        // [v92] 디버그도 릴리스 키로 서명한다.
+        //  릴리스 빌드는 R8 때문에 매번 6~8분이 걸려서 UI 한 줄 고칠 때마다 그 시간을 다시 치른다.
+        //  그렇다고 기본 디버그 키로 빌드하면 서명이 달라 재설치 때 앱을 지워야 하고,
+        //  그러면 로컬 데이터(노하우 노트·설정)가 통째로 날아간다. 실제로 한 번 날렸다.
+        //  같은 키로 서명하면 `install -r`로 덮어써져서 데이터가 유지되고 빌드는 2분이면 끝난다.
+        debug {
             signingConfig = signingConfigs.getByName("release")
         }
     }

@@ -257,17 +257,86 @@ class TrackActivity : ComponentActivity() {
         return out
     }
 
+    /**
+     * [v92] 공유 이미지 아래에 요약 수치를 붙인다.
+     *
+     *  화면에는 '오늘 요약' 카드가 있는데 공유하면 지도만 나갔다. 받는 사람 입장에선
+     *  선만 그려진 그림이라 실차율이 얼마인지, 몇 km를 뛴 건지 알 수가 없다.
+     *  지도 렌더는 두 갈래(OSM 타일 / 단색 폴백)라 각각 고치면 어긋나기 쉬우니,
+     *  완성된 비트맵 아래에 패널 한 장을 덧대는 방식으로 한 곳에서 처리한다.
+     */
+    private fun withSummary(src: Bitmap): Bitmap {
+        val s = stats ?: return src
+        val w = src.width
+        val panel = (w * 0.34f).toInt()
+        val out = Bitmap.createBitmap(w, src.height + panel, Bitmap.Config.ARGB_8888)
+        val cv = Canvas(out)
+        cv.drawBitmap(src, 0f, 0f, null)
+
+        val panelTop = src.height.toFloat()
+        cv.drawRect(0f, panelTop, w.toFloat(), out.height.toFloat(),
+            Paint().apply { color = android.graphics.Color.parseColor(if (dark) "#0F172A" else "#F8FAFC") })
+        cv.drawLine(0f, panelTop, w.toFloat(), panelTop,
+            Paint().apply { color = android.graphics.Color.parseColor("#F59E0B"); strokeWidth = 4f })
+
+        val lkm = s.loadedM / 1000.0
+        val ekm = s.emptyM / 1000.0
+        val tkm = lkm + ekm
+        val occ = if (tkm > 0) (lkm / tkm * 100).toInt() else 0
+        val totalMin = s.loadedMinutes + s.emptyMinutes
+
+        val pad = w * 0.055f
+        val labelP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor(if (dark) "#94A3B8" else "#64748B"); textSize = w * 0.030f
+        }
+        val valueP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor(if (dark) "#F1F5F9" else "#0F172A")
+            textSize = w * 0.052f; isFakeBoldText = true
+        }
+        // 3열 — 총 주행 / 실차율 / 운행시간. 한 줄에 다 보이는 게 핵심이라 항목을 늘리지 않는다.
+        val cols = listOf(
+            Triple("총 주행", String.format("%.1f km", tkm), null),
+            Triple("실차율", "${occ}%", "#10B981"),
+            Triple("운행시간", if (totalMin >= 60) "${totalMin / 60}시간 ${totalMin % 60}분" else "${totalMin}분", null)
+        )
+        val colW = (w - pad * 2) / 3f
+        cols.forEachIndexed { i, (label, value, hex) ->
+            val cx = pad + colW * i + colW / 2f
+            labelP.textAlign = Paint.Align.CENTER; valueP.textAlign = Paint.Align.CENTER
+            val vp = if (hex != null) Paint(valueP).apply { color = android.graphics.Color.parseColor(hex) } else valueP
+            cv.drawText(label, cx, panelTop + panel * 0.30f, labelP)
+            cv.drawText(value, cx, panelTop + panel * 0.55f, vp)
+        }
+        // 세부 한 줄 — 실차/공차 내역
+        val detailP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor(if (dark) "#64748B" else "#94A3B8")
+            textSize = w * 0.028f; textAlign = Paint.Align.CENTER
+        }
+        cv.drawText(
+            String.format("실차 %.1fkm · 공차 %.1fkm   |   %s · 콜레이더", lkm, ekm, dateLabel),
+            w / 2f, panelTop + panel * 0.80f, detailP)
+        return out
+    }
+
     private fun sharePng() {
-        val bmp = bitmap ?: return
+        val base = bitmap ?: return
         Thread {
             try {
+                val bmp = try { withSummary(base) } catch (e: Exception) { base }   // 요약 실패해도 지도는 나가게
                 val dir = File(cacheDir, "shares"); dir.mkdirs()
                 val f = File(dir, "track_${System.currentTimeMillis()}.png")
                 f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "image/png"; putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_TEXT, "오늘 운행 궤적 (콜레이더)")
+                    // [v92] 이미지를 못 받는 대상(문자·메모 등)에도 수치가 남게 본문에도 넣는다
+                    putExtra(Intent.EXTRA_TEXT, stats?.let { s ->
+                        val lkm = s.loadedM / 1000.0; val ekm = s.emptyM / 1000.0; val tkm = lkm + ekm
+                        val occ = if (tkm > 0) (lkm / tkm * 100).toInt() else 0
+                        val m = s.loadedMinutes + s.emptyMinutes
+                        String.format("%s 운행 · 총 %.1fkm (실차 %.1f / 공차 %.1f) · 실차율 %d%% · %d시간 %d분\n— 콜레이더",
+                            dateLabel, tkm, lkm, ekm, occ, m / 60, m % 60)
+                    } ?: "오늘 운행 궤적 (콜레이더)")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 startActivity(Intent.createChooser(send, "궤적 공유").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
