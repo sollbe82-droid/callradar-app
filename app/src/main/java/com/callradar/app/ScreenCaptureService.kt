@@ -321,7 +321,9 @@ class ScreenCaptureService : Service() {
         // (가운데 찍으면 정작 자랑하려던 목적지 글자가 묻힌다)
         val tp = Paint().apply {
             color = gold; isAntiAlias = true; isFakeBoldText = true
-            textSize = (W * 0.082f).coerceAtLeast(46f)   // [v91] 톡방에서 축소돼 보여서 키웠다
+            // [실기기 확인] 0.082은 1080px에서 도장이 콜카드 두 개를 덮을 만큼 커졌다.
+            //  톡방 썸네일에서 읽히는 선은 유지하면서 콜 정보를 안 가리는 크기로 낮춤.
+            textSize = (W * 0.055f).coerceAtLeast(34f)
             letterSpacing = 0.14f
             textAlign = Paint.Align.CENTER
         }

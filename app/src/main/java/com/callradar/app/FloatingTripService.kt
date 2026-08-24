@@ -41,6 +41,7 @@ class FloatingTripService : Service() {
     private var floatingView: TextView? = null
     // [v91] 캡처 전용 버튼 — 카카오T·우버 화면 위에서 콜을 찍으려면 앱 밖에 떠 있어야 한다.
     private var shotView: TextView? = null
+    private var shotParams: WindowManager.LayoutParams? = null   // 운행 버튼을 끌 때 같이 옮기려면 참조가 필요
     // [v53 #124] 자동 운행 수동취소 — 배지 길게누름으로 '취소?' 무장 → 탭하면 취소.
     private var autoCancelArmed = false
     private val autoCancelHandler = android.os.Handler(Looper.getMainLooper())
@@ -150,6 +151,7 @@ class FloatingTripService : Service() {
                     if (kotlin.math.abs(dx) > 28 || kotlin.math.abs(dy) > 28) { moved = true; lpRun?.let { lpHandler.removeCallbacks(it) } }   // [v19] 10→28px: 손가락 미세이동에도 탭 인식
                     params.x = initX + dx; params.y = initY + dy
                     windowManager.updateViewLayout(btn, params)
+                    syncShotToMain(params, sizePx)   // [v91] 캡처 버튼도 같이 따라온다 (따로 놀지 않게)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -196,41 +198,58 @@ class FloatingTripService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            // 운행 버튼 바로 위에 붙인다. 저장된 자리가 있으면 그걸 쓴다(따로 옮길 수 있게).
-            val sx = prefs.getInt("shot_x", -1); val sy = prefs.getInt("shot_y", -1)
-            x = if (sx >= 0) sx else (mainParams.x + (mainSize - size) / 2)
-            y = if (sy >= 0) sy else (mainParams.y - size - (10 * d).toInt()).coerceAtLeast(0)
+            // 운행 버튼 바로 '아래'에 붙인다. 위에 붙였더니 운행 버튼을 화면 상단에 둔 기기에서
+            //  앱 상단바(☰메뉴)를 덮어 메뉴가 안 눌렸다(실기기 확인).
+            //  자리를 따로 저장하지 않는다 — 항상 운행 버튼에 붙어 다닌다.
+            val screenH = resources.displayMetrics.heightPixels
+            x = mainParams.x + (mainSize - size) / 2
+            y = (mainParams.y + mainSize + (8 * d).toInt()).coerceIn(0, (screenH - size).coerceAtLeast(0))
         }
 
-        var iX = 0; var iY = 0; var tX = 0f; var tY = 0f; var moved = false
+        // 캡처 버튼은 끌지 않는다 — 탭 전용.
+        //  [유저지적] 따로 끌리면 운행 버튼과 떨어져 제각각 놀고, 겹치면 운행 버튼이 같이 눌린다.
+        //  운행 버튼을 끌면 이 버튼이 따라오는 방식(syncShotToMain)으로 바꿨다.
+        var downX = 0f; var downY = 0f; var slid = false
         v.setOnTouchListener { _, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { iX = p.x; iY = p.y; tX = e.rawX; tY = e.rawY; moved = false; true }
+                MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; slid = false; true }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = (e.rawX - tX).toInt(); val dy = (e.rawY - tY).toInt()
-                    if (kotlin.math.abs(dx) > 28 || kotlin.math.abs(dy) > 28) moved = true
-                    p.x = iX + dx; p.y = iY + dy
-                    try { windowManager.updateViewLayout(v, p) } catch (ex: Exception) {}
-                    true
+                    if (kotlin.math.abs(e.rawX - downX) > 28 || kotlin.math.abs(e.rawY - downY) > 28) slid = true
+                    true   // 소비만 하고 안 움직임 → 아래(운행 버튼)로 터치가 새지 않는다
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (moved) {
-                        try { prefs.edit().putInt("shot_x", p.x).putInt("shot_y", p.y).apply() } catch (ex: Exception) {}
-                    } else {
-                        // 캡처 순간 이 버튼이 사진에 찍히면 지저분하다 → 잠깐 숨겼다가 되돌린다
+                    if (!slid) {
+                        // 캡처 순간 이 버튼들이 사진에 찍히면 지저분하다 → 둘 다 잠깐 숨긴다
                         v.visibility = View.GONE
+                        floatingView?.visibility = View.GONE
                         v.postDelayed({
                             com.callradar.app.ScreenCaptureService.shareShot(this@FloatingTripService)
-                            v.postDelayed({ v.visibility = View.VISIBLE }, 600)
-                        }, 120)
+                            v.postDelayed({
+                                v.visibility = View.VISIBLE
+                                floatingView?.visibility = View.VISIBLE
+                            }, 900)
+                        }, 150)
                     }
                     true
                 }
                 else -> false
             }
         }
-        shotView = v
+        shotView = v; shotParams = p
         try { windowManager.addView(v, p) } catch (e: Exception) {}
+    }
+
+    /** 운행 버튼을 끌면 캡처 버튼도 같은 간격으로 따라오게 한다 */
+    private fun syncShotToMain(mainParams: WindowManager.LayoutParams, mainSize: Int) {
+        val v = shotView ?: return
+        val p = shotParams ?: return
+        val d = resources.displayMetrics.density
+        val size = (44 * d).toInt()
+        val screenH = resources.displayMetrics.heightPixels
+        p.x = mainParams.x + (mainSize - size) / 2
+        p.y = (mainParams.y + mainSize + (8 * d).toInt())
+            .coerceIn(0, (screenH - size).coerceAtLeast(0))
+        try { windowManager.updateViewLayout(v, p) } catch (e: Exception) {}
     }
 
     // [자동기록 배지] 자동기록이 플랫폼 콜을 기록 중이면(activeTripId>0) 플로팅을 '🔴자동 · 출발동→현재동'으로 변신.

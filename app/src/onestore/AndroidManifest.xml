@@ -28,6 +28,27 @@
             android:name=".LocationTrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- [v91] 화면 캡처 (콜 화면 공유 + 종료요금 OCR).
+             v30에서 플레이 정책 때문에 선언을 지웠는데, 코드는 남아 있어서
+             '기능은 있는데 서비스가 못 뜨는' 상태였다. 권한을 허용해도 세션이 안 잡히고
+             워터마크·저장이 전부 안 돌았다.
+
+             플레이는 이 서비스에 대해 용도 선언 + 시연영상을 요구하므로,
+             onestore flavor에만 선언한다. 이 파일은 Play 빌드에 병합되지 않는다. -->
+        <service
+            android:name=".ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <activity
+            android:name=".ScreenCapturePermissionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true" />
     </application>
+
+    <!-- mediaProjection 타입 FGS 필수 권한 (Android 14+). onestore 전용. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
 </manifest>
