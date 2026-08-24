@@ -68,7 +68,9 @@ private fun DialogImeFix() {
             p = p.parent
         }
         win?.let {
-            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            // [금액 입력 시 화면 흔들림 수정] ADJUST_RESIZE + decorFitsSystemWindows=false + imePadding()이
+            //  겹치면 키보드 높이가 이중 반영돼 다이얼로그가 떨린다. 리사이즈는 끄고 imePadding만 쓴다.
+            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(it, false)
         }
     }

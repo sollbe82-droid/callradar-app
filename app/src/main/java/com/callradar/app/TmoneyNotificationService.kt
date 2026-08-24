@@ -50,15 +50,34 @@ class TmoneyNotificationService : NotificationListenerService() {
             return
         }
 
-        // 카카오T 결제 알림: '자동결제'는 등록카드 자동청구, '직접결제'는 카드단말기(택시승인 알림으로 옴).
-        //  카카오T 알림 본문에 '직접'이 있으면 직접카드로, 그 외(자동결제)는 auto로 구분.
+        // 카카오T 결제 알림: '자동결제'는 등록카드 자동청구, '직접결제'는 카드단말기·현금 등 기사 수령.
+        // [유저592 제보] 예전엔 '직접'이라는 단어가 없으면 무조건 auto로 찍어서, 문구가 조금만 달라도
+        //  직접결제가 자동결제로 둔갑했음. → 이제 '자동'이 명시된 경우에만 auto, 판정이 애매하면
+        //  결제수단을 아예 건드리지 않는다(null). 잘못된 값으로 덮어쓰는 것보다 그대로 두는 게 안전.
         if (sbn.packageName == "com.kakao.taxi.driver" && (allText.contains("결제") || allText.contains("요금"))) {
             Log.d(TAG, "💰 카카오T 결제 알림: $title | $text")
             val fare = extractFareFromNotif(allText)
-            val payType = if (allText.contains("직접") || allText.contains("교통카드") || allText.contains("카드결제")) "card" else "auto"
+            val payType = classifyKakaoPay(allText)
+            // 실제 알림 문구 수집(유저 제보 시 원인 파악용) — 최근 1건만 로컬 보관
+            try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit()
+                .putString("last_kakao_pay_notif", allText.take(200))
+                .putString("last_kakao_pay_type", payType ?: "미판정").apply() } catch (e: Exception) {}
             if (fare > 0) matchFareToRecentTrip(fare, payType)
             return
         }
+    }
+
+    // [유저592] 카카오T 결제 알림 → 결제수단 분류. 확신 없으면 null(=기존 값 유지, 덮어쓰지 않음).
+    private fun classifyKakaoPay(t: String): String? {
+        val s = t.replace(" ", "")
+        // 자동결제(등록카드 자동청구)로 확실한 표현들
+        if (s.contains("자동결제") || s.contains("자동으로결제") || s.contains("등록카드") || s.contains("등록된카드")
+            || s.contains("자동청구") || s.contains("앱결제") || s.contains("카카오페이")) return "auto"
+        // 기사 직접 수령(카드단말기·교통카드·현금)으로 확실한 표현들
+        if (s.contains("직접결제") || s.contains("직접") || s.contains("교통카드") || s.contains("카드단말기")
+            || s.contains("단말기") || s.contains("승인") || s.contains("현장결제")) return "card"
+        if (s.contains("현금")) return "cash"
+        return null   // 판정 불가 → 결제수단 갱신 스킵
     }
 
     private fun extractFareFromNotif(text: String): Int {
@@ -70,7 +89,7 @@ class TmoneyNotificationService : NotificationListenerService() {
         return 0
     }
 
-    private fun matchFareToRecentTrip(fare: Int, payType: String = "card") {
+    private fun matchFareToRecentTrip(fare: Int, payType: String? = "card") {
         val now = System.currentTimeMillis()
         // 중복 방지
         if (fare == lastMatchedFare && now - lastMatchedTime < COOLDOWN_MS) {
@@ -103,8 +122,9 @@ class TmoneyNotificationService : NotificationListenerService() {
                         updateConn.outputStream.write(updateJson.toString().toByteArray())
                         updateConn.responseCode; updateConn.disconnect()
                     }
-                    // [결제수단 정정] 직접 교통카드/카드단말기(택시승인)=card, 카카오T 자동결제=auto. 오분류 방지.
-                    try {
+                    // [결제수단 정정] 직접 교통카드/카드단말기(택시승인)=card, 카카오T 자동결제=auto.
+                    //  payType==null이면 판정 불가 → 기존 값 유지(덮어쓰지 않음). [유저592 오분류 방지]
+                    if (payType != null) try {
                         val ptJson = JSONObject().apply { put("user_id", userId); put("payment_type", payType) }
                         val ptConn = (URL("$SERVER_URL/api/trips/$activeId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
                             requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json")

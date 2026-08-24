@@ -122,13 +122,17 @@ class ReceiptScanActivity : ComponentActivity() {
         ocrService.processReceipt(bitmap) { result ->
             runOnUiThread {
                 isProcessing = false
-                if (result != null && result.amount > 0) {
+                // [영수증 인식 개편] 지출 영수증(가스·전기·일반)은 감열지·구겨짐이 많아 온디바이스 OCR 정확도가 낮다.
+                //  예전엔 로컬이 '아무 숫자나' 금액으로 잡으면 amount>0이라 AI 폴백이 아예 안 걸려서,
+                //  틀린 값이 그대로 확정 → 유저 체감은 "인식 못한다". 이제 지출 계열은 항상 AI 사진 판독을 먼저 태운다.
+                val preferVision = (preset == "가스" || preset == "전기" || preset == "지출")
+                if (preferVision) {
+                    visionFallback(bitmap, result)          // 실패하면 내부에서 로컬 결과로 폴백
+                } else if (result != null && result.amount > 0) {
                     scanResult = result
                     statusMessage = "분석 완료!"
                     aiRefine(result)   // [AI] 서버 Claude 보정 — 성공하면 확인화면 값이 더 정확해짐(실패해도 로컬값 유지)
                 } else {
-                    // [비전 폴백] 온디바이스 OCR이 글자를 못 읽는 영수증(감열지·구겨짐·저조도)
-                    //  → 사진 자체를 서버 Claude가 직접 판독. "인식 못한다" 제보의 근본 대응.
                     visionFallback(bitmap, result)
                 }
             }
@@ -145,7 +149,7 @@ class ReceiptScanActivity : ComponentActivity() {
                 f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
                 val url = com.callradar.app.CloudinaryUploader.upload(this, android.net.Uri.fromFile(f))
                 try { f.delete() } catch (e: Exception) {}
-                if (url == null) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 밝은 곳에서 다시 촬영해주세요" }; return@Thread }
+                if (url == null) { runOnUiThread { fallbackToManual(local, "사진 업로드 실패(네트워크)") }; return@Thread }
                 val json = JSONObject().apply { put("url", url) }
                 val conn = (URL("$SERVER_URL/api/ai/receipt-vision").openConnection().apply {
                     com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
@@ -160,7 +164,7 @@ class ReceiptScanActivity : ComponentActivity() {
                 if (code in 200..299 && body.isNotBlank()) {
                     val o = JSONObject(body)
                     val amt = o.optInt("amount", 0)
-                    if (amt <= 0) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" }; return@Thread }
+                    if (amt <= 0) { runOnUiThread { fallbackToManual(local, "금액을 못 읽었어요") }; return@Thread }
                     val cat = o.optString("category", "기타")
                     val type = when (cat) { "LPG", "전기충전" -> ReceiptOcrService.ReceiptType.LPG; "정비" -> ReceiptOcrService.ReceiptType.REPAIR; "세차" -> ReceiptOcrService.ReceiptType.WASH; "주차" -> ReceiptOcrService.ReceiptType.PARKING; "식비" -> ReceiptOcrService.ReceiptType.FOOD; "통행료" -> ReceiptOcrService.ReceiptType.HIPASS; else -> ReceiptOcrService.ReceiptType.UNKNOWN }
                     val vr = ReceiptOcrService.ReceiptResult(
@@ -171,9 +175,23 @@ class ReceiptScanActivity : ComponentActivity() {
                         pricePerLiter = o.optInt("price_per_liter", 0)
                     )
                     runOnUiThread { isProcessing = false; scanResult = vr; statusMessage = "분석 완료 · AI 사진 판독 ✨" }
-                } else runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" }
-            } catch (e: Exception) { runOnUiThread { isProcessing = false; statusMessage = "분석 실패 - 다시 촬영해주세요" } }
+                } else runOnUiThread { fallbackToManual(local, if (code == 429) "오늘 AI 사용량 초과" else "판독 서버 오류($code)") }
+            } catch (e: Exception) { runOnUiThread { fallbackToManual(local, "판독 실패(${e.javaClass.simpleName})") } }
         }.start()
+    }
+
+    // [인식 실패 = 기능 실패 방지] AI·OCR이 못 읽어도 확인화면은 반드시 띄운다.
+    //  로컬 OCR 값이 있으면 그걸 채워주고, 없으면 빈 폼 → 기사가 금액만 쳐 넣으면 바로 저장된다.
+    //  (예전엔 "분석 실패 - 다시 촬영해주세요"만 뜨고 끝나서, 못 읽으면 아무것도 못 하던 상태였음)
+    private fun fallbackToManual(local: ReceiptOcrService.ReceiptResult?, reason: String) {
+        isProcessing = false
+        scanResult = local ?: ReceiptOcrService.ReceiptResult(
+            type = when (preset) { "가스", "전기" -> ReceiptOcrService.ReceiptType.LPG; else -> ReceiptOcrService.ReceiptType.UNKNOWN },
+            typeName = when (preset) { "가스" -> "LPG"; "전기" -> "전기충전"; else -> "기타" },
+            amount = 0, time = "", date = "", memo = "", rawText = "(자동 판독 실패 — 직접 입력)",
+            liters = 0f, pricePerLiter = 0
+        )
+        statusMessage = "⚠️ $reason — 금액을 직접 입력해 주세요"
     }
 
     // [AI 연동 1호] 로컬 OCR 원문을 서버 Claude가 교차검증(단가×리터≈금액)·구조화 → 값 보정.

@@ -41,6 +41,7 @@ private val SIMPLE_CARD_REGISTRY = listOf(
     // [기록·정산 통합] '정산' 콜카드 제거 — 기록 안에 월별 탭 존재 + 퇴근 시 일일정산 자동 표시
     SimpleCard("track", "🗺️", "궤적", 0xFF4ADE80, "오늘 실차·공차 경로"),
     SimpleCard("events", "🎪", "행사", 0xFFF472B6, "야구 종료·대형 행사 수요 예보"),
+    SimpleCard("insights", "📊", "인사이트", 0xFF818CF8, "내 성향·시간대별 유리한 콜"),
     SimpleCard("stats", "📊", "분석", 0xFF22D3EE, "수입 추세·시간대 통계"),
     SimpleCard("ranking", "🏆", "랭킹", 0xFFFBBF24, "내 순위·지역 랭킹"),
     SimpleCard("knowhow", "📝", "내 노하우", 0xFFA78BFA, "🔒 폰에만 저장 · 나만의 영업수첩"),
@@ -178,17 +179,27 @@ fun SimpleHomeScreen(
         val e = prefs.edit().putLong("work_start", t).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putInt("work_start_fare", todayFare).putBoolean("meter_local", true)
         if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
         e.apply(); workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
+        // [근무 구간] 새 영업일이면 어제 구간 비우고, 출근 시각으로 첫 구간을 연다
+        if (newDay) com.callradar.app.WorkSegments.clear(context)
+        com.callradar.app.WorkSegments.open(context, t)
         pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); if (distEnabled) startMeter()
     }
     val doPauseResume = {
         val t = System.currentTimeMillis()
-        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
-        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
+        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply()
+            com.callradar.app.WorkSegments.open(context, t)   // [근무 구간] 재개 → 새 구간
+            pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
+        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply()
+            com.callradar.app.WorkSegments.close(context, t)  // [근무 구간] 일시정지 → 구간 닫기
+            pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
     }
     val doEnd = {
         try {
             val now = System.currentTimeMillis()
             val startedAtMs = workStart   // 리셋 전 시작시각 보존(서버 요약용)
+            com.callradar.app.WorkSegments.close(context, now)   // [근무 구간] 퇴근 → 마지막 구간 닫기
+            // [유저요청] 퇴근하면 플로팅 버튼도 내림(설정은 유지 → 앱 재실행 시 자동 복귀)
+            try { (context as? com.callradar.app.MainActivity)?.hideFloatingForShiftEnd() } catch (e: Exception) {}
             val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
             val grossMs = (now - workStart).coerceAtLeast(0L)
             val dayKey = workDayKey(); val sameDay = prefs.getLong("work_day_key", 0L) == dayKey
@@ -237,7 +248,9 @@ fun SimpleHomeScreen(
         )
     }
 
-    val defCards = "record_settings,radar,airport,records,stats"   // [통합] settlement 제거
+    // [유저지시] 신규 설치 기본 콜카드 4개 고정: 기록·정산 / 공항 / 자동설정 / 궤적
+    //  (레이더·분석은 기본에서 빼고, 필요하면 '편집'에서 켜도록 — 처음 켠 기사에게 꼭 필요한 것만)
+    val defCards = "records,airport,record_settings,track"
     val selCards = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll((prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").map { it.trim() }.filter { it.isNotBlank() }) } }
     fun saveCards() { prefs.edit().putString("simple_home_cards", selCards.joinToString(",")).apply() }
     var editMode by remember { mutableStateOf(false) }
@@ -263,6 +276,8 @@ fun SimpleHomeScreen(
                 prefs.edit().putString("home_mode", "classic").apply()
                 (context as? android.app.Activity)?.recreate()
             }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("⇄ 기본홈", fontSize = 12.sp, color = muted) }
+            // [유저요청⑧] 명함 — 홈모드처럼 간편모드 상단에서도 바로 (손님 앞에서 빨리 꺼내야 하는 기능)
+            TextButton(onClick = { try { com.callradar.app.NameCardActivity.start(context) } catch (e: Exception) {} }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("📇 명함", fontSize = 13.sp, color = muted) }
             TextButton(onClick = { try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://open.kakao.com/o/gsyuVMCi")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {} }) { Text("💬 톡방", fontSize = 13.sp, color = muted) }
             TextButton(onClick = onOpenMenu) { Text("☰ 메뉴", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold) }
         }
@@ -277,6 +292,15 @@ fun SimpleHomeScreen(
                 if (active) {
                     Spacer(Modifier.height(6.dp))
                     Text("시간당 ${String.format("%,d", perHour)}원 · ${String.format("%.1f", distKm)}km", fontSize = 12.sp, color = muted)
+                    // [근무 구간] 일시정지로 나뉜 구간을 그대로 보여준다 — "06:00~11:00 · 15:00~23:00"
+                    //  (예전엔 한 덩어리로만 보여서, 중간에 몇 시간 쉬었는지 알 수 없었다)
+                    val segTxt = remember(nowTick, paused) { com.callradar.app.WorkSegments.format(context) }
+                    if (segTxt.isNotBlank() && segTxt.contains("·")) {
+                        val restM = remember(nowTick, paused) { com.callradar.app.WorkSegments.restMin(context) }
+                        Spacer(Modifier.height(4.dp))
+                        Text(segTxt, fontSize = 11.sp, color = accent)
+                        if (restM > 0) Text("휴식 ${restM / 60}시간 ${restM % 60}분 제외", fontSize = 10.sp, color = muted)
+                    }
                 }
                 Spacer(Modifier.height(18.dp))
                 if (!active) {

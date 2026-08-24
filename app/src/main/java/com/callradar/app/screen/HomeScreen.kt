@@ -640,6 +640,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var sumPerHour by remember { mutableStateOf(0) }
                 var sumFixedCost by remember { mutableStateOf(0) }   // [v24 진화②] 일 유류비+사납금
                 var sumNetProfit by remember { mutableStateOf(0) }   // [v24 진화②] 교대 예상 순수익
+                // [통행료] 기사가 하이패스로 먼저 내고 요금에 합산해 받은 뒤 급여로 정산받는 대납금.
+                //  매출에 섞여 있어 빼줘야 실적이 맞고, 월 누적은 급여명세서와 대조하는 기준이 된다.
+                var sumToll by remember { mutableStateOf(0) }        // 오늘 선결제한 통행료
+                var monthToll by remember { mutableStateOf(0) }      // 이번 달 누적(급여 대조용)
                 fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
@@ -647,6 +651,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val endShiftNow = {
                   try {
                     val now = System.currentTimeMillis()
+                    com.callradar.app.WorkSegments.close(context, now)   // [근무 구간] 퇴근 → 마지막 구간 닫기
+                    // [유저요청] 퇴근하면 화면 위 플로팅 버튼도 같이 내린다(설정은 유지 → 앱 다시 열면 복귀)
+                    try { (context as? com.callradar.app.MainActivity)?.hideFloatingForShiftEnd() } catch (e: Exception) {}
                     val netMs = ((now - workStart) - pausedTotal - (if (paused) now - pauseStart else 0L)).coerceAtLeast(0L)
                     val grossMs = (now - workStart).coerceAtLeast(0L)
                     // [v41] 하루(영업일) 누적 — 오전·오후 여러 출퇴근을 하나로 합쳐 영수증을 '하루 총합'으로.
@@ -672,6 +679,22 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
                     sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + effShiftSanap
                     sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
+                    // [통행료] 오늘·이번 달 선결제액을 영수증에 실어준다. 실패해도 영수증은 그대로 뜬다.
+                    if (userId.isNotEmpty()) scope.launch {
+                        try {
+                            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+                                .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }.format(java.util.Date())
+                            val txt = withContext(Dispatchers.IO) {
+                                (URL("$SERVER_URL/api/tolls/summary/$userId?date=$today").openConnection().apply {
+                                    com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                                    connectTimeout = 6000; readTimeout = 10000
+                                } as HttpURLConnection).inputStream.bufferedReader().readText()
+                            }
+                            val o = JSONObject(txt)
+                            sumToll = o.optInt("total", 0)
+                            monthToll = o.optJSONObject("month")?.optInt("total", 0) ?: 0
+                        } catch (e: Exception) {}
+                    }
                     com.callradar.app.TimingLog.send(context, "shift_end", amount = sFare)
                     try {
                         val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
@@ -788,6 +811,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         append("매출   ${String.format("%,d", sumFare)}원\n")
                         append("시간당 ${String.format("%,d", sumPerHour)}원\n")
                         if (sumFixedCost > 0) { append("고정비(유류+사납) -${String.format("%,d", sumFixedCost)}원\n"); append("예상 순수익 ${String.format("%,d", sumNetProfit)}원\n") }
+                        if (sumToll > 0) {
+                            append("$dash\n")
+                            append("통행료 선결제 ${String.format("%,d", sumToll)}원\n")
+                            if (monthToll > 0) append("이번 달 누적 ${String.format("%,d", monthToll)}원\n")
+                        }
                         append("$dash\n수고하셨습니다!")
                     }
                     AlertDialog(
@@ -809,6 +837,13 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 if (sumFixedCost > 0) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("고정비(유류+사납)", fontSize = 12.sp, fontFamily = mono, color = muted); Text("-${String.format("%,d", sumFixedCost)}원", fontSize = 12.sp, fontFamily = mono, color = red) }
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("예상 순수익", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumNetProfit)}원", fontSize = 16.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = green) }
+                                }
+                                // [통행료] 내가 먼저 낸 돈 = 급여로 돌려받을 돈. 매출·순수익과 성격이 달라 따로 묶는다.
+                                if (sumToll > 0) {
+                                    Text(dash, fontSize = 11.sp, fontFamily = mono, color = muted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("🛣 통행료 선결제", fontSize = 13.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", sumToll)}원", fontSize = 13.sp, fontFamily = mono, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA)) }
+                                    if (monthToll > 0) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("  이번 달 누적", fontSize = 12.sp, fontFamily = mono, color = muted); Text("${String.format("%,d", monthToll)}원", fontSize = 12.sp, fontFamily = mono, color = Color(0xFF60A5FA)) }
+                                    Text("  급여에 포함돼 돌아오는 금액입니다", fontSize = 10.sp, fontFamily = mono, color = muted)
                                 }
                                 Text("수고하셨습니다!", fontSize = 11.sp, fontFamily = mono, color = muted, modifier = Modifier.padding(top = 2.dp))
                             }
@@ -902,6 +937,17 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Text("${String.format("%,d", perHour)}원", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent)
                                 }
                             }
+                            // [근무 구간] 일시정지로 나뉜 실제 근무 구간 — "06:00~11:00 · 15:00~23:00"
+                            //  위 '근무 중 N시간'은 휴식을 뺀 순수 근무시간이고, 아래는 그게 어떻게 나뉘었는지 보여준다.
+                            if (active) {
+                                val segTxt = remember(nowTick, paused) { com.callradar.app.WorkSegments.format(context) }
+                                if (segTxt.contains("·")) {
+                                    val restM = remember(nowTick, paused) { com.callradar.app.WorkSegments.restMin(context) }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(segTxt, fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
+                                    if (restM > 0) Text("휴식 ${restM / 60}시간 ${restM % 60}분은 근무시간에서 빠졌어요", fontSize = 10.sp, color = muted)
+                                }
+                            }
                             if (active && distEnabled) {
                                 Spacer(Modifier.height(10.dp))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -957,13 +1003,20 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     if (newDay) { e.putLong("work_day_key", dayKey).putLong("work_day_net_ms", 0L).putLong("work_day_gross_ms", 0L).putInt("work_day_start_fare", todayFare).putFloat("work_distance_m", 0f) }
                                     e.apply()
                                     workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
+                                    // [근무 구간] 새 영업일이면 어제 구간 비우고, 출근 시각으로 첫 구간 열기
+                                    if (newDay) com.callradar.app.WorkSegments.clear(context)
+                                    com.callradar.app.WorkSegments.open(context, t)
                                     pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
                                         val t = System.currentTimeMillis()
-                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply(); pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
-                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply(); pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
+                                        if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply()
+                                            com.callradar.app.WorkSegments.open(context, t)   // [근무 구간] 재개 → 새 구간
+                                            pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
+                                        else { pauseStart = t; prefs.edit().putLong("work_pause_start", t).apply()
+                                            com.callradar.app.WorkSegments.close(context, t)  // [근무 구간] 일시정지 → 구간 닫기
+                                            pushWorkSession(workStart, pausedTotal, t, prefs.getInt("work_start_fare", 0)); stopMeter() }
                                     }, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(10.dp)) { Text(if (paused) "▶ 재개" else "⏸ 일시정지", color = accent, fontWeight = FontWeight.Bold) }
                                     Button(onClick = { showEndConfirm = true }, modifier = Modifier.weight(1f).height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = red), shape = RoundedCornerShape(10.dp)) { Text("🔴 퇴근", color = Color.White, fontWeight = FontWeight.Bold) }
                                 }

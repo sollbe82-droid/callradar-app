@@ -74,7 +74,9 @@ data class TerminalData(
     val upcomingCount: Int,
     val upcomingPax: Int,
     val nextFlight: NextFlight?,
-    val hourly: List<HourlyPax> = emptyList()
+    val hourly: List<HourlyPax> = emptyList(),
+    val in30Srv: Int = -1,   // [⑥] 서버 계산 30분 내 도착 인원 (sch 폴백 포함, -1=미제공)
+    val in60Srv: Int = -1
 )
 data class PhraseCard(
     val id: String, val korean: String, val english: String,
@@ -282,7 +284,8 @@ fun AirportScreen() {
                         for (i in 0 until hArr.length()) { val h = hArr.getJSONObject(i); hList.add(HourlyPax(h.optInt("hour",0), h.optInt("pax",0), h.optInt("count",0))) }
                         return TerminalData(taxi, fList,
                             obj.optInt("immigrationTotal",0), obj.optInt("upcomingCount",0),
-                            obj.optInt("upcomingPax",0), nextFlight, hList)
+                            obj.optInt("upcomingPax",0), nextFlight, hList,
+                            obj.optInt("in30Pax",-1), obj.optInt("in60Pax",-1))
                     }
 
                     t1Data = parseTerminal("t1")
@@ -406,8 +409,12 @@ fun AirportScreen() {
                                     val calF = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
                                     val nowMinF = calF.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calF.get(java.util.Calendar.MINUTE)
                                     var in30 = 0; var in60 = 0
-                                    (curData?.flights ?: emptyList()).forEach { f ->
-                                        val ps = f.estimatedTime.split(":")
+                                    // [유저제보⑥] 미래편은 estimatedTime이 빈 경우가 많아 항상 0으로 나오던 버그
+                                    //  → 서버가 sch 폴백 포함해 계산한 in30Pax/in60Pax 우선 사용, 없으면(구서버) 로컬 계산(est→sch 폴백)
+                                    if ((curData?.in30Srv ?: -1) >= 0) { in30 = curData!!.in30Srv; in60 = curData!!.in60Srv }
+                                    else (curData?.flights ?: emptyList()).forEach { f ->
+                                        val tstr = if (f.estimatedTime.isNotBlank()) f.estimatedTime else f.scheduledTime
+                                        val ps = tstr.split(":")
                                         val fh = ps.getOrNull(0)?.trim()?.toIntOrNull(); val fm = ps.getOrNull(1)?.trim()?.take(2)?.toIntOrNull()
                                         if (fh != null && fm != null && f.total > 0) {
                                             var diff = fh * 60 + fm - nowMinF

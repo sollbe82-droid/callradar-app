@@ -70,6 +70,9 @@ class NaviIntentReceiver : AccessibilityService() {
         // [궤적 실차/공차] 자동기록 트립에서 손님 탑승 상태. WorkSessionService가 읽어 GPS점을 실차(true)/공차로 태깅.
         //   activeTripId>0 && autoBoarded=true 인 구간만 실차. (드라이브 투 픽업·트립간 이동은 공차)
         @Volatile var autoBoarded: Boolean = false
+        // [유저592] 우버 결제수단 — 완료 화면에서 판정한 값을 마감 때 함께 전송.
+        //  "자동 결제" 배지가 보이면 auto, "미터 요금만 입력" 흐름이면 기사 수령(card/현금).
+        @Volatile var uberPayType: String? = null
         // [v53 #124] 플로팅 배지에서 수동 취소를 걸 수 있도록 서비스 인스턴스 참조.
         @Volatile var instance: NaviIntentReceiver? = null
     }
@@ -86,7 +89,10 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastUberWrittenFare = 0  // [우버0원수정] 요금 본 순간 서버에 쓴 값 추적(중복 PUT 방지)
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
-    @Volatile private var lastTollTripId = -1  // [v57] 통행료 지출 중복기록 방지 — 트립당 1회만
+    @Volatile private var lastTollTripId = -1  // [v57] 통행료 중복기록 방지 — 트립당 1회만
+    // 우버는 통행료를 '미터 요금만 입력' 화면에 띄우고, 그 화면은 종료 신호보다 먼저 지나간다.
+    //  본 순간 여기 담아뒀다가 마감할 때 쓴다. 새 운행이 시작되면 0으로 되돌린다.
+    @Volatile private var pendingToll = 0
     @Volatile private var boardedAtSent = false  // [#4 실차율] 탑승 순간 boarded_at 1회 전송했는지(근접 픽업도 실차시간 정확)
     @Volatile private var carryBoardToNextTrip = false  // [R1] 유령트립 마감 후 이어진 새 트립에 탑승상태 이어주기
     @Volatile private var forceNewTripOnNextScan = false // [R1] 새 탑승 감지 → 다음 스캔에서 유령 마감+새 트립(기존 force-end 경로 재사용, 레이스 방지)
@@ -382,6 +388,19 @@ class NaviIntentReceiver : AccessibilityService() {
                     }
                 }
                 if (meterFare == 0) meterFare = extractFare(lines, pkg)  // 라벨 못 찾으면 폴백
+                // [유저592 제보] 우버 현금 운행이 '자동결제'로 기록되던 문제.
+                //  실제 화면 구분(스크린샷 확인):
+                //   · 자동결제 → 금액칸 아래 "자동 결제" 배지 + "일반 콜 운행완료" 버튼
+                //   · 직접결제(현금·카드) → "미터 요금만 입력" 제목 + "확인하고 계속하기" 버튼
+                //  '자동 결제' 문구가 없으면 기사가 직접 받는 운행이므로 card로 둔다(현금도 여기 포함).
+                run {
+                    val flat = allText.replace(" ", "")
+                    uberPayType = if (flat.contains("자동결제")) "auto" else "card"
+                }
+                // [통행료] 우버는 통행료를 '요금 입력' 화면에 띄운다(종료 화면이 아니다).
+                //  종료 신호가 올 때는 이미 이 화면을 지나갔으므로, 여기서 봐두지 않으면 놓친다.
+                //  통행료 없는 운행이면 "발생하지 않았습니다"라 0이 나오고 캐시는 그대로 0이다.
+                extractToll(allText).let { tv -> if (tv > 0) pendingToll = tv }
                 if (meterFare > 0) {
                     lastDetectedFare = meterFare
                     // [우버0원수정] 요금을 '본 순간' 서버 트립에 바로 기록 → 완료 감지가 어긋나도 요금 유실 안 됨.
@@ -457,12 +476,14 @@ class NaviIntentReceiver : AccessibilityService() {
                     Log.d(TAG, "✅ 운행 종료 신호 ($lastPlatform), 마감 (요금: ${loggedFare}원)")
                     sendDebugLog("TRIP_END", "#$lastTripId | ${loggedFare}원")
                     sendDebugLog("END_SCREEN", allText.take(300))
-                    // [v57] 통행료 → 지출 자동 분리: 결제화면에 '통행 요금 Y'(Y>0)가 있으면 기사 실비이므로 지출(통행료)로 1회 기록. 매출은 미터만.
-                    val toll = extractToll(allText)
+                    // 통행료는 기사가 대신 낸 돈이라 매출이 아니다. 운행 기록에 별도로 붙여둔다.
+                    //  (매출은 미터요금만. 지출 장부 반영은 서버가 처리한다)
+                    //  종료 화면에 없으면 앞선 요금입력 화면에서 봐둔 값을 쓴다.
+                    val toll = extractToll(allText).let { if (it > 0) it else pendingToll }
                     if (toll > 0 && lastTripId != lastTollTripId) {
                         lastTollTripId = lastTripId
-                        sendDebugLog("TOLL_EXPENSE", "#$lastTripId | ${toll}원 → 지출(통행료)")
-                        postTollExpense(lastTripId, toll)
+                        sendDebugLog("TOLL", "#$lastTripId | ${toll}원")
+                        putTripToll(lastTripId, toll)
                     }
                     finalizeCurrentTrip(fare)
                 }
@@ -566,6 +587,8 @@ class NaviIntentReceiver : AccessibilityService() {
         isSendingTrip = true
         tripStartedAt = System.currentTimeMillis()
         passengerBoarded = false; autoBoarded = false; boardedAtSent = false  // 새 운행 시작 → 탑승 플래그 리셋(공차부터)
+        uberPayType = null   // [유저592] 새 운행 → 이전 콜의 결제수단 판정이 남지 않게 초기화
+        pendingToll = 0      // [통행료] 앞 운행의 통행료가 다음 운행에 딸려붙지 않게 초기화
         if (carryBoardToNextTrip) { passengerBoarded = true; autoBoarded = true; carryBoardToNextTrip = false }  // [R1] 유령 마감 후 이어진 새 트립은 이미 탑승상태 → 취소방지 유지
         if (lastPlatform == UBER) { passengerBoarded = true; autoBoarded = true }  // [v53 #124] 우버는 배차=이미 운행(픽업신호 없음) → 즉시 실차 태깅(회색 궤적/실차거리 누락 방지)
         originRestamped = false   // 새 운행 → 출발지 재설정 대기
@@ -685,13 +708,20 @@ class NaviIntentReceiver : AccessibilityService() {
                 val o = org.json.JSONObject(body)
                 if (o.optBoolean("locked")) return@Thread
                 val gap = o.optDouble("avgGap", -1.0)
-                if (gap <= 0) return@Thread
-                var txt = "$dong 도착 후 다음 콜까지 평균 ${gap.toInt()}분"
                 val nb = o.optJSONArray("nearby")
-                if (nb != null && nb.length() > 0) {
+                // [유저지시⑩] 이 동+시간대 데이터 없으면 어설픈 수치 금지 — 근처(3km) 실측 추천이 있으면 그것만, 그것도 없으면 침묵.
+                var txt: String
+                if (gap > 0) {
+                    txt = "$dong 도착 후 다음 콜까지 평균 ${gap.toInt()}분"
+                    if (nb != null && nb.length() > 0) {
+                        val e = nb.getJSONObject(0)
+                        if (e.optDouble("gap", 99.0) < gap - 3) txt += " · 더 나은 곳: ${e.optString("name")} ${e.optDouble("gap",0.0).toInt()}분(${e.optDouble("km",0.0)}km)"
+                    }
+                } else if (nb != null && nb.length() > 0) {
                     val e = nb.getJSONObject(0)
-                    if (e.optDouble("gap", 99.0) < gap - 3) txt += " · 더 나은 곳: ${e.optString("name")} ${e.optDouble("gap",0.0).toInt()}분(${e.optDouble("km",0.0)}km)"
-                }
+                    txt = "$dong 데이터 없음 · 근처 추천: ${e.optString("name")} ${e.optDouble("gap",0.0).toInt()}분(${e.optDouble("km",0.0)}km)"
+                    if (nb.length() > 1) { val e2 = nb.getJSONObject(1); txt += " / ${e2.optString("name")} ${e2.optDouble("gap",0.0).toInt()}분" }
+                } else return@Thread
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
                     nm.createNotificationChannel(android.app.NotificationChannel("callradar_outlook", "귀로 전망", android.app.NotificationManager.IMPORTANCE_DEFAULT))
@@ -819,31 +849,47 @@ class NaviIntentReceiver : AccessibilityService() {
         } catch (e: Exception) { Log.e(TAG, "자동출근 실패: ${e.message}") }
     }
 
-    // [v57] 결제화면 텍스트에서 '통행 요금 Y' 금액 추출 (Y>0만). 미터요금/기타 숫자와 구분하려 '통행 요금' 라벨 뒤 숫자만.
+    // 결제화면에서 통행료 금액만 뽑는다.
+    //  플랫폼마다 표기가 달라서 변형을 함께 받는다: 통행 요금 / 통행료 / 유료도로 / 하이패스
+    //  라벨과 숫자 사이에 조사·서술어가 낄 수 있어(예: "통행료는 3,300원") 12자까지 건너뛴다.
+    //  단 그 사이에 다른 숫자가 있으면 안 잡는다(미터요금 오독 방지).
+    private val TOLL_LABELS = Regex("(?:통행\\s*요금|통행료|유료\\s*도로(?:\\s*이용료)?|하이패스)[^0-9₩\\n]{0,12}₩?\\s*([0-9,]{2,9})")
+
+    // 우버 실제 화면(2026-08 확인): 통행료가 없으면 "해당 경로에는 통행료가 발생하지 않았습니다"라고 뜬다.
+    //  라벨이 있다고 금액이 있는 게 아니므로, 부정문이면 먼저 걸러낸다.
+    private val TOLL_NONE = Regex("통행료가?\\s*(?:발생하지\\s*않|없|미발생)")
+
     private fun extractToll(allText: String): Int {
-        val m = Regex("통행\\s*요금\\s*([0-9,]{1,9})").find(allText) ?: return 0
+        if (TOLL_NONE.containsMatchIn(allText)) return 0
+        val m = TOLL_LABELS.find(allText) ?: return 0
         val v = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
+        // 100원 미만은 오독, 10만원 초과는 미터요금을 잘못 물었을 가능성
         return if (v in 100..100000) v else 0
     }
 
-    // [v57] 통행료를 지출(category=통행료)로 서버 기록. client_uuid로 멱등(트립당 1건) → 화면 갱신·재전송 중복 방지.
-    private fun postTollExpense(tripId: Int, amount: Int) {
+    /**
+     * 화면에서 읽은 통행료를 그 운행 기록에 붙인다.
+     *
+     * [v91] 예전에는 expenses에 지출로 직접 넣었는데, 오늘 기록 수정창에 수동 입력칸이
+     *  생기면서 같은 통행료가 두 경로로 들어가 두 번 잡힐 수 있게 됐다.
+     *  이제 trips.toll 하나만 원천으로 쓰고, 지출 장부 반영은 서버가 대신 한다
+     *  (client_uuid로 트립당 1건 유지).
+     */
+    private fun putTripToll(tripId: Int, amount: Int) {
         Thread {
             try {
                 val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
                 val userId = prefs.getString("user_id", null) ?: return@Thread
                 val json = JSONObject().apply {
-                    put("user_id", userId); put("category", "통행료"); put("amount", amount)
-                    put("expense_type", "business"); put("memo", "자동 기록(통행료)"); put("tax_deductible", true)
-                    put("client_uuid", "toll-$userId-$tripId")
+                    put("user_id", userId); put("toll", amount); put("toll_src", "screen")
                 }
-                val conn = (URL("$SERVER_URL/api/expenses").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
-                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 15000; readTimeout = 20000
+                val conn = (URL("$SERVER_URL/api/trips/$tripId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply {
+                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 15000; readTimeout = 20000
                 }
                 conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                 conn.responseCode; conn.disconnect()
-                Log.d(TAG, "🧾 통행료 지출 기록: #$tripId ${amount}원")
-            } catch (e: Exception) { Log.e(TAG, "통행료 지출 실패: ${e.message}") }
+                Log.d(TAG, "🛣️ 통행료 기록: #$tripId ${amount}원")
+            } catch (e: Exception) { Log.e(TAG, "통행료 기록 실패: ${e.message}") }
         }.start()
     }
 
@@ -964,6 +1010,9 @@ class NaviIntentReceiver : AccessibilityService() {
                     put("ended_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
                         timeZone = java.util.TimeZone.getTimeZone("UTC")
                     }.format(java.util.Date()))
+                    // [유저592] 우버 결제수단 — 완료 화면에서 읽은 값(자동결제/직접결제)을 함께 저장.
+                    //  예전엔 우버가 결제수단을 안 보내서 전부 기본값(auto)이 됐고, 현금 운행도 자동결제로 찍혔다.
+                    uberPayType?.let { pt -> put("payment_type", pt) }
                     // [v57] 자정 날짜귀속: day_start_hour를 설정한 유저면 완료시각 기준 영업일을 business_date로 보냄(서버가 출근일 대신 이 값 사용).
                     //  미설정 유저는 안 보냄 → 기존 '출근일 귀속' 유지(야간기사 회귀 방지).
                     if (prefs.getBoolean("day_start_set", false)) {

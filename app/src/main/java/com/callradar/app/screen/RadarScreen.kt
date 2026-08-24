@@ -219,10 +219,38 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
     var roDest by remember { mutableStateOf("") }
     var roLoading by remember { mutableStateOf(false) }
     var roResult by remember { mutableStateOf<JSONObject?>(null) }
+    fun rget(path: String): String = (URL("$server$path").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 30000 }.inputStream.bufferedReader().readText()
+    // [타이밍 조언] 지금 이 시간의 순수입 분당 + 거리대별 1등 + 앞으로 8시간 전망
+    var timing by remember { mutableStateOf<JSONObject?>(null) }
+    LaunchedEffect(userId) {
+        if (userId.isEmpty()) return@LaunchedEffect
+        try {
+            val txt = withContext(Dispatchers.IO) { (URL("$server/api/timing-advice/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 30000 }.inputStream.bufferedReader().readText() }
+            timing = JSONObject(txt)
+        } catch (e: Exception) {}
+    }
+    // [성향별 추천자리] 내 성향(장거리형/회전형)을 진단하고, 그 성향에 맞춰 주변 자리를 정렬해 받는다.
+    //  콜은 못 고르지만 '어디서 기다릴지'는 고를 수 있다 — 자리마다 나오는 콜이 완전히 다르기 때문.
+    var style by remember { mutableStateOf<JSONObject?>(null) }
+    var spots by remember { mutableStateOf<JSONObject?>(null) }
+    LaunchedEffect(userId) {
+        if (userId.isEmpty()) return@LaunchedEffect
+        try {
+            val t = withContext(Dispatchers.IO) { rget("/api/driver-style/$userId") }
+            style = JSONObject(t)
+        } catch (e: Exception) {}
+    }
+    LaunchedEffect(userId, curLat, curLng, style) {
+        if (userId.isEmpty() || curLat == 0.0 || curLng == 0.0) return@LaunchedEffect
+        val st = style?.optString("style")?.takeIf { it.isNotBlank() && it != "null" } ?: "mixed"
+        try {
+            val t = withContext(Dispatchers.IO) { rget("/api/spot-profiles/$userId?lat=$curLat&lng=$curLng&km=8&style=$st") }
+            spots = JSONObject(t)
+        } catch (e: Exception) {}
+    }
     var destBasis by remember { mutableStateOf("") }   // [v44] "me"=내 기록 / "all"=전체 기사(폴백). 정직 표기용.
     var hzone by remember { mutableStateOf<List<Pair<String, Double>>>(emptyList()) }
     var hzScope by remember { mutableStateOf(0) }   // 0=전체(지금 시간대) · 1=내 누적 · 2=오늘(내)
-    fun rget(path: String): String = (URL("$server$path").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 30000 }.inputStream.bufferedReader().readText()
     LaunchedEffect(curLat, curLng) {   // [피드백] 위치 도착 시 재조회 → dest-risk도 내 반경 기준으로
         withContext(Dispatchers.IO) {
             try {
@@ -344,6 +372,92 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
                 }
             }
 
+            // [성향별 추천자리] 🎯 내 성향에 맞는 대기 자리 — 자리마다 나오는 콜이 완전히 다르다.
+            //  (2터미널은 장거리 81%, 구로동은 0%. 콜은 못 고르지만 자리는 고를 수 있다)
+            spots?.let { sp ->
+                if (!sp.optBoolean("locked")) {
+                    val arr = sp.optJSONArray("spots")
+                    if (arr != null && arr.length() > 0) Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val stLabel = style?.optString("styleLabel")?.takeIf { it.isNotBlank() && it != "null" } ?: ""
+                            val myStyle = sp.optString("style")
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎯 내 주변 자리 — 어떤 콜이 나오나", color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                if (stLabel.isNotEmpty()) Text(stLabel, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(when (myStyle) {
+                                "long" -> "장거리형 기준 정렬 — 장거리가 자주 터지는 자리 순"
+                                "rotate" -> "회전형 기준 정렬 — 짧게 여러 번 돌기 좋은 자리 순"
+                                else -> "분당 수익이 높은 자리 순 · 8km 이내"
+                            }, color = muted, fontSize = 10.sp)
+                            val base = sp.optInt("basePerMin", 0)
+                            for (i in 0 until minOf(arr.length(), 5)) {
+                                val s = arr.getJSONObject(i)
+                                val pm = s.optInt("perMin")
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Column {
+                                        Text("${if (i == 0) "🥇 " else "     "}${s.optString("name")}", color = if (i == 0) AppTheme.text else muted,
+                                            fontSize = 14.sp, fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal)
+                                        Text("${s.optDouble("km", 0.0)}km · 장거리 ${s.optInt("longPct")}% · 대기 ${s.optDouble("wait", 0.0).toInt()}분 · ${s.optInt("n")}건",
+                                            fontSize = 10.sp, color = muted)
+                                    }
+                                    Text("분당 ${pm}원", color = if (base > 0 && pm >= base) green else accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (base > 0) Text("지금 시간대 전체 평균은 분당 ${base}원이에요", color = muted, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+
+            // [타이밍 조언] ⏱ 지금 이 시간엔 뭐가 유리한가 — 실측상 시간대마다 1등이 뒤집힌다.
+            //  (심야·퇴근엔 초단거리, 출근·낮·밤엔 장거리가 분당수익 1등) 콜은 못 고르지만 '언제 붙어있을지'는 고를 수 있다.
+            timing?.let { tm ->
+                if (!tm.optBoolean("locked")) Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val pm = tm.optInt("perMin", 0); val avg = tm.optInt("allAvg", 0); val vs = tm.optInt("vsAvgPct", 0)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("⏱ 지금 ${tm.optInt("hour", 0)}시 — 이 시간의 벌이", color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            if (pm > 0) Text("분당 ${pm}원", color = if (vs >= 15) green else if (vs <= -15) red else accent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (pm > 0) {
+                            Text("${tm.optString("basis")} 기준 · 전체 평균 ${avg}원 대비 ${if (vs > 0) "+" else ""}${vs}%  (연료비 뺀 순수입)", color = muted, fontSize = 10.sp)
+                            // 지금 시간대 거리대별 1등 — "장거리를 타라"가 아니라 "지금은 이게 유리하다"
+                            val bs = tm.optJSONArray("bands")
+                            if (bs != null && bs.length() > 0) {
+                                Spacer(Modifier.height(2.dp))
+                                for (i in 0 until minOf(bs.length(), 4)) {
+                                    val b = bs.getJSONObject(i)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("${if (i == 0) "🥇 " else "     "}${b.optString("band")}", color = if (i == 0) accent else muted, fontSize = 13.sp, fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal)
+                                        Text("분당 ${b.optInt("perMin")}원 · 대기 ${b.optDouble("wait", 0.0).toInt()}분", color = if (i == 0) AppTheme.text else muted, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                            Text(tm.optString("advice"), color = if (vs <= -15) red else AppTheme.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            // 앞으로 8시간 — 언제 좋아지고 언제 접을지
+                            val nx = tm.optJSONArray("next")
+                            if (nx != null && nx.length() > 0) {
+                                Spacer(Modifier.height(2.dp))
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    for (i in 0 until nx.length()) {
+                                        val f = nx.getJSONObject(i); val v = f.optInt("perMin", 0)
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("${f.optInt("hour")}시", color = muted, fontSize = 10.sp)
+                                            Text(if (v > 0) "$v" else "·", color = if (v >= pm) green else if (v > 0 && v < pm * 0.7) red else muted,
+                                                fontSize = 12.sp, fontWeight = if (v >= pm) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
+                                val drop = tm.optJSONObject("dropAt"); val peak = tm.optJSONObject("peak")
+                                if (drop != null) Text("⚠️ ${drop.optInt("hour")}시부터 분당 ${drop.optInt("perMin")}원으로 떨어져요 — 그 전에 정리하는 게 나아요", color = red, fontSize = 11.sp)
+                                else if (peak != null && peak.optInt("perMin") > pm) Text("📈 ${peak.optInt("hour")}시가 분당 ${peak.optInt("perMin")}원으로 가장 좋아요", color = green, fontSize = 11.sp)
+                            }
+                        } else Text("이 시간대는 아직 표본이 부족해요 — 기록이 쌓이면 열려요", color = muted, fontSize = 12.sp)
+                    }
+                }
+            }
+
             // [귀로내비] 🧭 귀로 전망 — 목적지 동네 입력 → 이 시간대 복귀 대기 + 인근 더 나은 동네
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -371,23 +485,45 @@ fun RadarScreen(userId: String, embedded: Boolean = false) {
                                  else "🔒 최근 7일 운행 ${o.optInt("need",5)}건 기록되면 열려요 (지금 ${o.optInt("have",0)}건)", color = muted, fontSize = 12.sp)
                         } else {
                             val gap = o.optDouble("avgGap", -1.0); val smp = o.optInt("sample", 0)
+                            // [유저지시⑩] 같은 동+시간대 데이터 있으면 그 수치, 없으면 '없다'고 정직하게.
+                            //  단, 주변 3km 추천(1·2순위)은 데이터 없어도 보여준다 — 실측 있는 동네만 오므로 안전.
                             if (gap > 0) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Text(o.optString("dest"), color = AppTheme.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     Text("복귀 평균 ${gap.toInt()}분", color = if (gap <= 10) green else if (gap >= 25) red else accent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 }
-                                Text(if (o.optString("scope").startsWith("동네")) "이 시간대 · 표본 ${smp}건" else "표본 부족 — 전체 시간대 평균으로 추정", color = muted, fontSize = 10.sp)
-                                val nb = o.optJSONArray("nearby")
-                                if (nb != null && nb.length() > 0) {
-                                    Text("근처 더 나은 곳", color = muted, fontSize = 11.sp)
-                                    for (i in 0 until nb.length()) { val e = nb.getJSONObject(i)
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("${e.optString("name")} · ${e.optDouble("km",0.0)}km", color = AppTheme.text, fontSize = 13.sp)
-                                            Text("${e.optDouble("gap",0.0).toInt()}분", color = green, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        }
+                                Text("이 시간대 · 표본 ${smp}건", color = muted, fontSize = 10.sp)
+                                // [분당수익 관점] '대기 N분'만 보면 장거리를 말리는 정보가 된다.
+                                //  실측상 장거리는 대기를 다 물려도 시간당이 더 높다(30km+ 613원 vs 2~5km 367원).
+                                //  그래서 '거기까지 가는 데 걸리는 시간 + 대기'로 나눈 분당을 같이 보여준다.
+                                timing?.let { tm ->
+                                    val bands = tm.optJSONArray("bands")
+                                    val longBand = if (bands != null) (0 until bands.length()).map { bands.getJSONObject(it) }
+                                        .firstOrNull { it.optString("band") == "20km+" } else null
+                                    val shortPm = if (bands != null) (0 until bands.length()).map { bands.getJSONObject(it) }
+                                        .filter { it.optString("band") != "20km+" }.map { it.optInt("perMin") }
+                                        .filter { it > 0 }.average().takeIf { !it.isNaN() }?.toInt() ?: 0 else 0
+                                    if (longBand != null && shortPm > 0) {
+                                        val lp = longBand.optInt("perMin")
+                                        val diff = if (shortPm > 0) ((lp - shortPm) * 100.0 / shortPm).toInt() else 0
+                                        Spacer(Modifier.height(2.dp))
+                                        Text("이 시간대 장거리 분당 ${lp}원 · 단거리 ${shortPm}원", color = AppTheme.text, fontSize = 12.sp)
+                                        Text(if (diff > 0) "→ 대기 ${gap.toInt()}분을 물려도 장거리가 ${diff}% 유리해요"
+                                             else "→ 지금은 단거리 회전이 ${-diff}% 유리한 시간대예요",
+                                            color = if (diff > 0) green else accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
-                            } else Text("이 동네는 아직 데이터가 부족해요 — 기사님이 다녀오시면 쌓입니다", color = muted, fontSize = 12.sp)
+                            } else Text("${o.optString("dest")} — 이 시간대 데이터가 아직 없어요 (다녀오시면 쌓입니다)", color = muted, fontSize = 12.sp)
+                            val nb = o.optJSONArray("nearby")
+                            if (nb != null && nb.length() > 0) {
+                                Text(if (gap > 0) "근처 더 나은 곳" else "대신 근처(3km) 실측 추천", color = muted, fontSize = 11.sp)
+                                for (i in 0 until nb.length()) { val e = nb.getJSONObject(i)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("${i + 1}순위 ${e.optString("name")} · ${e.optDouble("km",0.0)}km", color = AppTheme.text, fontSize = 13.sp)
+                                        Text("${e.optDouble("gap",0.0).toInt()}분", color = green, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -107,8 +107,18 @@ class EventsActivity : ComponentActivity() {
             }
         }
 
+        // [유저제보] 서울 기사에게 고양 빅뱅 콘서트가 안 보이던 문제 —
+        //  지역 칩이 '서울'이면 경기/인천 행사가 통째로 잘렸다. 택시는 시경계를 넘나들고,
+        //  고양·수원·인천 대형 공연은 서울 기사에게 오히려 노른자 콜(장거리 귀경)이다.
+        //  → 수도권(서울·경기·인천)은 하나로 묶어 서로 보이게 한다.
+        val METRO = setOf("서울", "경기", "인천")
+        fun areaMatch(evArea: String): Boolean {
+            if (areaFilter == "전체") return true
+            if (areaFilter in METRO) return METRO.any { evArea.contains(it) }
+            return evArea.contains(areaFilter)
+        }
         // [중복·구분 개선] 제목+장소+날짜로 중복 제거, 야구는 오늘/내일 분리(연전이 중복처럼 보이던 문제)
-        val filtered = events.filter { areaFilter == "전체" || it.area.contains(areaFilter) }
+        val filtered = events.filter { areaMatch(it.area) }
             .distinctBy { "${it.title}|${it.venue}|${it.start}" }
         val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
             .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }.format(java.util.Date())
@@ -124,7 +134,25 @@ class EventsActivity : ComponentActivity() {
                 } ?: false
             }
         val sportsTomorrow = filtered.filter { it.category == "스포츠" && it.start > todayStr }
+        // [유저지시] 쓸모없는 행사 걸러내기 —
+        //  ① 이미 끝난 행사  ② 8일 뒤 이후(너무 먼 미래)  ③ 상시 운영 프로그램(한강야경투어·DDP 건축투어 등,
+        //     기간이 30일을 넘으면 '오늘 인파가 몰리는 행사'가 아니라 상설 프로그램이다)  ④ 소규모 체험·투어성 행사
+        val plus8 = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+            .format(java.util.Date(System.currentTimeMillis() + 8L * 86400_000L))
+        fun daysBetween(a: String, b: String): Long = try {
+            val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            ((f.parse(b)!!.time - f.parse(a)!!.time) / 86400_000L)
+        } catch (e: Exception) { 0L }
+        val JUNK = Regex("투어|탐방|건축|체험|교실|아카데미|강좌|캠프|워크숍|워크샵|플리마켓|벼룩|전시관|박물관|상설")
         val others = filtered.filter { it.category != "스포츠" }
+            .filter { e ->
+                val end = e.end.ifBlank { e.start }
+                end >= todayStr &&                      // 끝난 행사 제외
+                e.start <= plus8 &&                     // 8일 뒤 이후 제외
+                daysBetween(e.start, end) <= 30 &&      // 상시 프로그램 제외
+                !JUNK.containsMatchIn(e.title)          // 투어·체험류 제외
+            }
 
         Column(Modifier.fillMaxSize().background(AppTheme.bg)) {
             Row(Modifier.fillMaxWidth().background(AppTheme.card).padding(top = 34.dp, start = 10.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {

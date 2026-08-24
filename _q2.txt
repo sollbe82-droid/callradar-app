@@ -1,0 +1,11 @@
+﻿TABLES: app_config, auth_tokens, big_events, bookings, call_logs, consents, daily_settlement, debug_logs, driver_settings, events, expenses, favorite_spots, geo_cache, guild_members, guilds, import_rules, notif_samples, pair_codes, payslips, receipts, recognition_feedback, rule_canary, timing_log, track_points, trips, usage_events, user_backup, user_devices, user_hotspots, user_knowhow, users, work_session, work_sessions_log
+
+work_sessions_log: id, user_id, started_at, ended_at, gross_min, net_min, dist_km, fare, per_hour, created_at
+  rows: 275
+  ex: {"id":410,"user_id":800,"started_at":"1787451752602","ended_at":"1787451754170","gross_min":276,"net_min":276,"dist_km":0,"fare":0,"per_hour":0,"created_at":"2026-08-23T02:22:34.234Z"}
+  ex: {"id":408,"user_id":599,"started_at":"1787416245813","ended_at":"1787450215788","gross_min":566,"net_min":566,"dist_km":1104.0569,"fare":0,"per_hour":0,"created_at":"2026-08-23T01:56:56.112Z"}
+
+expenses: id, user_id, category, amount, expense_type, memo, created_at, liters, price_per_liter, tax_deductible, import_key, client_uuid
+  rows: 217
+  ex: {"id":268,"user_id":"108","category":"?듯뻾猷?,"amount":700,"expense_type":"business","memo":"?먮룞 湲곕줉(?듯뻾猷?","created_at":"2026-08-22T17:05:22.302Z","liters":"0","price_per_liter":0,"tax_deductible":true,"import_key":null,"client_uuid":"toll-108-9974"}
+  ex: {"id":267,"user_id":"101","category":"?듯뻾猷?,"amount":4500,"expense_type":"business","memo":"?먮룞 湲곕줉(?듯뻾猷?","created_at":"2026-08-22T16:29:50.376Z","liters":"0","price_per_liter":0,"tax_deductible":true,"import_key":null,"client_uuid":"toll-101-9943"}

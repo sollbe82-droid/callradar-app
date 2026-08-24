@@ -138,6 +138,10 @@
             android:exported="false"
             android:label="행사 수요 예보" />
         <activity
+            android:name=".InsightsActivity"
+            android:exported="false"
+            android:label="운행 인사이트" />
+        <activity
             android:name=".KnowhowActivity"
             android:exported="false"
             android:label="내 노하우" />

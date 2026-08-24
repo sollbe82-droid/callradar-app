@@ -153,7 +153,7 @@ private fun QuickEntry(tripId: Int, localId: Long, dest: String, userId: String,
                 } else {
                     Text("추가금", fontSize = 12.sp, color = muted)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        listOf("프로모션", "포인트콜").forEach { t -> FilterChip(selected = promoType == t, onClick = { promoType = t }, label = { Text(t, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
+                        listOf("프로모션", "포인트콜", "팁").forEach { t -> FilterChip(selected = promoType == t, onClick = { promoType = t }, label = { Text(t, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
                     }
                     OutlinedTextField(value = promo, onValueChange = { promo = it.filter { c -> c.isDigit() } }, label = { Text("추가금 (원)", color = muted) }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     Spacer(Modifier.height(8.dp))

@@ -96,7 +96,7 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
     val scope = rememberCoroutineScope()
     val prefs = ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     // [v25] 임포트 모드 — 지출: 전부 지출(-) / 수입: 전부 수입(+) / 둘다: 자동 분류(마감 장부). 추측 대신 컨텍스트로 확정.
-    var importMode by remember { mutableStateOf(initialMode) }
+    val importMode = "expense"   // [유저요청] 가져오기는 지출 전용으로 고정(수입 모드 폐지)
     // [v19] 파싱 규칙: 캐시(마지막 수신) → 없으면 내장 기본값. 화면 열릴 때 서버에서 최신 규칙 갱신.
     var rules by remember { mutableStateOf(prefs.getString("import_rules_json", null)?.let { rulesFromJson(it, ImportRules()) } ?: ImportRules()) }
     LaunchedEffect(Unit) {
@@ -250,27 +250,12 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).padding(16.dp).verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(32.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(when (importMode) { "expense" -> "➖ 지출 가져오기"; "income" -> "➕ 수입 가져오기"; else -> "실적 가져오기" }, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.weight(1f))
+            Text("➖ 지출 가져오기", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent, modifier = Modifier.weight(1f))
             TextButton(onClick = onClose) { Text("닫기", color = muted) }
         }
-        Text("영수증·전표·화면을 📷카메라·🖼갤러리(여러장)·📄파일로 가져와요. 인식 후 표에서 확인·수정하고 넣습니다.", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
-        // [v25] 수입/지출 모드 — 컨텍스트로 확정(income/expense 추측 제거)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-            listOf("income" to "➕ 수입", "expense" to "➖ 지출", "both" to "자동").forEach { (v, lbl) ->
-                FilterChip(selected = importMode == v, onClick = {
-                    importMode = v
-                    // 이미 인식된 행을 새 모드로 즉시 재분류(다시 찍을 필요 없음)
-                    rows = rows.map { r ->
-                        val t = (r.income.toIntOrNull() ?: 0) + (r.expense.toIntOrNull() ?: 0)
-                        when (v) {
-                            "expense" -> r.copy(income = "", expense = if (t > 0) t.toString() else "")
-                            "income" -> r.copy(income = if (t > 0) t.toString() else "", expense = "")
-                            else -> r
-                        }
-                    }
-                }, label = { Text(lbl, fontSize = 12.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted))
-            }
-        }
+        Text("가스·정비·세차 영수증이나 지출 장부를 📷카메라·🖼갤러리(여러장)·📄파일로 가져와요. 인식 후 표에서 확인·수정하고 넣습니다. (수입은 운행기록에서 자동 집계돼요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+        // [유저요청] 수입 개념 완전 제거 — 가져오기는 '지출 전용'. 수입은 운행기록에서만 잡힌다.
+        //  (모드 칩·수입 입력칸이 남아 있어 혼란을 줬음 → 화면에서 통째로 삭제)
 
         // 연·월 선택 (달력 사진엔 연도가 없어 여기서 지정)
         Text("가져올 연·월", fontSize = 13.sp, color = muted)
@@ -295,7 +280,7 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
         // [v19] 인식이 안 돼도 항상 표를 보여줘서 '직접 추가'로 넣을 수 있게 (기록 안됨 방지)
         run {
             Spacer(Modifier.height(12.dp))
-            Text("표에서 날짜(일)·수입·지출을 확인·수정하세요. 위의 연·월이 이 표의 기준이에요.", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
+            Text("표에서 날짜(일)·지출 금액을 확인·수정하세요. 위의 연·월이 이 표의 기준이에요.", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text("${month}월 일", fontSize = 12.sp, color = muted, modifier = Modifier.width(56.dp))
                 if (importMode != "expense") Text("수입", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))   // [v53] 지출 컨텍스트에선 수입칸 숨김

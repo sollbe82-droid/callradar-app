@@ -106,6 +106,16 @@ class MainActivity : ComponentActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("floating_on", false).apply()
     }
 
+    /**
+     * [퇴근 시 플로팅 정리] 근무가 끝나면 화면 위 버튼은 방해만 된다 → 내린다.
+     *  다만 '플로팅 사용' 설정(floating_on)은 켠 상태로 남겨서, 앱을 다시 열면 자동으로 되살아난다.
+     *  (onResume의 복구 로직이 floating_on을 보고 다시 띄운다 — 매번 켜라고 안내할 필요 없음)
+     */
+    fun hideFloatingForShiftEnd() {
+        try { stopService(Intent(this, FloatingTripService::class.java)) } catch (e: Exception) {}
+        // floating_on 은 그대로 둔다(사용자 설정 보존)
+    }
+
 
     // [보안 v24] 저장된 계정(user_id)에 맞는 인증 토큰을 서버에서 받아 저장.
     //  계정 전환·구버전 설치(토큰 없음)를 다음 실행 때 자가치유. 이 요청은 옛 토큰을 보내지 않는다(불일치 403 방지).
@@ -259,7 +269,17 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun AppContent() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        // [v17][#10] 자동 로그인 = 체크박스(기본 해제). 방금 로그인했거나(sessionLoggedIn),
+        // [로딩 체감 원인] v17 시절 '자동 로그인 기본 해제'로 저장된 값이 그대로 남아 있어서,
+        //  앱을 껐다 켤 때마다 로그인 화면을 한 번 더 거치고 있었다(기사 입장에선 그게 '앱이 느림'으로 느껴짐).
+        //  로그인 자격(닉네임)이 남아 있는 기기는 1회만 자동 로그인을 켜준다. 계정 전환은 '다른 계정으로 로그인'으로 그대로 가능.
+        run {
+            if (!prefs.getBoolean("auto_login_migrated", false)) {
+                val e = prefs.edit().putBoolean("auto_login_migrated", true)
+                if (prefs.getString(KEY_NICKNAME, null) != null) e.putBoolean(KEY_AUTO_LOGIN, true)
+                e.apply()
+            }
+        }
+        // [v17][#10] 자동 로그인 = 체크박스. 방금 로그인했거나(sessionLoggedIn),
         // 자동로그인을 켠 상태로 자격정보가 남아있을 때만 로그인 유지. 아니면 매번 로그인 화면 → 계정 전환 자유.
         var isLoggedIn by remember { mutableStateOf(sessionLoggedIn || (prefs.getBoolean(KEY_AUTO_LOGIN, true) && prefs.getString(KEY_NICKNAME, null) != null)) }
         var showManualFromAlert by remember { mutableStateOf(false) }
@@ -456,6 +476,7 @@ class MainActivity : ComponentActivity() {
                 "driver_settings" -> { fullTick++; route = "full" }
                 "knowhow" -> try { com.callradar.app.KnowhowActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 내 노하우 콜카드
                 "events" -> try { com.callradar.app.EventsActivity.start(this@MainActivity) } catch (e: Exception) {}   // [행사개편] 행사 수요 예보
+                "insights" -> try { com.callradar.app.InsightsActivity.start(this@MainActivity) } catch (e: Exception) {}   // [인사이트] 내 성향·시간대별 유리한 콜
                 "salary" -> try { com.callradar.app.CompanyProfileActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 월급 예상
                 "tax" -> try { com.callradar.app.TaxReportActivity.start(this@MainActivity) } catch (e: Exception) {}   // [v83] 세무 리포트 노출
                 else -> route = id

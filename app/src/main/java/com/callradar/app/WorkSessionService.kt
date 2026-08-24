@@ -79,6 +79,17 @@ class WorkSessionService : Service() {
     }
 
     private fun onNewLocation(loc: Location) {
+        // [모의 위치 차단] Fake GPS 앱으로 만든 좌표는 기록하지 않는다.
+        //  ① 거리·궤적이 오염되면 본인 통계가 망가지고 ② 집단 데이터(레이더·귀로 전망)까지 왜곡되며
+        //  ③ 랭킹이 무의미해진다. 콜레이더의 모든 분석은 '실제로 뛴 기록'이라는 전제 위에 서 있다.
+        if (isMockLocation(loc)) {
+            val p = prefs()
+            val cnt = p.getInt("mock_gps_count", 0) + 1
+            p.edit().putInt("mock_gps_count", cnt).putLong("mock_gps_last", System.currentTimeMillis()).apply()
+            // 한 세션에서 처음 감지될 때만 한 번 알린다(계속 울리면 소음)
+            if (cnt == 1 || cnt % 200 == 0) notifyMockGps()
+            return
+        }
         // 정확도 나쁜 값(터널·실내 튐)은 버림.
         // [궤적버그] 50m→150m: '대략적 위치'만 허용한 유저는 정확도 100m+라 예전엔 모든 점이 버려져 궤적이 통째로 비었음.
         //  150m로 완화해 근사 위치도 점이 쌓이게(궤적은 거칠어도 남게). 순간속도 필터가 GPS 점프는 계속 차단.
@@ -114,7 +125,12 @@ class WorkSessionService : Service() {
             // [궤적 실차/공차] 수동 플로팅(ride_active) 또는 자동기록의 탑승 상태(activeTrip+autoBoarded)면 실차.
             //   예전엔 ride_active만 봐서 자동기록 유저의 궤적이 전부 공차(회색)로 찍혔음.
             val loaded = prefs().getBoolean("ride_active", false) ||
-                (com.callradar.app.NaviIntentReceiver.activeTripId > 0 && com.callradar.app.NaviIntentReceiver.autoBoarded)
+                (com.callradar.app.NaviIntentReceiver.activeTripId > 0 && com.callradar.app.NaviIntentReceiver.autoBoarded) ||
+                // [유저제보①] 출근 깜빡+콜 운행 시 탑승 클릭 감지를 놓치면 전체가 공차로 찍히던 문제.
+                //  플랫폼 콜이 6분 넘게 진행 중이면(픽업 이동은 보통 5분 내) 탑승 신호가 없어도 실차로 간주.
+                (com.callradar.app.NaviIntentReceiver.activeTripId > 0 &&
+                    com.callradar.app.NaviIntentReceiver.activeTripStartedAt > 0 &&
+                    now - com.callradar.app.NaviIntentReceiver.activeTripStartedAt > 6 * 60_000L)
             try { com.callradar.app.LocalTrackDatabase.getInstance(this).addPoint(lat, lng, now, loaded) } catch (e: Exception) {}
         }
         // [GPS행사알림] 근무 중 10분마다 내 위치 7km 내 '오늘 진행 중인 대형 행사' 확인 → 행사당 하루 1회 알림.
@@ -223,6 +239,36 @@ class WorkSessionService : Service() {
     // [v32] 누적 거리 반영해 알림 텍스트만 갱신
     private fun updateNoti(km: Float) {
         try { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTI_ID, buildNoti(km)) } catch (e: Exception) {}
+    }
+
+    /**
+     * [모의 위치 판별] Fake GPS 앱이 만든 좌표인지 확인.
+     *  안드로이드 12(API 31)부터는 Location.isMock, 그 이전은 isFromMockProvider().
+     *  둘 다 시스템이 표시해 주는 값이라 앱이 따로 추적할 필요가 없다.
+     */
+    private fun isMockLocation(loc: Location): Boolean = try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) loc.isMock
+        else @Suppress("DEPRECATION") loc.isFromMockProvider
+    } catch (e: Exception) { false }
+
+    /** 모의 위치가 감지되면 한 번 알려준다 — 기록이 안 되고 있다는 걸 모르면 하루를 통째로 날린다 */
+    private fun notifyMockGps() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.createNotificationChannel(android.app.NotificationChannel("callradar_mock", "모의 위치 감지", NotificationManager.IMPORTANCE_HIGH))
+                val n = android.app.Notification.Builder(this, "callradar_mock")
+                    .setSmallIcon(android.R.drawable.stat_sys_warning)
+                    .setContentTitle("⚠️ 모의 위치(Fake GPS)가 켜져 있어요")
+                    .setContentText("기록이 저장되지 않습니다. 개발자 옵션에서 '모의 위치 앱'을 해제해 주세요.")
+                    .setStyle(android.app.Notification.BigTextStyle().bigText(
+                        "가짜 위치로는 운행 거리·궤적이 기록되지 않습니다.\n" +
+                        "콜레이더의 콜 레이더·귀로 전망은 기사님들의 실제 기록으로 만들어지기 때문에, 조작된 위치는 받지 않습니다.\n" +
+                        "설정 → 개발자 옵션 → '모의 위치 앱 선택'을 해제하면 정상 기록됩니다."))
+                    .setAutoCancel(true).build()
+                nm.notify(90112, n)
+            }
+        } catch (e: Exception) {}
     }
 
     private fun startForegroundSafe(hasLoc: Boolean = true) {
