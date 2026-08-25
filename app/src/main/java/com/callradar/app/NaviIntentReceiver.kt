@@ -220,7 +220,10 @@ class NaviIntentReceiver : AccessibilityService() {
                     } catch (e: Exception) {}
                 }, 2000)
             }
-            else Log.d(TAG, "자동기록 대기(관리자 미해금 또는 OFF) → 위치서비스 미시작")
+            // [v93] 로그에 '왜' 안 켰는지 정확히 남긴다.
+            //  예전 문구는 조건이 셋인데 둘만 말해서(관리자·토글), 실제로는 '미출근'이라 안 켠 건데도
+            //  "관리자 미해금 또는 OFF"로 찍혔다. 자동출근이 왜 안 되는지 추적하느라 헛돌았다.
+            else Log.d(TAG, "위치서비스 미시작 — admin=${isAdmin()} auto=${autoOn()} working=$working (셋 다 참이어야 즉시 시작. 아니면 첫 택시앱 이벤트에서 lazy 시작)")
         } catch (e: Exception) {
             Log.e(TAG, "GPS 시작 실패: ${e.message}")
         }
