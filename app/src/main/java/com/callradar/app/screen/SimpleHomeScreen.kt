@@ -75,6 +75,10 @@ fun SimpleHomeScreen(
     var todayFare by remember { mutableStateOf(0) }
     var supplyInfo by remember { mutableStateOf<Pair<String, String>?>(null) }   // [귀로내비] (라벨, 부제)
     var showEndConfirm by remember { mutableStateOf(false) }
+    // [v93 휴식 확인] 퇴근 시 '운행 없던 긴 구간'을 기사에게 확인받는다. 자동으로 빼지 않는다.
+    var showRestCheck by remember { mutableStateOf(false) }
+    var restGaps by remember { mutableStateOf<List<com.callradar.app.RestGaps.Gap>>(emptyList()) }
+    var restChecked = remember { androidx.compose.runtime.mutableStateListOf<Boolean>() }
     val distEnabled = prefs.getBoolean("work_dist_enabled", true)
     val active = workStart > 0L
     val paused = pauseStart > 0L
@@ -288,8 +292,81 @@ fun SimpleHomeScreen(
             // [v93] 퇴근 후 일일정산 화면 자동 열기 제거.
             //  영수증 OCR이 계속 틀리게 읽혀 매번 고쳐야 했고, 퇴근하고 폰 내려놓는 순간에
             //  창이 하나 더 뜨는 게 방해만 됐다. 정산이 필요하면 '기록·정산' 카드로 직접 들어간다.
-            confirmButton = { Button(onClick = { showEndConfirm = false; doEnd() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
+            // [v93 휴식 확인] 퇴근을 누르면, 운행이 없던 긴 구간이 있었는지 먼저 본다.
+            //  있으면 doEnd 전에 물어본다 — doEnd가 근무시간을 확정해 서버로 올리기 때문에 그 전이어야 한다.
+            confirmButton = { Button(onClick = {
+                showEndConfirm = false
+                val g = try { com.callradar.app.RestGaps.find(context, workStart, System.currentTimeMillis()) } catch (e: Exception) { emptyList() }
+                if (g.isEmpty()) doEnd() else { restGaps = g; restChecked = g.map { false }.toMutableStateList(); showRestCheck = true }
+            }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
             dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
+            containerColor = AppTheme.card
+        )
+    }
+
+    /* [v93 휴식 확인]
+     *  운행이 없던 긴 구간을 보여주고, 쉰 시간이면 근무에서 빼준다.
+     *  기본값은 '전부 체크 안 됨' — 아무것도 안 고르고 넘어가면 예전과 똑같이 동작한다.
+     *  앱이 마음대로 빼는 게 아니라 기사가 고르는 것이다. 공항 대기 3시간은 근무고, 집에 다녀온 2시간은 아닌데
+     *  그 차이는 기사만 안다. */
+    if (showRestCheck) {
+        val pickedMin = restGaps.indices.sumOf { if (restChecked.getOrElse(it) { false }) restGaps[it].minutes else 0L }
+        AlertDialog(
+            onDismissRequest = { },   // 밖을 눌러 실수로 닫히면 물어본 의미가 없다
+            title = { Text("쉬신 시간이 있나요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("운행이 없던 구간이에요. 쉬신 시간이면 체크해 주세요. 근무시간에서 빼드릴게요.",
+                        fontSize = 13.sp, color = muted)
+                    Text("콜 기다린 시간이면 체크하지 마세요 — 그건 근무예요.",
+                        fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 4.dp))
+                    Spacer(Modifier.height(10.dp))
+                    restGaps.forEachIndexed { i, g ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                if (i < restChecked.size) restChecked[i] = !restChecked[i]
+                            }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = restChecked.getOrElse(i) { false },
+                                onCheckedChange = { if (i < restChecked.size) restChecked[i] = it }
+                            )
+                            Text(com.callradar.app.RestGaps.label(g), fontSize = 14.sp, color = AppTheme.text)
+                        }
+                    }
+                    if (pickedMin > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("총 ${pickedMin / 60}시간 ${pickedMin % 60}분을 근무시간에서 뺍니다",
+                            fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    // 고른 구간을 휴식으로 처리 — 일시정지 누른 것과 같은 효과.
+                    //  pausedTotal에 더하고, 타임라인(WorkSegments)에서도 그 구간을 들어낸다.
+                    var add = 0L
+                    restGaps.forEachIndexed { i, g ->
+                        if (restChecked.getOrElse(i) { false }) {
+                            add += (g.end - g.start)
+                            try { com.callradar.app.WorkSegments.cutOut(context, g.start, g.end) } catch (e: Exception) {}
+                        }
+                    }
+                    if (add > 0) {
+                        pausedTotal += add
+                        prefs.edit().putLong("work_paused_total", pausedTotal).apply()
+                        try { com.callradar.app.Telemetry.log(context, "rest_confirmed", "simple_home", meta = (add / 60000L).toString()) } catch (e: Exception) {}
+                    }
+                    showRestCheck = false
+                    doEnd()
+                }, colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                    Text(if (pickedMin > 0) "빼고 퇴근" else "그대로 퇴근", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showRestCheck = false }) { Text("취소", color = muted) }
+            },
             containerColor = AppTheme.card
         )
     }

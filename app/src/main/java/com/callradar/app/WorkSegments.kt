@@ -103,6 +103,41 @@ object WorkSegments {
         if (kept.size != list.size) save(ctx, kept)
     }
 
+    /**
+     * [v93] [from, to] 구간을 근무 타임라인에서 들어낸다 — 퇴근 시 '휴식이었다'고 고른 구간용.
+     *
+     *  paused_total에 더하는 것만으로는 부족하다. 그러면 총 근무시간은 줄어드는데
+     *  화면의 근무 구간 표시("07:24~19:30")는 여전히 통으로 남아 둘이 어긋난다.
+     *  어제 고친 버그(paused_total과 work_segments가 따로 노는 것)와 같은 뿌리라 같이 맞춰준다.
+     *
+     *  구간이 잘리는 네 가지 경우를 모두 처리한다:
+     *   ① 완전히 안 겹침 → 그대로   ② 통째로 먹힘 → 삭제
+     *   ③ 앞/뒤만 겹침 → 잘라서 줄임  ④ 가운데가 먹힘 → 둘로 쪼갬
+     */
+    fun cutOut(ctx: Context, from: Long, to: Long) {
+        if (to <= from) return
+        val list = load(ctx)
+        if (list.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val out = ArrayList<LongArray>()
+        for (s in list) {
+            val a = s[0]
+            val b = if (s[1] == 0L) now else s[1]      // 열린 구간은 현재까지로 보고 계산
+            val wasOpen = s[1] == 0L
+            if (b <= from || a >= to) { out.add(s); continue }        // ① 안 겹침
+            if (a >= from && b <= to) continue                        // ② 통째로 먹힘 → 버림
+            if (a < from && b > to) {                                 // ④ 가운데가 먹힘 → 둘로
+                out.add(longArrayOf(a, from))
+                out.add(longArrayOf(to, if (wasOpen) 0L else s[1]))
+                continue
+            }
+            if (a < from) out.add(longArrayOf(a, from))               // ③ 뒤가 먹힘
+            else out.add(longArrayOf(to, if (wasOpen) 0L else s[1]))  // ③ 앞이 먹힘
+        }
+        // 1분 미만으로 남은 조각은 버린다(close와 같은 기준)
+        save(ctx, out.filter { it[1] == 0L || it[1] - it[0] >= 60_000L })
+    }
+
     /** 하루 통째로 비우기(퇴근 후 새 영업일 시작 등) */
     fun clear(ctx: Context) {
         prefs(ctx).edit().remove(KEY).remove(KEY_DAY).apply()
