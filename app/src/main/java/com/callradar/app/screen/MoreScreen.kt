@@ -1173,9 +1173,18 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                         put("annual_leave", annualLeave); put("gas_price", prefs.getInt("lpg_price", 0))
                     }
                     val conn = (URL("$SETTINGS_SERVER/api/driver-settings").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
-                    conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
+                    conn.outputStream.write(json.toString().toByteArray())
+                    // [v93] 응답 코드를 버리지 않는다.
+                    //  예전엔 conn.responseCode를 호출만 하고 결과를 안 봤다. 그래서 서버가 500을 내도
+                    //  앱은 저장된 것처럼 조용히 넘어갔다. 실제로 소수점 수수료(3.3)가 DB 타입 때문에
+                    //  계속 500이었는데 아무도 몰랐다 — 로그가 있었으면 훨씬 빨리 찾았다.
+                    val code = conn.responseCode
+                    if (code !in 200..299) {
+                        val err = try { conn.errorStream?.bufferedReader()?.readText() ?: "" } catch (e: Exception) { "" }
+                        android.util.Log.e("CallRadar", "설정 저장 실패 HTTP $code $err")
+                    }
                 }
-            } catch (e: Exception) { }
+            } catch (e: Exception) { android.util.Log.e("CallRadar", "설정 저장 예외: ${e.message}") }
         }
     }
 
