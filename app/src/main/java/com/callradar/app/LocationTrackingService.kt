@@ -54,9 +54,47 @@ class LocationTrackingService : Service() {
         setupLocationCallback()
     }
 
+    /**
+     * [v93] 근무 중일 때만 위치를 본다.
+     *
+     * 예전엔 자동기록 토글이 켜져 있으면 근무와 무관하게 24시간 10초마다 고정밀 GPS를 켰다.
+     * 퇴근한 뒤에도, 비번날에도, 자는 동안에도 계속 돌았다(2026-08-26 로그캣 실측).
+     *
+     * 두 가지가 걸린다:
+     *  ① 위치기반서비스사업 신고서에 "근무(운행) 상태인 동안에 한함"으로 신고했다.
+     *     신고한 대로 동작하지 않으면 그건 기능 문제가 아니라 신고 위반이다.
+     *  ② PRIORITY_HIGH_ACCURACY 10초는 가장 배터리를 먹는 설정이다. 대기 중에 이럴 이유가 없다.
+     *
+     * 콜이 잡히면 어차피 자동출근이 일어나 근무가 켜지고, 그때 이 서비스가 다시 뜬다.
+     * 출발지 좌표는 NaviIntentReceiver가 그 순간 1회 즉시 취득으로 메운다.
+     */
+    private fun workActive(): Boolean = try {
+        getSharedPreferences("callradar_prefs", MODE_PRIVATE).getLong("work_start", 0L) > 0L
+    } catch (e: Exception) { true }   // prefs를 못 읽으면 끄지 않는다(기록 유실이 더 나쁨)
+
+    private val gateHandler = android.os.Handler(Looper.getMainLooper())
+    private val gateRunnable = object : Runnable {
+        override fun run() {
+            if (!workActive()) {
+                Log.d(TAG, "🛑 미출근/퇴근 상태 → 위치 추적 종료")
+                stopSelf()
+                return
+            }
+            gateHandler.postDelayed(this, 60_000L)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIF_ID, createNotification())
+        // [v93] 미출근인데 올라온 서비스는 바로 내린다(부팅 복원·START_STICKY 재기동 포함).
+        if (!workActive()) {
+            Log.d(TAG, "🛑 미출근 상태로 기동됨 → 즉시 종료")
+            stopForeground(true); stopSelf()
+            return START_NOT_STICKY
+        }
         startLocationTracking()
+        gateHandler.removeCallbacks(gateRunnable)
+        gateHandler.postDelayed(gateRunnable, 60_000L)
         return START_STICKY
     }
 

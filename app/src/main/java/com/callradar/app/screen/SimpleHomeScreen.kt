@@ -234,6 +234,8 @@ fun SimpleHomeScreen(
             val now = System.currentTimeMillis()
             val startedAtMs = workStart   // 리셋 전 시작시각 보존(서버 요약용)
             com.callradar.app.WorkResume.clear(context)          // [v93] 퇴근 → 자동 재개 안내 정리
+            // [v93] 퇴근 = 위치 수집 종료. 신고서에 "근무 상태인 동안에 한함"으로 신고했으므로 실제로도 그래야 한다.
+            try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {}
             com.callradar.app.WorkSegments.close(context, now)   // [근무 구간] 퇴근 → 마지막 구간 닫기
             // [유저요청] 퇴근하면 플로팅 버튼도 내림(설정은 유지 → 앱 재실행 시 자동 복귀)
             try { (context as? com.callradar.app.MainActivity)?.hideFloatingForShiftEnd() } catch (e: Exception) {}

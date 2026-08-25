@@ -525,6 +525,15 @@ class NaviIntentReceiver : AccessibilityService() {
                 restampOriginAtBoarding()
             }
 
+            // [v93] 미출근 상태에선 LocationTrackingService가 꺼져 있다(신고한 대로 근무 중에만 수집).
+            //  그런데 자동출근은 바로 이 상황 — 미출근인데 콜이 잡힌 순간 — 을 위해 있는 기능이다.
+            //  좌표가 없거나 낡았으면 여기서 서비스를 깨우고 즉시 1회 위치를 받아 출발지를 메운다.
+            //  (아래 '좌표없음/스테일 → return' 방어는 그대로 둔다. 유령 트립을 막는 장치라 없애면 안 된다.)
+            if (LocationTrackingService.currentLat == 0.0 ||
+                System.currentTimeMillis() - LocationTrackingService.lastLocationTime > 5 * 60 * 1000L) {
+                ensureWorkStarted()          // 근무를 먼저 켠다 → 아래 서비스가 게이트에 걸리지 않는다
+                wakeLocationForCall()
+            }
             val curLat = LocationTrackingService.currentLat
             val curLng = LocationTrackingService.currentLng
             val locationAge = System.currentTimeMillis() - LocationTrackingService.lastLocationTime
@@ -810,6 +819,40 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.disconnect()
             } catch (e: Exception) { Log.e(TAG, "출발지 재설정 실패: ${e.message}") }
         }.start()
+    }
+
+    /**
+     * [v93] 콜이 잡혔는데 좌표가 없거나 낡았을 때 — 위치를 깨운다.
+     *
+     * v92까지는 자동기록이 켜져 있으면 근무와 무관하게 24시간 GPS를 켜뒀다. 그래서 좌표가 늘 있었지만,
+     * 퇴근한 뒤에도 비번날에도 계속 위치를 봤다. 위치기반서비스사업 신고서에는
+     * "근무(운행) 상태인 동안에 한함"으로 신고해놓고 실제로는 그렇지 않았다.
+     *
+     * 이제 미출근이면 LocationTrackingService가 스스로 내려간다. 대신 콜이 잡히는 바로 그 순간
+     * 여기서 다시 깨우고, 상시 추적을 기다리지 않도록 1회성 위치를 별도로 한 방 받아둔다.
+     * 서비스가 첫 좌표를 주기까지 몇 초 걸리는데 그 사이 콜을 놓치면 안 되기 때문이다.
+     *
+     * 좌표를 못 받으면 호출부의 '좌표없음/스테일 → return' 방어에 걸려 트립이 안 만들어진다.
+     * 그게 맞다 — 출발지 없는 유령 트립을 만드는 것보다 낫다.
+     */
+    private fun wakeLocationForCall() {
+        try { startForegroundService(Intent(this, LocationTrackingService::class.java)) } catch (e: Exception) {}
+        try {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this, android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+            val fused = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
+            fused.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
+            ).addOnSuccessListener { loc ->
+                if (loc != null) {
+                    LocationTrackingService.currentLat = loc.latitude
+                    LocationTrackingService.currentLng = loc.longitude
+                    LocationTrackingService.lastLocationTime = System.currentTimeMillis()
+                    Log.d(TAG, "📍 콜 감지 → 즉시 위치 취득: ${loc.latitude}, ${loc.longitude}")
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "즉시 위치 실패: ${e.message}") }
     }
 
     // [근무 자동출근] 자동기록으로만 운행하는 기사는 '출근'이 안 눌려 근무세션이 방치됨(시간·시급·궤적 어긋남).

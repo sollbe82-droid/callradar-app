@@ -646,12 +646,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 var monthToll by remember { mutableStateOf(0) }      // 이번 달 누적(급여 대조용)
                 fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
                 fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
+                // [v93] 퇴근 = 위치 수집 종료. 신고서에 "근무 상태인 동안에 한함"으로 신고했으므로 실제로도 그래야 한다.
+                //  자동기록은 계속 켜져 있어도 된다 — 콜이 잡히면 자동출근이 일어나 그때 다시 뜬다.
+                fun stopLocationTracking() { try { context.stopService(Intent(context, com.callradar.app.LocationTrackingService::class.java)) } catch (e: Exception) {} }
                 // [v23] 퇴근 실행(확인 후 호출). 이어가기용으로 직전 세션 스냅샷도 저장.
                 // [원스토어 반려수정] 어떤 예외가 나도 '퇴근'으로 앱이 죽지 않도록 전체를 안전망으로 감쌈.
                 val endShiftNow = {
                   try {
                     val now = System.currentTimeMillis()
                     com.callradar.app.WorkResume.clear(context)          // [v93] 퇴근 → 자동 재개 안내 정리
+                    stopLocationTracking()                               // [v93] 퇴근 → 위치 수집 중단
                     com.callradar.app.WorkSegments.close(context, now)   // [근무 구간] 퇴근 → 마지막 구간 닫기
                     // [유저요청] 퇴근하면 화면 위 플로팅 버튼도 같이 내린다(설정은 유지 → 앱 다시 열면 복귀)
                     try { (context as? com.callradar.app.MainActivity)?.hideFloatingForShiftEnd() } catch (e: Exception) {}
