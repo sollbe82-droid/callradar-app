@@ -626,7 +626,8 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     var viewMode by remember { mutableStateOf(prefs.getString("more_view_mode", "icon") ?: "icon") }
 
     // ----- 랜딩에서 여는 다이얼로그 상태 -----
-    var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+    // [v93] 오버레이 권한은 앱 밖 설정에서 켜진다 → 돌아온 시점에 다시 읽어야 스위치가 맞는다.
+    var floatingOn by remember(com.callradar.app.MainActivity.permCheckTick.value) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
     var floatingPulse by remember { mutableStateOf(prefs.getBoolean("floating_pulse", true)) }   // [v2] 운행중 버튼 펄스
     var floatingShot by remember { mutableStateOf(prefs.getBoolean("floating_shot", false)) }   // [v91] 캡처 버튼 표시 여부(기본 꺼짐)
     var floatShape by remember { mutableStateOf(prefs.getString("floating_shape", "circle") ?: "circle") }
@@ -1166,6 +1167,7 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                     val json = JSONObject().apply {
                         put("user_id", userId); put("driver_type", driverType); put("affiliation", affiliation)
                         put("commission_rate", (feeRateFloat(prefs,"fee_kakao") + feeRateFloat(prefs,"fee_uber") + feeRateFloat(prefs,"fee_tmoney")).toDouble())
+                        put("fee_touched", prefs.getBoolean("fee_touched", false))   // [v93] 위 주석 참고 — 0%가 '고른 값'인지 '빈 값'인지 서버가 가리는 근거
                         put("daily_payment", prefs.getInt("daily_sanap", 0)); put("work_days", workDays)
                         put("profit_share", profitShare); put("lpg_refund_rate", lpgRefundRate)
                         put("annual_leave", annualLeave); put("gas_price", prefs.getInt("lpg_price", 0))
@@ -1310,7 +1312,11 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                 OutlinedTextField(value = uInput, onValueChange = { uInput = sanitizeFee(it) }, label = { Text("우버 수수료 (%)", color = muted) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 OutlinedTextField(value = tInput, onValueChange = { tInput = sanitizeFee(it) }, label = { Text("티머니고 수수료 (%)", color = muted) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
             } },
-            confirmButton = { Button(onClick = { kakaoFee = kInput.toFloatOrNull() ?: 0f; uberFee = uInput.toFloatOrNull() ?: 0f; tmoneyFee = tInput.toFloatOrNull() ?: 0f; prefs.edit().putFloat("fee_kakao", kakaoFee).putFloat("fee_uber", uberFee).putFloat("fee_tmoney", tmoneyFee).apply(); saveSettingsToServer(); showFeeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+            // [v93] fee_touched — 기사가 이 창에서 '저장'을 눌렀다는 표시.
+            //  수수료 0%는 비가맹 기사에겐 정상값이라, 서버가 0을 무조건 막으면 안 된다.
+            //  반대로 재설치로 로컬이 빈 상태에서 올라가는 0은 막아야 한다.
+            //  둘을 가르는 건 '기사가 실제로 손을 댔는가' 하나뿐이라 그걸 같이 보낸다.
+            confirmButton = { Button(onClick = { kakaoFee = kInput.toFloatOrNull() ?: 0f; uberFee = uInput.toFloatOrNull() ?: 0f; tmoneyFee = tInput.toFloatOrNull() ?: 0f; prefs.edit().putFloat("fee_kakao", kakaoFee).putFloat("fee_uber", uberFee).putFloat("fee_tmoney", tmoneyFee).putBoolean("fee_touched", true).apply(); saveSettingsToServer(); showFeeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showFeeDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
     if (showLpgDialog) {
@@ -1442,12 +1448,33 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                         listOf(25, 26).forEach { d -> FilterChip(selected = workDays == d, onClick = { workDays = d }, label = { Text("${d}일", fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) }
                     }
                 }
-                Text("💡 수수료·사납금은 아래 항목에서 직접 입력하세요", fontSize = 11.sp, color = muted)
+                // [v92] 가맹을 고르면 수수료가 반드시 따라온다 — 가맹 기사는 플랫폼에 수수료를 낸다.
+                //  수수료가 0이면 순수입이 그만큼 부풀려지므로, 여기서 바로 이어가게 안내한다.
+                //  (수수료는 회사·계약마다 달라 서버가 대신 채울 수 없는 기사 고유값이다)
+                val needFee = affiliation != "none" &&
+                    (feeRateFloat(prefs, "fee_kakao") + feeRateFloat(prefs, "fee_uber") + feeRateFloat(prefs, "fee_tmoney")) <= 0f
+                if (needFee) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF14293D)), shape = RoundedCornerShape(10.dp)) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("💳 수수료도 같이 넣어주세요", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA))
+                            Text("가맹은 플랫폼 수수료가 빠져나가요. 안 넣으면 순수입이 실제보다 높게 잡힙니다. (3.3%처럼 소수점도 됩니다)",
+                                fontSize = 11.sp, color = Color(0xFFB6C8DA), lineHeight = 16.sp, modifier = Modifier.padding(top = 3.dp))
+                        }
+                    }
+                } else {
+                    Text("💡 수수료·사납금은 아래 항목에서 직접 입력하세요", fontSize = 11.sp, color = muted)
+                }
             } },
             confirmButton = { Button(onClick = {
                 val ed = prefs.edit().putString("driver_type", driverType).putString("affiliation", affiliation).putInt("work_days", workDays)
                 if (driverType == "personal") { ed.putInt("daily_sanap", 0); dailySanap = 0 }  // [개인/법인 분리] 개인택시 전환 시 잔존 법인 사납값 제거
-                ed.apply(); saveSettingsToServer(); showTypeDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
+                ed.apply(); saveSettingsToServer(); showTypeDialog = false
+                // 가맹인데 수수료가 비어 있으면 저장 직후 수수료 입력창을 바로 띄운다 — 찾아 들어가게 하지 않는다
+                if (affiliation != "none" &&
+                    (feeRateFloat(prefs, "fee_kakao") + feeRateFloat(prefs, "fee_uber") + feeRateFloat(prefs, "fee_tmoney")) <= 0f) {
+                    showFeeDialog = true
+                }
+            }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showTypeDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)
     }
     if (showShareDialog) {

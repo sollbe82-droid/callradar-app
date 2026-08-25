@@ -1168,19 +1168,23 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
             // [v57] 기록 설정 — 운행기록버튼·자동기록·금액자동입력 3개 토글을 카드 하나로 합침(홈 세로공간 절약).
             run {
-                var floatingOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+                // [v93] refreshKey만으론 부족했다 — 권한은 앱 밖에서 바뀌는데 refreshKey는 앱 안 사건에만 오른다.
+                //  설정에서 오버레이·알림접근을 켜고 돌아와도 스위치가 꺼진 그대로였다.
+                //  permCheckTick(=MainActivity.onResume)을 같이 키로 걸어 돌아온 시점에 다시 읽는다.
+                val permTick = com.callradar.app.MainActivity.permCheckTick.value
+                var floatingOn by remember(refreshKey, permTick) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
                 val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
-                var autoRec by remember(refreshKey) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
+                var autoRec by remember(refreshKey, permTick) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
                 var showAutoSetup by remember { mutableStateOf(false) }
                 // [v53 #103/#124] 업데이트 후 삼성 '제한된 설정'으로 접근성이 꺼진 경우 자동 감지 → 설정 안내 자동 표시.
-                LaunchedEffect(refreshKey) {
+                LaunchedEffect(refreshKey, permTick) {
                     if (showAuto) {
                         val accNow = (android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services") ?: "").contains("com.callradar.app/com.callradar.app.NaviIntentReceiver")
                         if (autoRec && !accNow) showAutoSetup = true
                     }
                 }
                 val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
-                var capOn by remember(refreshKey) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
+                var capOn by remember(refreshKey, permTick) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
                 val anyOn = floatingOn || (showAuto && autoRec) || (showNotif && capOn)
                 fun divider() = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp)
                 Card(colors = CardDefaults.cardColors(containerColor = if (anyOn) green.copy(alpha = 0.10f) else AppTheme.card), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {

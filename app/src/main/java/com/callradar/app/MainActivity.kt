@@ -73,6 +73,19 @@ class MainActivity : ComponentActivity() {
         // [v92] 설정 문제 팝업의 '지금 입력하기' → 기사 설정 화면으로 바로 보낸다.
         //  간편모드/홈모드가 화면 구조가 달라 각자 이 값을 보고 이동한다.
         val settingsJump = androidx.compose.runtime.mutableStateOf(false)
+
+        /**
+         * [v93] 권한 재확인 신호 — onResume마다 1 올라간다.
+         *
+         *  권한(오버레이·알림접근·접근성)은 앱 밖 설정 화면에서 바뀐다. 그래서 앱 안에서
+         *  아무리 지켜봐도 변화를 알 수 없고, 화면이 다시 보이는 순간에 다시 읽는 것 말고는
+         *  방법이 없다.
+         *
+         *  화면마다 각자 LifecycleObserver를 붙이면 같은 코드가 세 벌이 되고, 하나 빠뜨리면
+         *  그 화면만 조용히 옛 상태를 보여준다(실제로 그랬다). 신호는 한 곳에서만 만든다.
+         *  쓰는 쪽: remember(permCheckTick.value) { ...권한 다시 읽기... }
+         */
+        val permCheckTick = androidx.compose.runtime.mutableStateOf(0)
     }
 
     private var manualEntryTrigger = false
@@ -98,15 +111,53 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {}
     }
 
+    /**
+     * [v93] 켜달라고 보냈으면, 돌아왔을 때 켜준다.
+     *
+     *  예전 흐름은 여기서 끊겼다 —
+     *   기사가 '운행 기록 버튼' 스위치를 켠다 → 권한이 없다 → 설정 화면으로 보낸다 →
+     *   기사가 권한을 켜고 돌아온다 → **스위치는 여전히 꺼져 있다.**
+     *  floating_on을 못 쓴 채 return 했으니 앱 입장에선 아무 일도 없던 게 된다.
+     *  기사는 시킨 대로 다 했는데 앱이 안 됐다고 느낀다. 톡방 문의의 상당수가 이거였다.
+     *
+     *  요청을 기억해두고(floating_pending), onResume에서 권한이 생겼는지 확인해 이어서 켠다.
+     *  '설치 점검 카드가 안 사라지던' 문제와 같은 뿌리다 — 권한은 앱 밖에서 바뀌므로
+     *  돌아온 시점에 다시 봐야 한다.
+     */
     fun startFloatingButton() {
-        if (!isOverlayGranted()) { requestOverlayPermission(); return }
+        if (!isOverlayGranted()) {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("floating_pending", true).apply()
+            requestOverlayPermission(); return
+        }
         try { startService(Intent(this, FloatingTripService::class.java)) } catch (e: Exception) {}
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("floating_on", true).apply()
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .putBoolean("floating_on", true).putBoolean("floating_pending", false).apply()
     }
 
     fun stopFloatingButton() {
         try { stopService(Intent(this, FloatingTripService::class.java)) } catch (e: Exception) {}
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("floating_on", false).apply()
+        // 껐으면 대기 요청도 취소한다. 안 그러면 예전에 눌렀던 게 나중에 되살아난다.
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .putBoolean("floating_on", false).putBoolean("floating_pending", false).apply()
+    }
+
+    /** [v93] 권한 화면에서 돌아왔을 때 — 대기 중이던 요청을 이어서 처리한다 */
+    override fun onResume() {
+        super.onResume()
+        val p = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (p.getBoolean("floating_pending", false) && isOverlayGranted()) {
+            startFloatingButton()   // 안에서 pending을 내린다
+            try { android.widget.Toast.makeText(this, "운행 기록 버튼이 켜졌습니다", android.widget.Toast.LENGTH_SHORT).show() } catch (e: Exception) {}
+        }
+        // 알림 접근은 pref(notif_capture_on)를 이미 켜둔 상태라 별도 대기값이 필요 없다.
+        //  권한이 생겼으면 리스너만 다시 붙여주면 된다.
+        if (p.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) {
+            try {
+                android.service.notification.NotificationListenerService.requestRebind(
+                    android.content.ComponentName(this, com.callradar.app.CallCaptureService::class.java))
+            } catch (e: Exception) {}
+        }
+        permCheckTick.value++   // 홈·설정 화면의 토글이 실제 권한 상태를 다시 읽게 한다
     }
 
     /**

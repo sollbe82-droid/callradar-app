@@ -267,13 +267,17 @@ fun SimpleHomeScreen(
     var showAutoSetup by remember { mutableStateOf(false) }
 
     // [자동설정 콜카드] 3종 토글(운행버튼·자동기록·금액입력) 상태 — 콜카드 탭 시 다이얼로그로 표시.
-    var floatingOn by remember { mutableStateOf(prefs.getBoolean("floating_on", false)) }
+    // [v93] 권한이 걸린 토글은 '돌아왔을 때' 다시 읽는다.
+    //  설정 화면에서 권한을 켜고 돌아와도 스위치가 꺼진 채였다 → 기사는 안 켜졌다고 판단한다.
+    //  permCheckTick은 MainActivity.onResume이 올려주는 공용 신호다(설명은 그쪽 주석 참고).
+    val permTickHome = com.callradar.app.MainActivity.permCheckTick.value
+    var floatingOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
     val acctAdmin = prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))
     val acctEntitled = prefs.getBoolean("acct_entitled", false)
     val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
-    var autoRec by remember { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
+    var autoRec by remember(permTickHome) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
     val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
-    var capOn by remember { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
+    var capOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
     var showRecordSettings by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.bg).verticalScroll(rememberScrollState()).padding(14.dp)) {

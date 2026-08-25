@@ -76,6 +76,50 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
     var matchBusy by remember { mutableStateOf(false) }
     var matchDone by remember { mutableStateOf(false) }
 
+    /* ── [v93] 이미 저장한 마감을 먼저 불러온다 ──────────────────────────────
+     *
+     *  이 화면은 열 때마다 빈 칸으로 시작했다. 그래서 어제 날짜를 다시 열어
+     *  매출만 고쳐 저장하면, 빈 채로 있던 사진·가스비가 그대로 서버에 올라가
+     *  어제 올려둔 전표 사진과 LPG 지출을 지웠다. 기사는 매출만 고쳤다고 생각한다.
+     *
+     *  근본 해결은 '고치러 왔으면 원래 값이 보이는 것'이다. 서버 방어(빈 값으로 안 지움)는
+     *  구버전 앱을 위한 그물이지, 이걸 대신하지 않는다.
+     *
+     *  날짜를 바꿀 때마다 다시 불러온다. 새 사진을 이미 찍어둔 상태면 덮지 않는다.
+     */
+    var gasEdited by remember { mutableStateOf(false) }   // 기사가 가스 칸을 실제로 만졌나(0을 '고른 값'으로 볼 근거)
+    var loadedDate by remember { mutableStateOf("") }
+    LaunchedEffect(selectedDate, userId) {
+        if (userId.isBlank()) return@LaunchedEffect
+        try {
+            val month = selectedDate.substring(0, 7)
+            val raw = withContext(Dispatchers.IO) {
+                val conn = (URL("$SERVER_URL/api/daily-settlement/$userId?month=$month").openConnection().apply {
+                    com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }
+                conn.inputStream.bufferedReader().readText()
+            }
+            val arr = org.json.JSONArray(raw)
+            var found: JSONObject? = null
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optString("work_date", "").startsWith(selectedDate)) { found = o; break }
+            }
+            if (found != null) {
+                // 화면에 이미 입력·촬영한 게 있으면 그게 우선이다. 빈 칸만 채운다.
+                if (meterUrl.isNullOrBlank()) found.optString("meter_photo_url", "").takeIf { it.isNotBlank() }?.let { meterUrl = it }
+                if (gasUrl.isNullOrBlank())   found.optString("gas_photo_url", "").takeIf { it.isNotBlank() }?.let { gasUrl = it }
+                if (manualRevenue.isBlank())  found.optInt("total_revenue", 0).takeIf { it > 0 }?.let { manualRevenue = it.toString() }
+                if (gasAmount == null)        found.optInt("gas_cost", 0).takeIf { it > 0 }?.let { gasAmount = it }
+                if (gasLiters == null)        found.optDouble("gas_liters", 0.0).takeIf { it > 0 }?.let { gasLiters = it }
+                loadedDate = selectedDate
+                if (statusMsg.isBlank()) statusMsg = "이 날짜에 저장된 마감을 불러왔습니다"
+            } else loadedDate = selectedDate
+        } catch (e: Exception) {
+            // 못 불러왔으면 조용히 넘어간다. 다만 저장 시 서버가 빈 값으로 안 덮도록 막아둔 게 있다.
+        }
+    }
+
     // 전표: 업로드 + OCR 동시
     val meterPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -110,6 +154,7 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                 gasAmount = result.gasAmount
                 gasLiters = result.liters
                 gasUnit = result.unit
+                gasEdited = true   // [v93] 기사가 영수증을 올렸다 = 가스 값을 직접 정했다
             }
             scope.launch {
                 val url = withContext(Dispatchers.IO) { CloudinaryUploader.upload(context, uri) }
@@ -243,6 +288,9 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                         put("gas_photo_url", gasUrl ?: "")
                         put("gas_cost", gasRealCost ?: 0)
                         put("gas_liters", gasLiters ?: 0.0)
+                        // [v93] 이번에 가스 영수증을 실제로 올렸나. 서버가 '0원'을 고른 값으로 볼지
+                        //  화면이 비어 있던 것으로 볼지 가르는 유일한 근거다(서버 주석 참고).
+                        put("gas_edited", gasEdited)
                         put("ocr_revenue", ocrTotal ?: 0)
                         put("verified", verified)
                         put("sent_to_company", true)
