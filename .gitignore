@@ -28,3 +28,5 @@ release_backup/
 *.apk
 _test/*.jpg
 _releases/
+build_out.txt 
+build_err.txt 
