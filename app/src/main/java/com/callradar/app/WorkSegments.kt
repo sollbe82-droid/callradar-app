@@ -90,6 +90,19 @@ object WorkSegments {
         save(ctx, list)
     }
 
+    /**
+     * [v93] t 이후에 열린 구간을 걷어낸다 — 자동 재개 '되돌리기'용.
+     *  자동 재개로 t에 열린 구간을 지우면, 그 앞의 닫힌 구간(일시정지까지)만 남아
+     *  기사가 일시정지를 누른 상태 그대로의 타임라인으로 되돌아간다.
+     *  t 이전에 시작된 구간은 건드리지 않는다(진짜 근무를 지우면 안 됨).
+     */
+    fun dropSince(ctx: Context, t: Long) {
+        val list = load(ctx)
+        if (list.isEmpty()) return
+        val kept = list.filter { it[0] < t }
+        if (kept.size != list.size) save(ctx, kept)
+    }
+
     /** 하루 통째로 비우기(퇴근 후 새 영업일 시작 등) */
     fun clear(ctx: Context) {
         prefs(ctx).edit().remove(KEY).remove(KEY_DAY).apply()

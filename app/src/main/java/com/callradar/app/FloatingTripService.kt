@@ -430,9 +430,15 @@ class FloatingTripService : Service() {
         } catch (e: Exception) {}
     }
 
-    // [v44] 운행 시작 = 근무 자동 시작/재개. 출근 깜빡했거나 일시정지 상태여도 근무시간·궤적이 끊기지 않게.
-    //  · 미출근(work_start=0) → 자동 출근    · 일시정지(work_pause_start>0) → 자동 재개    · 이미 근무중 → 서비스만 확실히 기동
+    // [v44] 운행 시작 = 근무 자동 시작. 출근 깜빡했어도 근무시간·궤적이 끊기지 않게.
+    //  · 미출근(work_start=0) → 자동 출근    · 그 외 → 서비스만 확실히 기동
     //  WorkSessionService가 궤적 점(addPoint)을 4초마다 기록하므로, 이걸 켜야 운행 궤적이 남는다(거리미터 off여도 켬).
+    //
+    // [v93] 여기서 '일시정지 자동 재개'를 하지 않는다.
+    //  예전엔 운행 시작 시도만으로 일시정지가 풀렸다. 플로팅 탑승→취소, 자동기록 오탐도 전부 통과해서
+    //  운행이 없는데 근무가 켜졌고(2026-08-25 실측 11:52, 그날 운행은 07:46·10:20 두 건뿐), 3시간 50분이 오계상됐다.
+    //  일시정지는 기사가 명시적으로 누른 것이다. 운행이 확정 저장됐을 때만 WorkResume.resumeIfPaused()로 푼다.
+    //  → createTrip()의 로컬 저장 성공 지점을 볼 것.
     private fun ensureWorkSessionActive() {
         try {
             val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
@@ -444,13 +450,10 @@ class FloatingTripService : Service() {
                 p.edit().putLong("work_start", now).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L)
                     .putInt("work_start_fare", p.getInt("work_day_start_fare", 0)).apply()
                 pushWs = now; pushPt = 0L; pushPs = 0L
+                try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 toast("자동 출근 — 근무 시작")
-            } else if (ps > 0L) {
-                val pt = p.getLong("work_paused_total", 0L) + (now - ps)
-                p.edit().putLong("work_paused_total", pt).putLong("work_pause_start", 0L).apply()
-                pushPt = pt; pushPs = 0L
-                toast("근무 재개")
             }
+            // [v93] ps > 0L(일시정지) 분기 삭제 — 운행 확정 저장 시점(createTrip)에서만 재개한다.
             try { androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.callradar.app.WorkSessionService::class.java)) } catch (e: Exception) {}
             val uid = userId()
             if (uid.isNotEmpty()) {
@@ -830,6 +833,14 @@ class FloatingTripService : Service() {
             val cuid = java.util.UUID.randomUUID().toString()   // [fix-B] 멱등키 — 재전송·타임아웃 중복 방지
             val localId = try { db.savePending(uid, usePlat, originName, destName, oLat, oLng, dLat, dLng, sTime, cuid) } catch (e: Exception) { -1L }
             if (useFare > 0 && localId > 0) try { db.updateFare(localId, useFare, usePlat) } catch (e: Exception) {}
+            // [v93 일시정지 자동해제] 운행이 '확정 저장'된 지금에서야 일시정지를 푼다.
+            //  로컬 DB 저장 성공을 기준으로 잡는다 — 서버 응답을 기다리면 오프라인·콜드스타트 기사는 영영 재개가 안 된다.
+            //  여기까지 왔다는 건 3초 취소창을 넘기고 이동거리 검사도 통과했다는 뜻이다(탑승→취소는 여기 못 온다).
+            if (localId > 0) {
+                if (com.callradar.app.WorkResume.resumeIfPaused(this@FloatingTripService, "운행 저장")) {
+                    confirmHandler.post { try { toast("일시정지 해제 — 근무 재개 (홈에서 되돌릴 수 있어요)") } catch (e: Exception) {} }
+                }
+            }
             if (localId > 0) com.callradar.app.LocalTripDatabase.handlingLocalIds.add(localId)   // [fix-B] 전송 중 중복 재전송 방지
             var tripId = 0
             try {

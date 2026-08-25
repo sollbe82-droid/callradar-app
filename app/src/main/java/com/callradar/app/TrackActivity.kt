@@ -184,23 +184,51 @@ class TrackActivity : ComponentActivity() {
         // 웹메르카토르 픽셀 좌표
         fun pxX(lon: Double, z: Int): Double = (lon + 180.0) / 360.0 * 256.0 * (1 shl z)
         fun pxY(lat: Double, z: Int): Double { val s = Math.sin(Math.toRadians(lat)).coerceIn(-0.9999, 0.9999); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256.0 * (1 shl z) }
-        // bbox가 ~900px 안에 들어오는 가장 큰(상세한) 줌 선택
+
+        // ── [v93 잘림수정] 캔버스를 먼저 정하고 궤적을 그 안에 맞춘다(letterbox fit).
+        //
+        // 예전 방식은 반대였다. 궤적 bbox에 70px 패딩만 두고 그 크기를 그대로 출력 크기로 썼다.
+        // 그래서 세 가지가 한꺼번에 터졌다:
+        //   ① 제목 밴드(58px)·범례 밴드(46px)가 패딩(70px) 위에 그냥 덮여, 최북단 마커가 밴드에 파묻혔다.
+        //   ② 서초→수원처럼 남북으로 긴 날은 폭이 좁게 나와 "콜레이더 · 운행 궤적" 제목과
+        //      범례 줄이 이미지 밖으로 잘려나갔다.
+        //   ③ coerceIn(256,1400)이 폭·높이만 자르고 원점(x0,y0)은 안 옮겨서 우측·하단이 통째로 크롭됐다.
+        //
+        // 이제는 폭을 1080으로 고정하고, 밴드가 차지할 자리를 뺀 '유효 지도 영역'을 먼저 잡은 뒤
+        // 그 안에 bbox가 들어가는 줌을 고르고 중앙 정렬한다. 밴드가 궤적을 덮을 일이 없다.
+        val outW = 1080
+        val headerH = 76f      // 상단 제목 밴드
+        val footerH = 60f      // 하단 범례 + OSM 저작자 표기
+        val mapPad = 30.0      // 궤적과 유효영역 경계 사이 숨 쉴 틈
+        val innerW = outW - mapPad * 2
+
+        // 종횡비는 줌과 무관하므로 아무 줌에서나 계산해도 된다(z=14 기준).
+        val refSpanX = (pxX(maxLng, 14) - pxX(minLng, 14)).coerceAtLeast(1.0)
+        val refSpanY = (pxY(minLat, 14) - pxY(maxLat, 14)).coerceAtLeast(1.0)
+        // 너무 납작하거나 너무 길쭉한 이미지는 공유했을 때 보기 나쁘다 → 0.62~1.45 사이로 가둔다.
+        val innerH = (innerW * (refSpanY / refSpanX)).coerceIn(outW * 0.62, outW * 1.45)
+        val outH = Math.ceil(innerH + mapPad * 2 + headerH + footerH).toInt()
+
+        // 유효 영역(innerW × innerH)에 bbox가 들어가는 가장 상세한 줌
         var z = 16   // [과확대] 최대 줌 18→16 (도로·동네 맥락이 보이는 수준으로 제한)
         while (z > 3) {
             val spanX = pxX(maxLng, z) - pxX(minLng, z)
             val spanY = pxY(minLat, z) - pxY(maxLat, z)
-            if (spanX <= 900 && spanY <= 900) break
+            if (spanX <= innerW && spanY <= innerH) break
             z--
         }
-        val padPx = 70.0
-        val x0 = pxX(minLng, z) - padPx; val x1 = pxX(maxLng, z) + padPx
-        val y0 = pxY(maxLat, z) - padPx; val y1 = pxY(minLat, z) + padPx
-        val outW = Math.ceil(x1 - x0).toInt().coerceIn(256, 1400)
-        val outH = Math.ceil(y1 - y0).toInt().coerceIn(256, 1400)
-        val tx0 = Math.floor(x0 / 256.0).toInt(); val tx1 = Math.floor(x1 / 256.0).toInt()
-        val ty0 = Math.floor(y0 / 256.0).toInt(); val ty1 = Math.floor(y1 / 256.0).toInt()
+        // bbox 중심을 유효 영역 중심에 맞춘다 → 상하좌우 어디로도 안 잘린다.
+        val bboxCx = (pxX(minLng, z) + pxX(maxLng, z)) / 2.0
+        val bboxCy = (pxY(minLat, z) + pxY(maxLat, z)) / 2.0
+        val x0 = bboxCx - outW / 2.0
+        val y0 = bboxCy - (headerH + mapPad + innerH / 2.0)
+
+        val tx0 = Math.floor(x0 / 256.0).toInt(); val tx1 = Math.floor((x0 + outW) / 256.0).toInt()
+        val ty0 = Math.floor(y0 / 256.0).toInt(); val ty1 = Math.floor((y0 + outH) / 256.0).toInt()
         val tileCount = (tx1 - tx0 + 1) * (ty1 - ty0 + 1)
-        if (tileCount <= 0 || tileCount > 36) return null
+        // 1080폭 캔버스는 가로 최대 5~6장, 세로 최대 8장 → 상한을 36에서 90으로 올린다.
+        //  (예전 36은 새 캔버스에선 매번 걸려 지도 없는 단색 폴백으로 떨어진다)
+        if (tileCount <= 0 || tileCount > 90) return null
         val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
         val cv = Canvas(out)
         cv.drawColor(android.graphics.Color.parseColor("#E8ECEF"))
@@ -243,17 +271,34 @@ class TrackActivity : ComponentActivity() {
         val nowP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#F59E0B") }
         cv.drawCircle(sx(pts.first().lng), sy(pts.first().lat), 15f, startP); cv.drawCircle(sx(pts.first().lng), sy(pts.first().lat), 15f, ring)
         cv.drawCircle(sx(pts.last().lng), sy(pts.last().lat), 17f, nowP); cv.drawCircle(sx(pts.last().lng), sy(pts.last().lat), 17f, ring)
-        // 상단 제목 밴드
+        // ── 밴드와 글자
+        // [v93] 글자가 이미지 밖으로 나가지 않게 폭에 맞춰 자동 축소한다.
+        //  예전엔 textSize가 고정이라 폭 좁은 이미지에서 제목·범례가 그대로 잘려나갔다.
+        fun fitSize(p: Paint, s: String, maxW: Float, start: Float): Float {
+            var ts = start
+            p.textSize = ts
+            while (ts > 12f && p.measureText(s) > maxW) { ts -= 1f; p.textSize = ts }
+            return ts
+        }
         val band = Paint().apply { color = android.graphics.Color.parseColor("#CC0A0E1A") }
-        cv.drawRect(0f, 0f, outW.toFloat(), 58f, band)
-        val title = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#F59E0B"); textSize = 34f; isFakeBoldText = true }
-        cv.drawText("콜레이더 · 운행 궤적", 16f, 40f, title)
-        // 하단 범례 + OSM 저작자 표기(필수)
-        cv.drawRect(0f, outH - 46f, outW.toFloat(), outH.toFloat(), band)
-        val legend = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 21f }
-        cv.drawText("● 시작  ● 현재  ● 승·하차  ─ 실차  ┄ 공차", 12f, outH - 16f, legend)
-        val attr = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#E5E7EB"); textSize = 17f; textAlign = Paint.Align.RIGHT }
-        cv.drawText("© OpenStreetMap", outW - 10f, outH - 8f, attr)
+        // 상단 제목 밴드
+        cv.drawRect(0f, 0f, outW.toFloat(), headerH, band)
+        val titleTxt = "콜레이더 · 운행 궤적"
+        val title = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#F59E0B"); isFakeBoldText = true }
+        fitSize(title, titleTxt, outW - 40f, 42f)
+        cv.drawText(titleTxt, 20f, headerH * 0.70f, title)
+        // 하단 범례 + OSM 저작자 표기(필수 — OSM 라이선스상 뺄 수 없다)
+        val footTop = outH - footerH
+        cv.drawRect(0f, footTop, outW.toFloat(), outH.toFloat(), band)
+        val attrTxt = "© OpenStreetMap"
+        val attr = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.parseColor("#E5E7EB"); textAlign = Paint.Align.RIGHT }
+        fitSize(attr, attrTxt, outW * 0.30f, 20f)
+        cv.drawText(attrTxt, outW - 16f, footTop + footerH * 0.66f, attr)
+        val legendTxt = "● 시작  ● 현재  ● 승·하차  ─ 실차  ┄ 공차"
+        val legend = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+        // 저작자 표기가 차지한 폭을 빼고 남는 자리에 맞춘다 → 둘이 겹치지 않는다
+        fitSize(legend, legendTxt, outW - 32f - attr.measureText(attrTxt) - 20f, 24f)
+        cv.drawText(legendTxt, 16f, footTop + footerH * 0.66f, legend)
         return out
     }
 
@@ -271,7 +316,9 @@ class TrackActivity : ComponentActivity() {
         val s = stats ?: return src.copy(Bitmap.Config.ARGB_8888, true)
             .also { stamp(Canvas(it), it.width.toFloat(), it.height.toFloat()) }
         val w = src.width
-        val panel = (w * 0.34f).toInt()
+        // [v93] 폭이 1080으로 고정되면서 0.34배(367px)는 지도보다 패널이 더 눈에 띄는 크기가 됐다.
+        //  비율은 유지하되 상한을 둔다 — 주인공은 궤적이지 숫자판이 아니다.
+        val panel = (w * 0.26f).toInt().coerceIn(150, 300)
         val out = Bitmap.createBitmap(w, src.height + panel, Bitmap.Config.ARGB_8888)
         val cv = Canvas(out)
         cv.drawBitmap(src, 0f, 0f, null)
@@ -306,9 +353,11 @@ class TrackActivity : ComponentActivity() {
         cols.forEachIndexed { i, (label, value, hex) ->
             val cx = pad + colW * i + colW / 2f
             labelP.textAlign = Paint.Align.CENTER; valueP.textAlign = Paint.Align.CENTER
-            val vp = if (hex != null) Paint(valueP).apply { color = android.graphics.Color.parseColor(hex) } else valueP
+            val vp = if (hex != null) Paint(valueP).apply { color = android.graphics.Color.parseColor(hex) } else Paint(valueP)
+            // [v93] "5시간 49분"처럼 긴 값이 옆 칸을 침범하던 것 방지 — 칸 폭에 맞춰 줄인다
+            while (vp.textSize > 16f && vp.measureText(value) > colW * 0.92f) vp.textSize = vp.textSize - 1f
             cv.drawText(label, cx, panelTop + panel * 0.30f, labelP)
-            cv.drawText(value, cx, panelTop + panel * 0.55f, vp)
+            cv.drawText(value, cx, panelTop + panel * 0.58f, vp)
         }
         // 세부 한 줄 — 실차/공차 내역
         val detailP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -337,14 +386,18 @@ class TrackActivity : ComponentActivity() {
         val label = "콜레이더"
         val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = gold; isFakeBoldText = true
-            textSize = (w * 0.055f).coerceAtLeast(34f)
+            // [v93] 폭 1080 고정 후 0.055배(59px)는 도장이 궤적을 덮을 만큼 커졌다 → 상·하한을 둔다
+            textSize = (w * 0.045f).coerceIn(30f, 46f)
             letterSpacing = 0.14f; textAlign = Paint.Align.CENTER
         }
         val padX = tp.textSize * 0.52f; val padY = tp.textSize * 0.34f
         val boxW = tp.measureText(label) + padX * 2
         val boxH = tp.textSize + padY * 2
-        val cx = w * 0.70f
-        val cy = mapH * 0.79f
+        // [v93] 회전(-30°)까지 감안해 박스가 이미지 밖으로 안 나가게 가둔다.
+        //  예전엔 cx=0.70w 고정이라 폭이 좁은 이미지에서 우측이 잘려나갔다.
+        val half = (boxW + boxH) / 2f * 0.75f
+        val cx = (w * 0.70f).coerceIn(half, w - half)
+        val cy = (mapH * 0.82f).coerceIn(half, mapH - half)
         c.save(); c.rotate(-30f, cx, cy)
         val r = android.graphics.RectF(cx - boxW / 2f, cy - boxH / 2f, cx + boxW / 2f, cy + boxH / 2f)
         val radius = boxH * 0.24f

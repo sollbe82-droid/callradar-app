@@ -827,10 +827,16 @@ class NaviIntentReceiver : AccessibilityService() {
                     p.edit().putLong("work_start", now).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L)
                         .putInt("work_start_fare", p.getInt("work_day_start_fare", 0)).apply()
                     if (p.getInt("work_max_hours", 0) == 0) p.edit().putInt("work_max_hours", 15).apply()  // 무한누적 방지
+                    try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 }
-                ps > 0L -> {  // 일시정지 → 자동 재개
-                    pushPt = p.getLong("work_paused_total", 0L) + (now - ps); pushPs = 0L
-                    p.edit().putLong("work_paused_total", pushPt).putLong("work_pause_start", 0L).apply()
+                // [v93] ps > 0L(일시정지 → 자동 재개) 분기 삭제.
+                //  자동기록은 오탐이 난다(플랫폼 대기화면 스침, 즉시취소 콜 등). 트립이 '생겼다'는 것만으로
+                //  기사가 눌러둔 일시정지를 풀면 안 된다 — 2026-08-25에 이걸로 3시간 50분이 오계상됐다.
+                //  운행이 완료 마감될 때(finalizeCurrentTrip) WorkResume.resumeIfPaused()가 푼다.
+                //  다만 궤적은 끊기면 안 되므로, 일시정지 중이어도 아래에서 WorkSessionService는 띄운다.
+                ps > 0L -> {
+                    try { startForegroundService(Intent(this, WorkSessionService::class.java)) } catch (e: Exception) {}
+                    return
                 }
                 else -> return  // 이미 근무중
             }
@@ -973,6 +979,10 @@ class NaviIntentReceiver : AccessibilityService() {
     private fun finalizeCurrentTrip(fare: Int) {
         val tripId = lastTripId
         if (tripId <= 0) return
+        // [v93 일시정지 자동해제] 운행이 실제로 완료 마감된 지금에서야 일시정지를 푼다.
+        //  트립 생성(ensureWorkStarted) 시점이 아니다 — 거기선 오탐·즉시취소 콜도 통과해버렸다.
+        //  취소된 트립은 deleteCurrentTrip으로 빠지므로 여기 오지 않는다.
+        try { com.callradar.app.WorkResume.resumeIfPaused(this, "자동기록 운행 완료") } catch (e: Exception) {}
         val actualFare = if (fare > 0) fare else lastDetectedFare
         // [#4116] 마감 직후 '입력하신 요금이 맞습니까? Y'로 기사가 수정결제하면 Y로 갱신하기 위해 잠깐 기억.
         recentFinalTripId = tripId; recentFinalFare = actualFare; recentFinalAt = System.currentTimeMillis()

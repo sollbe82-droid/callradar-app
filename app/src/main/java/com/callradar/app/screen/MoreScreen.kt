@@ -1688,6 +1688,23 @@ private fun BookingsView(userId: String, context: Context, accent: Color, muted:
                         }
                         if (d.isNotBlank() || t.isNotBlank()) Text("🗓 $d $t", fontSize = 13.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                         if (o.isNotBlank() || ds.isNotBlank()) Text("📍 ${o.ifBlank{"?"}} → ${ds.ifBlank{"?"}}", fontSize = 13.sp, color = AppTheme.text, modifier = Modifier.padding(top = 2.dp))
+                        // [v93] 인원수·캐리어 — 차를 고르고 트렁크를 비울지 판단하는 근거.
+                        //  4인 3캐리어면 일반 세단으로 못 받는다. 미리 알면 거절이 아니라 준비가 된다.
+                        //  0은 정상값(캐리어 없음)이고 미입력은 null이므로, optInt 기본값을 -1로 두고 갈라야 한다.
+                        run {
+                            val pax = b.optInt("pax", -1); val lug = b.optInt("luggage", -1)
+                            val parts = ArrayList<String>()
+                            if (pax > 0) parts.add("👥 ${pax}명")
+                            if (lug >= 0) parts.add("🧳 " + (if (lug == 0) "캐리어 없음" else "캐리어 ${lug}개"))
+                            if (parts.isNotEmpty()) Text(
+                                parts.joinToString("   "),
+                                fontSize = 13.sp,
+                                // 4인 이상이거나 캐리어 3개 이상이면 차량 여유를 미리 확인해야 한다 → 눈에 띄게
+                                color = if (pax >= 4 || lug >= 3) accent else muted,
+                                fontWeight = if (pax >= 4 || lug >= 3) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                         if (memo.isNotBlank() && memo != "null") Text("메모: $memo", fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

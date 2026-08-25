@@ -651,6 +651,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val endShiftNow = {
                   try {
                     val now = System.currentTimeMillis()
+                    com.callradar.app.WorkResume.clear(context)          // [v93] 퇴근 → 자동 재개 안내 정리
                     com.callradar.app.WorkSegments.close(context, now)   // [근무 구간] 퇴근 → 마지막 구간 닫기
                     // [유저요청] 퇴근하면 화면 위 플로팅 버튼도 같이 내린다(설정은 유지 → 앱 다시 열면 복귀)
                     try { (context as? com.callradar.app.MainActivity)?.hideFloatingForShiftEnd() } catch (e: Exception) {}
@@ -749,6 +750,28 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 LaunchedEffect(Unit) { if (workStart > 0L) { com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)); if (prefs.getBoolean("meter_local", false) && paused == false && distEnabled) startMeter() } }  // [v23 예약복원 + km폭주③ 소유폰만 미터 재개]
                 LaunchedEffect(active, paused) {
                     while (active && !paused) { nowTick = System.currentTimeMillis(); workDist = prefs.getFloat("work_distance_m", 0f); kotlinx.coroutines.delay(1000) }
+                }
+                // [v93 자동출근 미반영 수정] prefs 감시 — 백그라운드가 바꾼 근무상태를 화면이 바로 따라간다.
+                //
+                // 자동출근(NaviIntentReceiver.ensureWorkStarted)·자동재개(WorkResume)는 접근성/플로팅
+                // 서비스에서 prefs를 직접 쓴다. 그런데 Compose의 workStart는 최초 조립 때 읽은 메모리
+                // 값이라 prefs가 바뀌어도 화면은 '미출근' 그대로였다. 유일한 갱신 경로가 20초 서버 pull
+                // 이었고 그건 왕복이 성공해야만 도니, 실패하면 화면은 영영 0 → "자동출근이 안 된다"로 보였다.
+                //  · 바로 위 타이머는 while(active && !paused)라 미출근이면 안 돈다 → 여기서 따로 본다.
+                //  · lastLocalWorkChange를 찍어, 20초 pull이 서버의 낡은 0으로 방금 켜진 출근을 되돌리지 못하게 막는다.
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        val pws = prefs.getLong("work_start", 0L)
+                        val ppt = prefs.getLong("work_paused_total", 0L)
+                        val pps = prefs.getLong("work_pause_start", 0L)
+                        if (pws != workStart || ppt != pausedTotal || pps != pauseStart) {
+                            workStart = pws; pausedTotal = ppt; pauseStart = pps
+                            nowTick = System.currentTimeMillis()
+                            lastLocalWorkChange = System.currentTimeMillis()
+                            workDist = prefs.getFloat("work_distance_m", 0f)
+                        }
+                        kotlinx.coroutines.delay(3000)
+                    }
                 }
                 // [v2] 투폰 근무세션 pull — 20초마다 서버 세션을 확인해 다른 폰의 출근/일시정지/퇴근을 반영
                 LaunchedEffect(Unit) {
@@ -957,6 +980,44 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Text(segTxt, fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
                                     if (restM > 0) Text("휴식 ${restM / 60}시간 ${restM % 60}분은 근무시간에서 빠졌어요", fontSize = 10.sp, color = muted)
                                 }
+                                // [v93 자동 재개 알림] 일시정지는 기사가 명시적으로 누른 것이다. 앱이 대신 풀었으면 반드시 밝히고,
+                                //  되돌릴 길을 준다. 예전엔 toast 하나가 전부라 운전 중엔 못 봤고, 근무시간이 조용히 부풀었다.
+                                val autoResumeAt = remember(nowTick, paused) { com.callradar.app.WorkResume.pendingAt(context) }
+                                if (autoResumeAt > 0L) {
+                                    val hhmm = remember(autoResumeAt) {
+                                        java.text.SimpleDateFormat("HH:mm", java.util.Locale.KOREA)
+                                            .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Seoul") }
+                                            .format(java.util.Date(autoResumeAt))
+                                    }
+                                    val why = remember(nowTick) { com.callradar.app.WorkResume.reason(context) }
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth()
+                                            .background(AppTheme.surface2, RoundedCornerShape(10.dp))
+                                            .padding(vertical = 8.dp, horizontal = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text("$hhmm 자동 재개됨", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)
+                                            Text(
+                                                if (why.isBlank()) "일시정지가 풀렸어요" else "$why 으로 일시정지가 풀렸어요",
+                                                fontSize = 10.sp, color = muted
+                                            )
+                                        }
+                                        TextButton(onClick = {
+                                            if (com.callradar.app.WorkResume.undo(context)) {
+                                                // prefs가 진실 — 되돌린 값을 다시 읽어 화면 상태를 맞춘다
+                                                pausedTotal = prefs.getLong("work_paused_total", 0L)
+                                                pauseStart = prefs.getLong("work_pause_start", 0L)
+                                                nowTick = System.currentTimeMillis()
+                                                stopMeter()
+                                            }
+                                        }) { Text("되돌리기", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold) }
+                                        TextButton(onClick = {
+                                            com.callradar.app.WorkResume.clear(context); nowTick = System.currentTimeMillis()
+                                        }) { Text("확인", fontSize = 12.sp, color = muted) }
+                                    }
+                                }
                             }
                             if (active && distEnabled) {
                                 Spacer(Modifier.height(10.dp))
@@ -1015,12 +1076,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     workDist = if (newDay) 0f else prefs.getFloat("work_distance_m", 0f)
                                     // [근무 구간] 새 영업일이면 어제 구간 비우고, 출근 시각으로 첫 구간 열기
                                     if (newDay) com.callradar.app.WorkSegments.clear(context)
+                                    com.callradar.app.WorkResume.clear(context)   // [v93] 새 출근 → 지난 자동 재개 안내는 끝난 얘기
                                     com.callradar.app.WorkSegments.open(context, t)
                                     pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "home"); com.callradar.app.WorkAutoEnd.schedule(context, t, maxHours); com.callradar.app.TimingLog.send(context, "shift_start"); if (distEnabled) startMeter(); if (prefs.getBoolean("voice_on", false) && homeBrief.isNotBlank()) homeTts?.speak(homeBrief, TextToSpeech.QUEUE_FLUSH, null, "brief") }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = green), shape = RoundedCornerShape(12.dp)) { Text("🟢 출근 (근무 시작)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(onClick = {
                                         val t = System.currentTimeMillis()
+                                        com.callradar.app.WorkResume.clear(context)   // [v93] 기사가 직접 눌렀으면 자동 재개 안내는 의미가 없다
                                         if (paused) { pausedTotal += (t - pauseStart); pauseStart = 0L; nowTick = t; prefs.edit().putLong("work_paused_total", pausedTotal).putLong("work_pause_start", 0L).apply()
                                             com.callradar.app.WorkSegments.open(context, t)   // [근무 구간] 재개 → 새 구간
                                             pushWorkSession(workStart, pausedTotal, 0L, prefs.getInt("work_start_fare", 0)); if (distEnabled) startMeter() }
