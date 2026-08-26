@@ -126,7 +126,11 @@ fun saveCustomPhrases(context: Context, phrases: List<PhraseCard>) {
 suspend fun translateWithGoogle(text: String, targetLang: String): String {
     return withContext(Dispatchers.IO) { try {
         val encoded = java.net.URLEncoder.encode(text, "UTF-8")
-        val conn = (URL("https://api.mymemory.translated.net/get?q=$encoded&langpair=ko|$targetLang").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 15000 }
+        // [보안 2026-08-26] 우리 세션 토큰을 외부 번역 API에 붙여 보내고 있었다.
+        //  Auth 헤더를 붙이는 코드가 자사 서버 호출용으로 복사되며 여기까지 딸려 온 것.
+        //  mymemory는 인증을 요구하지도 않는데 토큰만 국외 제3자에게 넘어갔다 → 제거한다.
+        //  (Cloudinary·Nominatim 호출에는 이미 토큰을 빼는 방어가 있었는데 여기만 빠져 있었음)
+        val conn = (URL("https://api.mymemory.translated.net/get?q=$encoded&langpair=ko|$targetLang").openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 15000 }
         val json = JSONObject(conn.inputStream.bufferedReader().readText()); json.getJSONObject("responseData").getString("translatedText")
     } catch (e: Exception) { "(번역 실패)" } }
 }
