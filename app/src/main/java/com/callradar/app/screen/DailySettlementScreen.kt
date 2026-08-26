@@ -137,13 +137,12 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                     statusMsg = "총합계를 못 읽었어요 — 직접 입력해주세요"
                 }
             }
-            // 업로드
-            scope.launch {
-                val url = withContext(Dispatchers.IO) { CloudinaryUploader.upload(context, uri) }
-                meterUploading = false
-                if (url != null) meterUrl = url
-                else statusMsg = "전표 사진 업로드 실패 ❌"
-            }
+            // [보안 2026-08-27] Cloudinary 업로드 제거.
+            //  전표 사진을 미국 업체(Cloudinary)에 올려 보관하고 있었는데,
+            //  개인정보처리방침 수탁자 표에 없었고 삭제 경로도 없었으며
+            //  unsigned 업로드라 URL만 알면 누구나 열리는 상태였다.
+            //  **글자 읽기는 폰 안에서 하는 일이라 그대로 살아 있다.** 보관만 없앤다.
+            meterUploading = false
         }
     }
     val gasPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -156,11 +155,8 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                 gasUnit = result.unit
                 gasEdited = true   // [v93] 기사가 영수증을 올렸다 = 가스 값을 직접 정했다
             }
-            scope.launch {
-                val url = withContext(Dispatchers.IO) { CloudinaryUploader.upload(context, uri) }
-                gasUploading = false
-                if (url != null) gasUrl = url
-            }
+            // [보안 2026-08-27] Cloudinary 업로드 제거 (위 전표와 같은 이유).
+            gasUploading = false
         }
     }
 

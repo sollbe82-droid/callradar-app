@@ -139,16 +139,26 @@ class ReceiptScanActivity : ComponentActivity() {
         }
     }
 
-    // [비전 폴백] 사진 업로드(Cloudinary) → /api/ai/receipt-vision → 결과로 확인화면 구성
+    // [비전 폴백] — 2026-08-27 중지됨
+    //
+    //  예전엔 사진을 Cloudinary(미국)에 올리고 그 URL을 Anthropic(미국)이 가져가 판독했다.
+    //  개인정보처리방침 수탁자 표에는 Render·카카오뿐이었고 제4조엔 "제3자에게 제공하지 않습니다"라고
+    //  적혀 있었다. 문서와 실제가 몇 주간 어긋난 채 두 스토어에 배포돼 있었다.
+    //  게다가 올라간 사진은 삭제 경로가 없고 unsigned 업로드라 URL만 알면 누구나 열렸다.
+    //
+    //  이제 사진은 폰 밖으로 나가지 않는다. 로컬 OCR 결과나 수동 입력으로 이어진다.
+    //  (서버 /api/ai/receipt-vision 도 게이트로 막아 뒀다. Cloudinary preset 도 Signed 로 잠갔다.)
     private fun visionFallback(bitmap: Bitmap, local: ReceiptOcrService.ReceiptResult?) {
+        runOnUiThread { fallbackToManual(local, "금액을 확인해 주세요") }
+    }
+
+    @Suppress("unused")
+    private fun visionFallbackDisabled(bitmap: Bitmap, local: ReceiptOcrService.ReceiptResult?) {
         isProcessing = true
         statusMessage = "🔍 AI가 사진을 직접 읽는 중.. (몇 초)"
         Thread {
             try {
-                val f = java.io.File(cacheDir, "receipt_vision.jpg")
-                f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
-                val url = com.callradar.app.CloudinaryUploader.upload(this, android.net.Uri.fromFile(f))
-                try { f.delete() } catch (e: Exception) {}
+                val url: String? = null
                 if (url == null) { runOnUiThread { fallbackToManual(local, "사진 업로드 실패(네트워크)") }; return@Thread }
                 val json = JSONObject().apply { put("url", url) }
                 val conn = (URL("$SERVER_URL/api/ai/receipt-vision").openConnection().apply {

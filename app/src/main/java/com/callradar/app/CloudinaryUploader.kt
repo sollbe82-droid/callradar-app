@@ -21,8 +21,25 @@ object CloudinaryUploader {
     private const val TARGET_MAX_BYTES = 500 * 1024   // 500KB 목표
     private const val MAX_DIMENSION = 1600            // 긴 변 최대 1600px
 
-    // Uri(카메라/갤러리 사진) → 압축 → Cloudinary 업로드 → secure_url 반환 (실패 시 null)
-    fun upload(context: Context, imageUri: Uri): String? {
+    // ── [중지 2026-08-27] 사진 외부 업로드를 하지 않는다 ────────────────
+    //
+    //  왜 껐나:
+    //   · 영수증·전표 사진이 Cloudinary(미국)로 나가고 있었는데
+    //     개인정보처리방침 제5조 수탁자 표엔 Render·카카오뿐이었고
+    //     제4조엔 "제3자에게 제공하지 않습니다"라고 적혀 있었다. 문서와 실제가 달랐다.
+    //   · 올라간 사진을 지우는 코드가 어디에도 없었다(방침의 '탈퇴 후 30일 내 파기'와 불일치).
+    //   · unsigned 업로드라 URL만 알면 로그인 없이 누구나 열렸다.
+    //
+    //  이중 잠금: 여기서 항상 null 을 돌려주고, Cloudinary 콘솔의 preset 'callradar' 도
+    //  Signed 로 바꿔 잠갔다(실측 확인: HTTP 400 "must be whitelisted for unsigned uploads").
+    //  구버전 앱이 계속 시도해도 서버 쪽에서 막힌다.
+    //
+    //  아래 실제 업로드 코드는 지우지 않고 남겨 둔다 — 나중에 국내 업체나 자사 서버로
+    //  옮길 때 압축 로직을 그대로 재사용하기 위해서다. 호출부는 이 함수 하나뿐이다.
+    fun upload(context: Context, imageUri: Uri): String? = null
+
+    @Suppress("unused")
+    private fun uploadDisabled(context: Context, imageUri: Uri): String? {
         return try {
             val compressed = compressImage(context, imageUri) ?: return null
             uploadBytes(compressed)
