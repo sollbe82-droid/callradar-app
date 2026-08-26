@@ -819,6 +819,11 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             MoreEntry("💬", "오픈톡방", "아이디어·개선·버그 제보 환영", chevron = true) {
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_CHAT_URL))) } catch (e: Exception) {}
             },
+            // [v94] 약관 상시 열람. 예전엔 최초 동의 화면에서만 볼 수 있어, 한 번 동의하면 다시 찾을 데가 없었다.
+            //  구글·원스토어 모두 앱 내 상시 접근을 요구하고, 기사도 "내 위치를 어디까지 가져가나" 확인할 수 있어야 한다.
+            MoreEntry("📄", "이용약관", "서비스·개인정보·위치기반·자동기록 약관", chevron = true) {
+                com.callradar.app.TermsListActivity.start(context)
+            },
             MoreEntry("🚪", "로그아웃", "", danger = true) { showLogoutConfirm = true }
         ))
     )

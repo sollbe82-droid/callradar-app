@@ -1294,6 +1294,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
                                 }
                                 Switch(checked = autoRec, onCheckedChange = { on ->
+                                    // [v94 접근성 공개·동의] 켤 때는 반드시 명시적 공개 화면을 먼저 거친다.
+                                    //  구글 정책: 접근성 도구가 아닌 앱은 '일반 사용 과정에서' 공개·동의를 보여야 한다.
+                                    //  동의 전에는 auto_record_on 을 켜지 않는다 — 동의 화면이 직접 켠다.
+                                    if (on && com.callradar.app.AutoRecordConsentActivity.needed(context)) {
+                                        autoRec = false
+                                        com.callradar.app.AutoRecordConsentActivity.start(context)
+                                        return@Switch
+                                    }
                                     autoRec = on
                                     // [v56] auto_record_touched: 유저가 토글을 한 번이라도 만지면 그 선택이 유일 기준(auto_free_open 무시) → OFF면 진짜 OFF.
                                     prefs.edit().putBoolean("auto_record_on", on).putBoolean("auto_record_touched", true).apply()

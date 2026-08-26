@@ -90,6 +90,20 @@
             android:exported="false"
             android:label="이용 동의" />
 
+        <!-- [v94] 자동기록(접근성) 명시적 공개·동의 게이트.
+             구글 Play 접근성 정책: 접근성 도구가 아닌 앱은 앱 내 별도 공개·동의 화면이 필요하다.
+             위치정보 동의(ConsentActivity)와 반드시 분리되어야 한다(정책상 다른 공개와 섞으면 안 됨). -->
+        <activity
+            android:name=".AutoRecordConsentActivity"
+            android:exported="false"
+            android:label="자동 기록 사용 안내" />
+
+        <!-- [v94] 약관 상시 열람 (더보기 → 이용약관) -->
+        <activity
+            android:name=".TermsListActivity"
+            android:exported="false"
+            android:label="이용약관" />
+
         <!-- 매출 영수증 자동정산 (당일상세거래내역) -->
         <activity
             android:name=".ReceiptReconcileActivity"
