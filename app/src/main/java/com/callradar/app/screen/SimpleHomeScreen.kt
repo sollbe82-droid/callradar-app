@@ -265,7 +265,32 @@ fun SimpleHomeScreen(
             com.callradar.app.Telemetry.log(context, "shift_end", "simple_home", meta = sFare.toString())
             // 서버 근무세션 요약 저장 (classic과 동일)
             if (userId.isNotEmpty()) scope.launch { try { withContext(Dispatchers.IO) {
-                val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", sFare); put("per_hour", pH) }
+                /* [v94 매출 0원 수정] 세션 매출은 '오늘 매출'이 아니라 '세션 기간 매출'로 구한다.
+                 *
+                 * 2026-08-26 기사 제보: 영업일 시작 09시 설정에 09:03 퇴근 → 305,400원이 0원으로 저장됐다.
+                 * todayFare 는 /api/today 값이라 그 순간 이미 새 영업일을 보고 있었다(3분치 = 0원).
+                 * 근무시간·거리는 세션 값이라 멀쩡했고 매출만 날아갔다.
+                 *
+                 * 여기는 이미 백그라운드라 한 번 더 물어봐도 퇴근이 느려지지 않는다.
+                 * 실패하면 기존 값을 그대로 쓴다 — 못 고치더라도 더 나빠지진 않게.
+                 */
+                var fixedFare = sFare
+                var fixedPerHour = pH
+                try {
+                    if (startedAtMs > 0 && now > startedAtMs) {
+                        val fc = (URL("$SERVER_URL/api/fare-range/$userId?from=$startedAtMs&to=$now").openConnection().apply {
+                            com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
+                        } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }
+                        val fo = JSONObject(fc.inputStream.bufferedReader().readText())
+                        val rangeFare = fo.optInt("fare", -1)
+                        // 세션 구간에 운행이 있었다면 그 값이 진실이다. -1(조회 실패)이면 건드리지 않는다.
+                        if (rangeFare >= 0 && rangeFare != sFare) {
+                            fixedFare = rangeFare
+                            fixedPerHour = if (dayNetMs > 3000000L) (rangeFare / (dayNetMs / 3600000.0)).toInt() else 0
+                        }
+                    }
+                } catch (e: Exception) {}
+                val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", fixedFare); put("per_hour", fixedPerHour) }
                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
             } } catch (e: Exception) {} }

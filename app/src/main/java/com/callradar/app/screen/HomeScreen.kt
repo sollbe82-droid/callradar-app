@@ -721,7 +721,24 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         val gMin = sumGrossMin; val nMin = sumNetMin; val dKm = sumDistKm; val sF = sFare; val pH = sumPerHour
                         if (userId.isNotEmpty()) scope.launch {
                             try { withContext(Dispatchers.IO) {
-                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", sF); put("per_hour", pH) }
+                                /* [v94 매출 0원 수정] 세션 매출은 '오늘 매출'이 아니라 '세션 기간 매출'로 구한다.
+                                 * 2026-08-26 기사 제보: 영업일 시작 09시에 09:03 퇴근 → 305,400원이 0원으로 저장.
+                                 * sFare 는 todayFare(=/api/today) 라 그 순간 이미 새 영업일을 보고 있었다.
+                                 * 여기는 백그라운드라 한 번 더 물어도 퇴근이 느려지지 않는다. 실패하면 기존 값 유지. */
+                                var fF = sF; var fP = pH
+                                try {
+                                    if (sStart > 0 && sEnd > sStart) {
+                                        val fc = (URL("$SERVER_URL/api/fare-range/$userId?from=$sStart&to=$sEnd").openConnection().apply {
+                                            com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                                        } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }
+                                        val rf = JSONObject(fc.inputStream.bufferedReader().readText()).optInt("fare", -1)
+                                        if (rf >= 0 && rf != sF) {
+                                            fF = rf
+                                            fP = if (nMin > 5) (rf / (nMin / 60.0)).toInt() else 0
+                                        }
+                                    }
+                                } catch (e: Exception) {}
+                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", fF); put("per_hour", fP) }
                                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
                             } } catch (e: Exception) {}

@@ -333,32 +333,38 @@ class FloatingTripService : Service() {
 
     private fun updateAutoBadge() {
         if (autoCancelArmed || autoFinalizeArmed) return   // 무장중엔 배지 갱신 보류(취소?/완료? 유지)
-        // 수동 길빵 표시가 우선 — 자동 배지가 덮지 않게.
-        if (isRiding) { setFloatVisible(true); return }
+        /* [v94 버그] 예전엔 여기서 `if (isRiding) { setFloatVisible(true); return }` 로 빠져나갔다.
+         *  의도는 "수동 운행 표시를 자동 배지가 덮지 않게" 였는데, 그 바람에 아래 when 의
+         *  `isRiding ->` 분기가 **한 번도 실행되지 않았다.**
+         *  결과:
+         *   · 수동 운행 중 색이 시작 시점의 초록(#10B981) 그대로였다 — 자동은 빨강으로 바뀌는데 수동만 안 바뀜
+         *   · v91에 넣은 "수동 운행도 출발동→현재동 표시"가 통째로 죽어 있었다 (넣었는데 안 보이던 이유)
+         *  → early return 을 없애고, when 에서 isRiding 을 active 보다 먼저 두어 원래 의도(수동 우선)를 지킨다. */
         // [업데이트 유령 플로팅 방지] 업데이트 직후엔 앱을 직접 열기 전까지 배지 숨김(MainActivity가 해제).
         if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("float_suppressed", false)) { setFloatVisible(false); stopLocationForeground(); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
         val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
         val armed = p.getBoolean("auto_record_on", false)
         val floatingOn = p.getBoolean("floating_on", false)   // [#5] 수동 '운행 기록 버튼' 토글
+        /* [v94] 일시정지 중이면 배지를 내린다.
+         *  기사 요청: "일시정지 했는데 운행 버튼이 계속 떠 있어서 앱을 종료해야 한다."
+         *  일시정지는 '지금은 일 안 한다'는 뜻이다. 그 상태에서 운행 버튼이 떠 있으면
+         *  화면을 가릴 뿐 아니라, 눌러도 되는 것처럼 보여 오기록을 부른다.
+         *  ⚠️ 단 '운행 중'이면 절대 감추지 않는다(active = 자동기록 트립 진행 중).
+         *   v93부터 자동 재개는 운행이 확정 저장될 때 일어나므로, 운행 시작~확정 사이에는
+         *   '일시정지 + 트립 진행중'이 실제로 존재한다. 그때 배지를 뺏으면 기사는
+         *   기록이 되고 있는지 알 수가 없다. 수동 운행(isRiding)은 위에서 이미 걸러졌다.
+         *  재개하면 다음 틱(5초)에 다시 뜬다. */
+        if (!active && p.getLong("work_pause_start", 0L) > 0L) {
+            stopPulse(); setFloatVisible(false); stopLocationForeground(); return
+        }
         when {
-            active -> {   // 자동기록 운행 중 — 켜든 끄든 항상 표시(기록되는 게 보이게)
-                setFloatVisible(true)
-                val o = dongOnly(p.getString("auto_origin_dong", "") ?: "")
-                val c = dongOnly(p.getString("auto_cur_dong", "") ?: "")
-                val body = when {
-                    o.isNotBlank() && c.isNotBlank() && o != c -> "🔴자동\n$o→\n$c"
-                    c.isNotBlank() -> "🔴자동\n$c"
-                    o.isNotBlank() -> "🔴자동\n$o"
-                    else -> "🔴자동\n기록중"
-                }
-                updateButtonSmall(body, "#EF4444"); startPulse()
-                startLocationForeground()   // [플로팅 사라짐 수정] 자동기록 운행 중엔 포그라운드 유지 → 다른 앱 봐도 배지 안 죽음
-            }
             // [v91] 수동 운행 중에도 어디서 어디로 가는지 보여준다.
             //  전엔 자동기록만 지역을 띄우고 수동은 "🚕 운행"만 나왔다. 손님 태우고 달리는 동안
             //  출발동이 어디였는지 확인할 데가 없어서, 나중에 기록 고칠 때 기억에 의존해야 했다.
             //  출발지는 운행 시작 때 잡은 주소, 현재지는 자동기록이 갱신해 둔 값을 그대로 쓴다(추가 GPS 0).
+            // [v94] active 보다 먼저 둔다 — 수동으로 시작한 운행을 자동 배지가 덮으면 안 된다.
+            //  (예전 early return 이 하던 '수동 우선' 역할을 여기서 순서로 대신한다)
             isRiding -> {
                 setFloatVisible(true)
                 val o = dongOnly(startAddr)
@@ -372,11 +378,30 @@ class FloatingTripService : Service() {
                 updateButtonSmall(body, "#EF4444"); startPulse()
                 startLocationForeground()
             }
+            active -> {   // 자동기록 운행 중 — 켜든 끄든 항상 표시(기록되는 게 보이게)
+                setFloatVisible(true)
+                val o = dongOnly(p.getString("auto_origin_dong", "") ?: "")
+                val c = dongOnly(p.getString("auto_cur_dong", "") ?: "")
+                val body = when {
+                    o.isNotBlank() && c.isNotBlank() && o != c -> "🔴자동\n$o→\n$c"
+                    c.isNotBlank() -> "🔴자동\n$c"
+                    o.isNotBlank() -> "🔴자동\n$o"
+                    else -> "🔴자동\n기록중"
+                }
+                updateButtonSmall(body, "#EF4444"); startPulse()
+                startLocationForeground()   // [플로팅 사라짐 수정] 자동기록 운행 중엔 포그라운드 유지 → 다른 앱 봐도 배지 안 죽음
+            }
+            /* [v94] 대기와 운행중을 확실히 갈라준다.
+             *  기사 요청: "대기 상태 때랑 수동으로 운행 눌렀을 때 색깔이나 모양이 다르면 좋겠어요.
+             *             길빵 때 누르는 걸 깜빡하곤 함."
+             *  원인은 색이 아니라 글자였다. 대기 상태인데 버튼에 "운행"이라고 쓰여 있으니
+             *  이미 누른 줄 알고 안 눌렀던 것이다. '운행'은 상태처럼 읽히고 '시작'은 동작으로 읽힌다.
+             *   · 대기  = ▶ 시작 (눌러라)  · 운행중 = 🚕운행 + 빨강 + 펄스 (지금 기록 중이다) */
             floatingOn && armed -> {    // 운행 기록 버튼 ON + 자동 대기
                 setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981"); stopLocationForeground()
             }
             floatingOn -> {             // 운행 기록 버튼만 ON = 수동 시작 버튼
-                setFloatVisible(true); stopPulse(); updateButtonSmall("🚕\n운행", "#F59E0B"); stopLocationForeground()
+                setFloatVisible(true); stopPulse(); updateButtonSmall("▶\n시작", "#F59E0B"); stopLocationForeground()
             }
             else -> {                   // [#5] 운행 기록 버튼 OFF + 운행 아님 → 플로팅 숨김
                 stopPulse(); setFloatVisible(false); stopLocationForeground()
@@ -422,7 +447,9 @@ class FloatingTripService : Service() {
                     startAddr = p.getString("ride_startAddr", "") ?: ""
                     startLat = p.getString("ride_startLat", "0.0")?.toDoubleOrNull() ?: 0.0
                     startLng = p.getString("ride_startLng", "0.0")?.toDoubleOrNull() ?: 0.0
-                    if (startAddr.isNotBlank() && startAddr != "미상") updateButtonSmall("운행중\n$startAddr", "#10B981") else updateButton("운행중", "#10B981")
+                    // [v94] 운행중 = 빨강. 자동기록(#EF4444)과 같은 색이어야 "지금 기록 중"이 한눈에 읽힌다.
+                    //  예전엔 초록(#10B981)이라 '자동 대기'와 구분이 안 됐다 — 기사 제보의 그 문제.
+                    if (startAddr.isNotBlank() && startAddr != "미상") updateButtonSmall("🚕운행\n${dongOnly(startAddr)}", "#EF4444") else updateButton("🚕\n운행중", "#EF4444")
                     startPulse()               // [v2] 복원 시에도 운행중 펄스
                     startLocationForeground()  // 운행중 유지 → 잠금 중에도 서비스가 안 죽음
                 }
@@ -517,7 +544,7 @@ class FloatingTripService : Service() {
             isRiding = true
             startTime = utcNow()
             startLat = 0.0; startLng = 0.0; startAddr = ""
-            updateButton("운행중", "#10B981")
+            updateButton("🚕\n운행중", "#EF4444")   // [v94] 초록→빨강. 대기(초록)와 확실히 구분
             startPulse()                // [v2] 운행중 은은한 펄스
             startLocationForeground()   // [v18] 운행 내내 포그라운드 유지 → 화면잠금에도 버튼/서비스 유지
             saveRideState()
