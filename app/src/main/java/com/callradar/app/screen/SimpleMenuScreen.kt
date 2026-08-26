@@ -49,6 +49,9 @@ fun SimpleMenuScreen(
             MenuTile("airport", "✈️", "공항"),
             MenuTile("events", "🎪", "행사"),
             MenuTile("stats", "📊", "분석"),
+            // [v95][유저제보] 인사이트는 핸들러만 있고 타일이 없어 홈 카드를 직접 켠 사람만 볼 수 있었다.
+            //  "인사이트가 안 보인다"의 실제 원인. 메뉴에 노출한다.
+            MenuTile("insights", "💡", "인사이트"),
             MenuTile("ranking", "🏆", "랭킹")
         ),
         "내 살림" to listOf(

@@ -396,11 +396,26 @@ fun SimpleHomeScreen(
         )
     }
 
-    // [유저지시] 신규 설치 기본 콜카드 4개 고정: 기록·정산 / 공항 / 자동설정 / 궤적
-    //  (레이더·분석은 기본에서 빼고, 필요하면 '편집'에서 켜도록 — 처음 켠 기사에게 꼭 필요한 것만)
-    val defCards = "records,airport,record_settings,track"
+    // [유저지시] 신규 설치 기본 콜카드: 기록·정산 / 공항 / 자동설정 / 궤적
+    //  (레이더는 기본에서 빼고, 필요하면 '편집'에서 켜도록 — 처음 켠 기사에게 꼭 필요한 것만)
+    // [v95][유저제보] 분석·인사이트를 기본에 넣는다.
+    //  "간편모드에 통계가 안 보인다" — 편집에서 켜야만 나오니 대부분 존재를 몰랐다.
+    //  실제로 가입 466명 중 운행을 1건이라도 기록한 사람이 124명뿐인데, 한 번 써본 사람의
+    //  7일 유지율은 51%다. 제품이 아니라 '첫 경험까지 가는 길'이 막혀 있다는 뜻이라 기본 노출로 바꾼다.
+    val defCards = "records,stats,insights,airport,record_settings,track"
     val selCards = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll((prefs.getString("simple_home_cards", defCards) ?: defCards).split(",").map { it.trim() }.filter { it.isNotBlank() }) } }
     fun saveCards() { prefs.edit().putString("simple_home_cards", selCards.joinToString(",")).apply() }
+    // [v95] 기존 설치 1회 보정 — 기본값만 바꾸면 신규 설치에만 적용된다.
+    //  이미 쓰고 있는 기사들은 저장된 카드 목록이 있어서 그대로면 여전히 분석을 못 본다.
+    //  한 번만 끼워 넣고 플래그를 세운다(유저가 다시 빼면 그 선택을 존중 — 재추가하지 않는다).
+    LaunchedEffect(Unit) {
+        if (!prefs.getBoolean("simple_cards_v95_stats", false)) {
+            var added = false
+            listOf("stats", "insights").forEach { k -> if (!selCards.contains(k)) { selCards.add(k); added = true } }
+            prefs.edit().putBoolean("simple_cards_v95_stats", true).apply()
+            if (added) saveCards()
+        }
+    }
     var editMode by remember { mutableStateOf(false) }
     var showAutoSetup by remember { mutableStateOf(false) }
 

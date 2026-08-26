@@ -736,11 +736,19 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
         )),
         MoreGroup("기록 · 통계", listOf(
             MoreEntry("📊", "분석", "수입 추세·요일별·시간대 통계", chevron = true) { onNavigate(R_STATS) },
+            // [v95][유저제보] 인사이트가 홈모드엔 진입점이 아예 없었다 — 간편모드 홈 카드로만 갈 수 있었다.
+            //  전체 기사 대비 내 위치·성향 판정·행동 제안은 이미 서버(/api/insights)가 만들고 있다.
+            MoreEntry("💡", "인사이트", "전체 기사 대비 내 위치·개선 포인트", chevron = true) {
+                try { com.callradar.app.InsightsActivity.start(context) } catch (e: Exception) {}
+            },
             MoreEntry("🏆", "랭킹", "기사 랭킹·내 순위", chevron = true) { onNavigate(R_RANKING) },
             MoreEntry("📥", "내보내기", "이번 달 운행 엑셀로 저장", right = "엑셀") {
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$SETTINGS_SERVER/api/export/$userId"))) } catch (e: Exception) {}
             },
-            MoreEntry("📷", "과거기록", "다른 앱 장부를 사진으로 불러오기", right = "사진") {
+            // [v95][유저제보] 이름을 화면과 맞춘다. 55ae3d1(v53)에서 지출 화면의 수입 칸을 숨기며
+            //  화면 전체가 지출 전용이 됐는데 메뉴 이름만 '과거기록'으로 남아 어긋났다.
+            //  과거 '수입' 기록 가져오기는 별도 경로로 복구 예정(#12).
+            MoreEntry("📷", "지출 가져오기", "영수증·지출 장부를 사진으로 불러오기", right = "사진") {
                 try { com.callradar.app.ImageImportActivity.start(context) } catch (e: Exception) {}
             },
             MoreEntry("🗺️", "운행 궤적", "오늘 실차·공차 경로 + 이미지 공유", right = "PNG") {
@@ -762,7 +770,9 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             MoreEntry("🧾", "세무 리포트", "개인택시 종소세·부가세 연간 추정 (경비율 vs 장부)", right = "추정") {
                 try { com.callradar.app.TaxReportActivity.start(context) } catch (e: Exception) {}
             },
-            MoreEntry("🙋", "내 이름", "홈·랭킹에 보이는 이름", right = nickname.ifEmpty { "기사님" }, rightKind = 3) {
+            // [v95][유저지시] 계정 고유번호를 이름 앞에 함께 보인다 — 제보 대응 때 계정 특정용.
+            MoreEntry("🙋", "내 이름", "홈·랭킹에 보이는 이름",
+                right = (if (userId.isNotBlank()) "#$userId " else "") + nickname.ifEmpty { "기사님" }, rightKind = 3) {
                 nameInput = nickname; showNameDialog = true
             }
         )),
