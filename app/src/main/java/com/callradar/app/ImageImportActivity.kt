@@ -172,6 +172,64 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
         val hangul = t.count { it.code in 0xAC00..0xD7A3 }
         return amts * 4 + kw * 2 + hangul / 15
     }
+    // ────────────────────────────────────────────────────────────
+    // [v95][유저제보] AI 판독 — "OCR이 하나도 안 맞아서 사용이 안 된다"
+    //
+    //  ML Kit은 '줄 단위 텍스트'만 준다. 가계부처럼 칸이 격자로 나뉜 장부는
+    //  어느 숫자가 어느 날짜 칸인지 복원할 수가 없어서 정규식을 아무리 고쳐도 안 맞는다.
+    //  사진을 서버로 보내 비전 모델이 표를 직접 보게 한다.
+    //
+    //  실패하면 조용히 기존 ML Kit 결과를 그대로 쓴다(퇴행 없음).
+    //  사진은 서버에 저장하지 않는다. 결과는 항상 표에서 확인·수정 후 저장한다.
+    // ────────────────────────────────────────────────────────────
+    fun aiParse(bitmap: android.graphics.Bitmap, onDone: (List<ImpRow>?) -> Unit) {
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                try {
+                    // 긴 변 1600px·JPEG 82 — 비전 모델 권장 해상도. 더 키워도 정확도가 안 오르고 비용만 는다.
+                    val w = bitmap.width; val h = bitmap.height; val lng = maxOf(w, h)
+                    val send = if (lng > 1600) {
+                        val s = 1600f / lng
+                        android.graphics.Bitmap.createScaledBitmap(bitmap, (w * s).toInt().coerceAtLeast(1), (h * s).toInt().coerceAtLeast(1), true)
+                    } else bitmap
+                    val bos = java.io.ByteArrayOutputStream()
+                    send.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, bos)
+                    val b64 = android.util.Base64.encodeToString(bos.toByteArray(), android.util.Base64.NO_WRAP)
+
+                    val body = JSONObject().apply {
+                        put("image_b64", b64); put("year", year); put("month", month)
+                        put("mode", importMode); put("media_type", "image/jpeg")
+                    }
+                    val conn = (URL("${Config.SERVER_URL}/api/ocr/ledger").openConnection().apply {
+                        com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                    } as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                        doOutput = true; connectTimeout = 15000; readTimeout = 90000
+                    }
+                    conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                    if (conn.responseCode != 200) { conn.disconnect(); null }
+                    else {
+                        val txt = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+                        val arr = JSONObject(txt).optJSONArray("rows") ?: JSONArray()
+                        val list = mutableListOf<ImpRow>()
+                        for (i in 0 until arr.length()) {
+                            val o = arr.getJSONObject(i)
+                            val inc = o.optInt("income", 0); val exp = o.optInt("expense", 0)
+                            list.add(ImpRow(
+                                day = o.optInt("day", 0),
+                                income = if (inc > 0) inc.toString() else "",
+                                expense = if (exp > 0) exp.toString() else "",
+                                liters = o.optDouble("liters", 0.0)))
+                        }
+                        if (list.isEmpty()) null else list
+                    }
+                } catch (e: Exception) { null }
+            }
+            onDone(out)
+        }
+    }
+
     fun runOcr(uri: Uri, accumulate: Boolean = false, onComplete: () -> Unit = {}) {
         busy = true; status = "글자를 읽는 중…"
         try {
@@ -179,7 +237,19 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             val bitmap: android.graphics.Bitmap? = try {
                 if (android.os.Build.VERSION.SDK_INT >= 28) {
                     val src = android.graphics.ImageDecoder.createSource(ctx.contentResolver, uri)
-                    android.graphics.ImageDecoder.decodeBitmap(src) { d, _, _ -> d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE; d.setTargetSampleSize(2) }
+                    // [v95][OCR정확도] setTargetSampleSize(2) 제거 — 해상도를 절반으로 줄인 뒤 OCR을 돌리고 있었다.
+                    //  영수증·가계부 글씨는 원래도 작아서 2배 축소하면 숫자 획이 뭉개진다("하나도 안 맞는다"의 큰 원인).
+                    //  대신 지나치게 큰 사진만 긴 변 2600px로 제한해 메모리를 지킨다(그 이하는 원본 그대로).
+                    android.graphics.ImageDecoder.decodeBitmap(src) { d, info, _ ->
+                        d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                        d.isMutableRequired = false
+                        val w = info.size.width; val h = info.size.height
+                        val long = maxOf(w, h)
+                        if (long > 2600) {
+                            val s = 2600f / long
+                            d.setTargetSize((w * s).toInt().coerceAtLeast(1), (h * s).toInt().coerceAtLeast(1))
+                        }
+                    }
                 } else {
                     @Suppress("DEPRECATION")
                     android.provider.MediaStore.Images.Media.getBitmap(ctx.contentResolver, uri)
@@ -194,8 +264,38 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             // 0/90/270/180 네 방향 OCR → 품질 점수 최고 방향 채택 (옆으로 찍힌 영수증 자동 인식)
             val rots = intArrayOf(0, 90, 270, 180)
             val texts = arrayOfNulls<String>(rots.size)
+            // [v95] ML Kit 4방향이 끝나면 AI 판독을 한 번 더 돌려 더 정확한 쪽을 쓴다.
+            //  AI가 실패하거나 예산이 막히면 기존 결과 그대로 → 기능이 죽지 않는다.
+            fun finish() {
+                val best = texts.filterNotNull().maxByOrNull { scoreText(it) } ?: ""
+                status = "AI가 표를 확인하는 중…"
+                aiParse(bitmap) { aiRows ->
+                    if (aiRows != null) {
+                        rawText = best
+                        aiTotal = aiRows.sumOf { (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0) }
+                        rows = if (accumulate) {
+                            val merged = rows.toMutableList()
+                            aiRows.forEach { p ->
+                                val idx = if (p.day > 0) merged.indexOfFirst { it.day == p.day } else -1
+                                if (idx >= 0) {
+                                    val ex = merged[idx]
+                                    merged[idx] = ex.copy(
+                                        income = ((ex.income.toIntOrNull() ?: 0) + (p.income.toIntOrNull() ?: 0)).let { if (it > 0) it.toString() else "" },
+                                        expense = ((ex.expense.toIntOrNull() ?: 0) + (p.expense.toIntOrNull() ?: 0)).let { if (it > 0) it.toString() else "" })
+                                } else merged.add(p)
+                            }
+                            merged
+                        } else aiRows
+                        busy = false
+                        status = "${rows.size}건 인식됨 (AI 판독) — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
+                        onComplete()
+                    } else {
+                        handleOcrText(best, accumulate, onComplete)
+                    }
+                }
+            }
             fun tryRot(i: Int) {
-                if (i >= rots.size) { handleOcrText(texts.filterNotNull().maxByOrNull { scoreText(it) } ?: "", accumulate, onComplete); return }
+                if (i >= rots.size) { finish(); return }
                 status = "글자를 읽는 중… (${i + 1}/${rots.size})"
                 recognizer.process(InputImage.fromBitmap(bitmap, rots[i]))
                     .addOnSuccessListener { texts[i] = it.text; tryRot(i + 1) }
