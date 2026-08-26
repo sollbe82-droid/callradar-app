@@ -1,0 +1,145 @@
+{
+  "_설명": [
+    "앱·서버 코드에서 나가도 되는 외부 호스트 선언 목록.",
+    "여기에 없는 호스트가 코드에 등장하면 check-outbound.js 가 실패한다.",
+    "새 외부 호출을 추가하려면 이 파일에 먼저 등재해야 하고,",
+    "등재할 때 '어떤 사용자 데이터가 나가는지'와 '방침 어느 조항에 적혀 있는지'를 같이 적는다.",
+    "방침 근거가 없으면 policy 를 null 로 두게 되고 검사기가 잡아낸다.",
+    "",
+    "2026-08-26 사고: 영수증 사진이 Cloudinary·Anthropic 으로 나가는데",
+    "  개인정보처리방침 제5조 수탁자 표에는 Render·카카오뿐이었고",
+    "  제4조에는 '제3자에게 제공하지 않습니다' 라고 적혀 있었다.",
+    "  코드와 문서가 어긋난 채 배포되어 있었다. 그걸 막으려고 만든 파일이다."
+  ],
+
+  "allow": [
+    {
+      "host": "callradar-server.onrender.com",
+      "수탁자": "Render Inc. (미국)",
+      "나가는것": "앱의 모든 자사 API 호출 — 운행기록·위치·정산·계정",
+      "policy": "privacy-policy.html 제5조 (Render Inc. 호스팅)"
+    },
+    {
+      "host": "api.anthropic.com",
+      "수탁자": "Anthropic PBC (미국)",
+      "나가는것": "노하우 원문(전화·차량번호 마스킹 후) / 영수증 OCR 텍스트 / 주간 브리핑용 집계 통계(동 단위 지명 포함) / [중지됨] 영수증·장부 사진",
+      "policy": null,
+      "note": "방침 미기재. 사진 경로 2개는 2026-08-26 서버 게이트로 중지(RECEIPT_VISION_ENABLED / OCR_AI_ENABLED). 텍스트 경로는 아직 동작 중."
+    },
+    {
+      "host": "api.cloudinary.com",
+      "수탁자": "Cloudinary Ltd. (미국)",
+      "나가는것": "영수증·전표 사진 원본 (앱에서 직접 업로드)",
+      "policy": null,
+      "note": "방침 미기재 + 삭제 로직 없음 + unsigned preset이라 URL만 알면 열람 가능. 즉시 중지하려면 Cloudinary 콘솔에서 preset 'callradar' 비활성."
+    },
+    {
+      "host": "res.cloudinary.com",
+      "수탁자": "Cloudinary Ltd. (미국)",
+      "나가는것": "업로드된 사진 조회 URL",
+      "policy": null,
+      "note": "위와 동일"
+    },
+    {
+      "host": "dapi.kakao.com",
+      "수탁자": "카카오 (국내)",
+      "나가는것": "위·경도 (역지오코딩). 100m 격자 반올림 후 호출",
+      "policy": null,
+      "note": "location-terms.html 에 Nominatim만 적혀 있고 카카오 역지오코딩은 누락. 실제로는 카카오가 1차."
+    },
+    {
+      "host": "kauth.kakao.com",
+      "수탁자": "카카오 (국내)",
+      "나가는것": "로그인 인증 토큰",
+      "policy": "privacy-policy.html 제5조 (카카오 소셜 로그인 인증)"
+    },
+    {
+      "host": "kapi.kakao.com",
+      "수탁자": "카카오 (국내)",
+      "나가는것": "카카오 계정 id·닉네임 수신",
+      "policy": "privacy-policy.html 제5조 (카카오 소셜 로그인 인증)"
+    },
+    {
+      "host": "nominatim.openstreetmap.org",
+      "수탁자": "OpenStreetMap Foundation (영국)",
+      "나가는것": "위·경도 (역지오코딩). 인증정보 미부착",
+      "policy": "location-terms.html 제4조 4항 · 제7조 2항",
+      "note": "예약 페이지에서는 승객 브라우저가 직접 호출 → 승객은 앱 이용자가 아니다. 별도 검토 필요."
+    },
+    {
+      "host": "tile.openstreetmap.org",
+      "수탁자": "OpenStreetMap Foundation (영국)",
+      "나가는것": "지도 타일 좌표 (= 기사 이동 경로 영역이 드러남)",
+      "policy": null,
+      "note": "방침 미기재."
+    },
+    {
+      "host": "api.mymemory.translated.net",
+      "수탁자": "Translated srl (이탈리아)",
+      "나가는것": "번역할 한국어 문장",
+      "policy": null,
+      "note": "방침 미기재. 2026-08-26 이전엔 자사 세션 Bearer 토큰까지 딸려 나가고 있었다 → 제거함(앱 업데이트 배포 후 실제 적용)."
+    },
+    {
+      "host": "apis.data.go.kr",
+      "수탁자": "공공데이터포털 (국내)",
+      "나가는것": "사용자 데이터 없음 (축제·공항 정보 조회)",
+      "policy": "해당없음 (사용자 데이터 미전송)"
+    },
+    {
+      "host": "api-gw.sports.naver.com",
+      "수탁자": "네이버 (국내)",
+      "나가는것": "사용자 데이터 없음 (KBO 일정 조회)",
+      "policy": "해당없음 (사용자 데이터 미전송)"
+    },
+    {
+      "host": "data.ex.co.kr",
+      "수탁자": "한국도로공사 (국내)",
+      "나가는것": "사용자 데이터 없음 — 요금소 목록·요금표 전체를 받아와 서버가 자체 대조한다(좌표 미전송)",
+      "policy": "해당없음 (사용자 데이터 미전송)",
+      "note": "server/tolls.js. EX_API_KEY 가 소스에 하드코딩 폴백으로 남아 있었음(정관 7-1 위반) → 제거."
+    },
+    {
+      "host": "www.kopis.or.kr",
+      "수탁자": "예술경영지원센터 (국내)",
+      "나가는것": "사용자 데이터 없음 (공연 일정 조회)",
+      "policy": "해당없음 (사용자 데이터 미전송)"
+    },
+    {
+      "host": "www.koreabaseball.com",
+      "수탁자": "KBO (국내)",
+      "나가는것": "사용자 데이터 없음 (일회성 테스트 스크립트)",
+      "policy": "해당없음 (사용자 데이터 미전송)"
+    }
+  ],
+
+  "_링크만": [
+    "브라우저 Intent로 열기만 하고 앱이 데이터를 실어 보내지 않는 도메인.",
+    "사용자가 직접 누른 뒤 브라우저가 여는 것이라 앱의 전송이 아니다."
+  ],
+  "link_only": [
+    "open.kakao.com",
+    "pf.kakao.com",
+    "play.google.com",
+    "m.onestore.co.kr",
+    "instagram.com",
+    "line.me",
+    "wa.me",
+    "www.airport.kr",
+    "www.roadplus.co.kr",
+    "amo.kma.go.kr",
+    "www.airport.co.kr",
+    "www.arex.or.kr",
+    "www.ex.co.kr",
+    "www.flightradar24.com",
+    "www.icpa.or.kr",
+    "developer.android.com",
+    "support.google.com",
+    "github.com",
+    "schemas.openxmlformats.org",
+    "www.w3.org",
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "cdnjs.cloudflare.com"
+  ]
+}
