@@ -55,18 +55,63 @@ class ReceiptOcrService {
     )
 
     fun processReceipt(bitmap: Bitmap, onResult: (ReceiptResult?) -> Unit) {
-        val inputImage = InputImage.fromBitmap(bitmap, 0)
+        // [v96] 전처리 후 인식 — 감열지 영수증은 대비가 낮아 원본 그대로는 획이 뭉갠다.
+        val prepped = OcrPrep.prepare(bitmap)
+        val inputImage = InputImage.fromBitmap(prepped, 0)
         recognizer.process(inputImage)
             .addOnSuccessListener { visionText ->
                 val text = visionText.text
                 Log.d(TAG, "OCR 텍스트:\n$text")
-                val result = parseReceipt(text)
+                var result = parseReceipt(text)
+                // [v96] 좌표 기반 보정 — 정규식이 놓친 금액을 '라벨 옆 숫자'로 다시 찾는다.
+                //  기존 파서는 납작한 문자열만 봐서 표에서 라벨과 값이 떨어지면 못 잡았다.
+                //  ML Kit 이 주는 좌표를 쓰면 "합계 오른쪽 칸"을 그대로 집을 수 있다.
+                result = refineWithLayout(result, visionText)
                 onResult(result)
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "OCR 실패: ${e.message}")
                 onResult(null)
             }
+    }
+
+    /**
+     * [v96] 좌표 기반 보정.
+     *
+     * 원칙: **정규식이 이미 제대로 잡았으면 건드리지 않는다.** 값이 비었거나(0)
+     * 명백히 이상할 때만 좌표로 다시 찾는다. 잘 되던 영수증이 퇴행하지 않게 하는 게 우선이다.
+     *
+     * 왜 되나: 영수증은 표라서 '합계'와 금액이 문자열로는 멀리 떨어져도
+     * 종이 위에서는 같은 줄 오른쪽에 있다. 그 배치를 그대로 읽는다.
+     */
+    private fun refineWithLayout(r: ReceiptResult?, v: com.google.mlkit.vision.text.Text): ReceiptResult? {
+        return try {
+            val ws = OcrLayout.words(v)
+            if (ws.isEmpty()) return r
+            // 금액: 결제 총액을 가리키는 라벨을 넓게 잡는다(영수증마다 표기가 제각각).
+            val byLabel = OcrLayout.money(
+                ws, "합계", "총액", "총합계", "결제금액", "승인금액", "받을금액", "청구금액", "판매금액", "금액"
+            )
+            val amount = when {
+                r == null || r.amount <= 0 -> byLabel ?: OcrLayout.biggestMoney(ws)
+                byLabel != null && byLabel != r.amount && r.amount < 100 -> byLabel  // 한두 자리는 오독일 확률이 높다
+                else -> r.amount
+            } ?: 0
+            // 리터: LPG 영수증에서 '수량/충전량' 옆의 소수.
+            val liters = if (r != null && r.liters > 0f) r.liters
+                         else (OcrLayout.decimal(ws, "수량", "충전량", "리터")?.toFloat() ?: 0f)
+            val ppl = if (r != null && r.pricePerLiter > 0) r.pricePerLiter
+                      else (OcrLayout.money(ws, "단가", "리터당") ?: 0)
+
+            if (r == null) {
+                if (amount <= 0) null
+                else ReceiptResult(
+                    type = ReceiptType.UNKNOWN, typeName = "영수증", amount = amount,
+                    time = "", date = "", memo = "", rawText = v.text,
+                    liters = liters, pricePerLiter = ppl
+                )
+            } else r.copy(amount = amount, liters = liters, pricePerLiter = ppl)
+        } catch (e: Exception) { r }
     }
 
     fun parseReceipt(text: String): ReceiptResult? {

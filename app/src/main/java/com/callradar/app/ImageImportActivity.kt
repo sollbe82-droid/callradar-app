@@ -182,7 +182,12 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
     //  실패하면 조용히 기존 ML Kit 결과를 그대로 쓴다(퇴행 없음).
     //  사진은 서버에 저장하지 않는다. 결과는 항상 표에서 확인·수정 후 저장한다.
     // ────────────────────────────────────────────────────────────
-    fun aiParse(bitmap: android.graphics.Bitmap, onDone: (List<ImpRow>?) -> Unit) {
+    // [v96 중지] 사진을 서버로 보내지 않는다. 좌표 기반 LedgerGrid 가 대신한다.
+    //  사진을 밖으로 내보내는 순간 처리위탁·국외이전 고지 대상이 되는데,
+    //  표 짝짓기는 애초에 폰 안에서 풀리는 문제였다(ML Kit 이 좌표를 준다).
+    //  아래 코드는 지우지 않고 남겨 둔다 — 자사 서버 경유 구조로 다시 세울 때 참고용.
+    @Suppress("unused")
+    fun aiParseDisabled(bitmap: android.graphics.Bitmap, onDone: (List<ImpRow>?) -> Unit) {
         scope.launch {
             val out = withContext(Dispatchers.IO) {
                 try {
@@ -261,16 +266,31 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                     .addOnFailureListener { busy = false; status = "읽기 실패: ${it.message}"; onComplete() }
                 return
             }
+            // [v96] 전처리 — 감열지·흐린 장부를 흑백·고대비로 바꿔 인식률을 올린다(폰 안에서).
+            val prepped = OcrPrep.prepare(bitmap)
             // 0/90/270/180 네 방향 OCR → 품질 점수 최고 방향 채택 (옆으로 찍힌 영수증 자동 인식)
             val rots = intArrayOf(0, 90, 270, 180)
             val texts = arrayOfNulls<String>(rots.size)
-            // [v95] ML Kit 4방향이 끝나면 AI 판독을 한 번 더 돌려 더 정확한 쪽을 쓴다.
-            //  AI가 실패하거나 예산이 막히면 기존 결과 그대로 → 기능이 죽지 않는다.
+            // [v96] 좌표를 가진 결과도 같이 들고 있는다 — 표 복원에 쓴다.
+            //  ※ finish() 보다 먼저 선언해야 한다. 지역 함수는 뒤에 선언된 지역 변수를 못 본다.
+            val visions = arrayOfNulls<com.google.mlkit.vision.text.Text>(rots.size)
             fun finish() {
-                val best = texts.filterNotNull().maxByOrNull { scoreText(it) } ?: ""
-                status = "AI가 표를 확인하는 중…"
-                aiParse(bitmap) { aiRows ->
-                    if (aiRows != null) {
+                val bestIdx = texts.indices.filter { texts[it] != null }
+                    .maxByOrNull { scoreText(texts[it]!!) } ?: -1
+                val best = if (bestIdx >= 0) texts[bestIdx]!! else ""
+                // [v96] 좌표로 표를 복원한다 — 사진을 밖으로 보내지 않는다.
+                //  달력형 장부는 '어느 숫자가 어느 날짜 칸인가'가 핵심인데,
+                //  그건 글자 위치를 봐야 풀린다. ML Kit 이 주는 좌표로 행·열을 되살린다.
+                val gridRows = if (bestIdx >= 0) visions[bestIdx]?.let { v ->
+                    LedgerGrid.parse(v, month).map { g ->
+                        // 가져오기 모드가 '지출'이면 지출 칸에, '수입'이면 수입 칸에 넣는다.
+                        if (importMode == "income") ImpRow(g.day, g.amount.toString(), "", 0.0)
+                        else ImpRow(g.day, "", g.amount.toString(), 0.0)
+                    }
+                } else null
+                run {
+                    val aiRows = gridRows
+                    if (aiRows != null && aiRows.isNotEmpty()) {
                         rawText = best
                         aiTotal = aiRows.sumOf { (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0) }
                         rows = if (accumulate) {
@@ -287,9 +307,10 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                             merged
                         } else aiRows
                         busy = false
-                        status = "${rows.size}건 인식됨 (AI 판독) — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
+                        status = "${rows.size}건 인식됨 — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
                         onComplete()
                     } else {
+                        // 표로 안 풀리면 기존 정규식 경로로 (영수증형·단일 날짜)
                         handleOcrText(best, accumulate, onComplete)
                     }
                 }
@@ -297,8 +318,8 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             fun tryRot(i: Int) {
                 if (i >= rots.size) { finish(); return }
                 status = "글자를 읽는 중… (${i + 1}/${rots.size})"
-                recognizer.process(InputImage.fromBitmap(bitmap, rots[i]))
-                    .addOnSuccessListener { texts[i] = it.text; tryRot(i + 1) }
+                recognizer.process(InputImage.fromBitmap(prepped, rots[i]))
+                    .addOnSuccessListener { texts[i] = it.text; visions[i] = it; tryRot(i + 1) }
                     .addOnFailureListener { texts[i] = ""; tryRot(i + 1) }
             }
             tryRot(0)
