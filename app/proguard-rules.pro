@@ -34,3 +34,14 @@
 -dontwarn org.openjsse.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# ── [보안 2026-08-28] 릴리스 빌드에서 Log 호출 제거 ──────────────────
+#  NaviIntentReceiver 가 택시앱 화면 전문을 Log.d 로 찍고 있었다(승객 승·하차 주소, 요금, 콜 정보).
+#  LocationTrackingService 는 정확한 위·경도를 찍는다. R8 난독화만으로는 Log 가 남는다.
+#  Android 10+ 는 다른 앱이 남의 로그를 못 읽지만, USB 디버깅·기기 분석·버그리포트에는 그대로 나온다.
+#  위치정보를 다루는 앱이 이걸 남길 이유가 없다. d/v/i 는 지우고 w/e 는 남긴다(장애 추적용).
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+}

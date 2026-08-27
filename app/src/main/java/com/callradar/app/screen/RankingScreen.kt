@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -39,6 +40,9 @@ private object RankingCache {
     var myGuild: MyGuild? = null
     var loaded: Boolean = false
 }
+
+// data class 는 component1..4 를 자동으로 만든다. 직접 선언하면 중복이라 컴파일이 안 된다.
+private data class Quad(val a: String, val b: String, val c: String, val d: String)
 
 @Composable
 fun RankingScreen(userId: String) {
@@ -69,16 +73,27 @@ fun RankingScreen(userId: String) {
     fun loadData() {
         scope.launch {
             try {
-                val indResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/individual").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
+                // [성능 2026-08-28] 네 개를 하나씩 기다려서 최악 4×38 = 152초였다.
+                //  서로 의존하지 않는 호출이므로 동시에 던진다 → 최악 38초.
+                fun get(path: String): String = try {
+                    val c = (URL("$SERVER_URL$path").openConnection().apply {
+                        com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                    } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }
+                    c.inputStream.bufferedReader().readText()
+                } catch (e: Exception) { "null" }
+                val (indResponse, compResponse, guildResponse, myGuildResponse) = withContext(Dispatchers.IO) {
+                    val a = async { get("/api/ranking/individual") }
+                    val b = async { get("/api/ranking/company") }
+                    val c = async { get("/api/ranking/guild") }
+                    val d = async { get("/api/guilds/my/$userId") }
+                    listOf(a.await(), b.await(), c.await(), d.await())
+                }.let { l -> Quad(l[0], l[1], l[2], l[3]) }
                 val indArray = JSONArray(indResponse); val indList = mutableListOf<RankItem>()
                 for (i in 0 until indArray.length()) { val obj = indArray.getJSONObject(i); indList.add(RankItem(obj.optInt("id",0), i+1, obj.optString("nickname","기사님"), obj.optString("company_name",""), obj.optInt("week_trips",0), obj.optInt("points",0), obj.optString("id")==userId||obj.optInt("id").toString()==userId)) }
-                val compResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/company").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                 val compArray = JSONArray(compResponse); val compList = mutableListOf<Triple<String, Int, Double>>()
                 for (i in 0 until compArray.length()) { val obj = compArray.getJSONObject(i); compList.add(Triple(obj.optString("company_name",""), obj.optInt("member_count",0), obj.optDouble("avg_trips",0.0))) }
-                val guildResponse = withContext(Dispatchers.IO) { val conn = (URL("$SERVER_URL/api/ranking/guild").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() }
                 val guildArray = JSONArray(guildResponse); val guildList = mutableListOf<GuildItem>()
                 for (i in 0 until guildArray.length()) { val obj = guildArray.getJSONObject(i); guildList.add(GuildItem(obj.optInt("id"), obj.optString("name",""), obj.optInt("member_count",0), obj.optInt("week_trips",0), obj.optDouble("avg_trips",0.0))) }
-                val myGuildResponse = withContext(Dispatchers.IO) { try { val conn = (URL("$SERVER_URL/api/guilds/my/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }; conn.inputStream.bufferedReader().readText() } catch (e: Exception) { "null" } }
                 if (myGuildResponse != "null" && myGuildResponse.isNotEmpty()) {
                     try { val mg = JSONObject(myGuildResponse); val membersArray = mg.optJSONArray("members"); val membersList = mutableListOf<GuildMember>(); if (membersArray != null) for (i in 0 until membersArray.length()) { val m = membersArray.getJSONObject(i); membersList.add(GuildMember(m.optInt("id"), m.optString("nickname",""), m.optString("role","member"))) }; myGuild = MyGuild(mg.optInt("id"), mg.optString("name",""), mg.optString("invite_code",""), mg.optString("role","member"), mg.optInt("member_count",0), membersList) } catch (e: Exception) { myGuild = null }
                 }

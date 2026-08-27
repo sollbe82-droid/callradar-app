@@ -276,7 +276,8 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
         }
     }
 
-    LaunchedEffect(Unit) { loadData() }
+    // [성능 2026-08-28] LaunchedEffect(Unit) 이 있었는데, 아래 것도 최초 조립에서 실행되므로
+    //  진입할 때마다 /api/trips 를 두 번 불렀다(스피너도 두 번 깜빡였다). 위 줄을 지운다.
     LaunchedEffect(dateFilter, customDate) { loadData() }
 
     // [v6] 입력 중에는 자동 갱신 금지

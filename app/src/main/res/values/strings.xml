@@ -1,4 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">CallRadar</string>
-    <string name="accessibility_service_description">�ݷ��̴��� �ý� �� ������ �����մϴ�</string>
+    <!-- 안드로이드 '접근성' 설정 목록에 표시되는 설명. 구글 심사자가 이 문장을 읽는다.
+         [2026-08-28] 이 파일이 CP949 로 저장돼 있어 여기 한글이 깨진 바이트로 들어가 있었다.
+         onestore 는 accessibility_desc 를 따로 써서 여태 드러나지 않았을 뿐이다. UTF-8 로 바로잡음. -->
+    <string name="accessibility_service_description">택시 기사앱(카카오T·우버·티머니GO)의 운행 화면을 읽어 운행 기록과 요금을 콜레이더에 자동으로 기록합니다. 읽은 내용은 운행 자동기록 용도로만 사용되며, 사용자가 동의한 경우에만 동작합니다. 화면을 캡처하지 않으며, 회원님을 대신해 앱을 조작하지 않습니다.</string>
 </resources>

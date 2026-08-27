@@ -1,19 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  [보안 2026-08-28] 이 파일이 통째로 주석 처리돼 있어 '전부 백업' 기본값이 적용되고 있었다.
+
+  Auth.kt 가 Bearer 인증 토큰을 SharedPreferences("callradar_prefs") 의 auth_token 키에
+  평문으로 저장한다. 규칙이 비어 있으면 그게 구글 클라우드 백업과 기기이전에 그대로 실린다.
+  토큰이 백업에서 되살아나면 폰을 바꾼 뒤에도, 심지어 남의 기기에 복원돼도 계정이 열린다.
+
+  안드로이드 백업은 파일 단위로만 제외할 수 있고 키 하나만 빼는 건 안 된다.
+  그래서 callradar_prefs 전체를 뺀다. 대가는 새 폰에서 로컬 설정(영업일 시작시각·연료종류·
+  화면모드)을 다시 잡아야 하는 것뿐이다 — 운행기록·지출·궤적은 전부 서버에 있으므로
+  다시 로그인하면 그대로 돌아온다. 설정 몇 개보다 토큰이 새는 쪽이 훨씬 나쁘다.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="callradar_prefs.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="callradar_prefs.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

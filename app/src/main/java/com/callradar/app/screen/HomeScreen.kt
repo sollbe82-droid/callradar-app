@@ -339,7 +339,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     LaunchedEffect(userId, refreshKey) {
         if (userId.isEmpty()) return@LaunchedEffect
         try {
-            val s = withContext(Dispatchers.IO) { (URL("$SERVER_URL/api/users/$userId/flags").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 12000 }.inputStream.bufferedReader().readText() }
+            // [스토어 구분] 앱 버전을 같이 보낸다. onestore 빌드는 versionName 에 "-onestore" 가 붙는다.
+            //  이걸 안 보내서 "플레이 유저가 몇 명인가"를 서버로 답할 수 없었다.
+            //  버전 문자열 하나뿐 — 기기 식별자나 개인정보가 아니다.
+            val _v = java.net.URLEncoder.encode(com.callradar.app.BuildConfig.VERSION_NAME, "UTF-8")
+            val s = withContext(Dispatchers.IO) { (URL("$SERVER_URL/api/users/$userId/flags?v=$_v").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 12000 }.inputStream.bufferedReader().readText() }
             val o = JSONObject(s)
             val ia = o.optBoolean("is_admin", false); val ae = o.optBoolean("auto_entitled", false)
             val fo = o.optBoolean("free_open", false)  // [근본해결] 전원 무료 개방 스위치
