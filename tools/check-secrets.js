@@ -94,6 +94,12 @@ for (const file of files) {
 // ── 검사 2: 소스에 박힌 키 ────────────────────────────────────────
 // process.env.X || '실제값'  패턴 — 환경변수가 없을 때 쓰라고 넣어둔 진짜 키.
 const ENV_FALLBACK = /process\.env\.([A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD|PW)[A-Z0-9_]*)\s*\|\|\s*['"]([^'"]+)['"]/g;
+
+// [2026-08-27 보강] 접속 문자열에 박힌 자격증명.
+//  이 검사기를 만들고도 server/_an*.js 20여 개에 DB 비밀번호가 통째로 박힌 걸 못 잡았다.
+//  기존 규칙이 'process.env.X || 값' 과 코틀린 상수만 보고 있었기 때문이다.
+//  검사기를 만들었다고 안심하면 안 된다 — 못 보는 영역을 계속 넓혀야 한다.
+const CONN_STRING = /\b(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^:\s'"]+:([^@\s'"]{4,})@/gi;
 // 안드로이드 쪽: KEY/SECRET/TOKEN 이름의 상수에 긴 리터럴이 박힌 경우
 const KT_CONST = /(?:const\s+val|val|var)\s+([A-Za-z_]*(?:KEY|SECRET|TOKEN|PASSWORD)[A-Za-z_]*)\s*(?::\s*String\s*)?=\s*"([^"]{12,})"/g;
 
@@ -110,6 +116,17 @@ for (const file of files) {
       problems.push({
         kind: '키하드코딩',
         msg: `${m[1]} 에 소스 폴백값이 박혀 있다 — 정관 7-1 위반 (키는 환경변수만)`,
+        where: `${rel}:${i + 1}`,
+      });
+    }
+    CONN_STRING.lastIndex = 0;
+    while ((m = CONN_STRING.exec(text)) !== null) {
+      // `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@...` 처럼
+      // 환경변수를 끼워 넣는 건 정상이다. 실제 값이 박힌 것만 잡는다.
+      if (m[2].includes('${') || m[2].includes('process.env')) continue;
+      problems.push({
+        kind: '접속문자열',
+        msg: `${m[1]} 접속 문자열에 비밀번호가 박혀 있다 — 환경변수로 빼야 한다`,
         where: `${rel}:${i + 1}`,
       });
     }
