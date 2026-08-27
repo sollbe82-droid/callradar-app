@@ -34,7 +34,12 @@
 - **⑥ 결론은 검증 후에만.** 로그·코드 확인 전 "원인 확정/다 됐다" 금지.
 
 ## ★ 진단 도구
-- 관리자 URL(ADMIN_KEY=`90d96600658fbf204a3032a69455e8b8`): `callradar-server.onrender.com/api/admin/testers-data?key=<KEY>`(활성유저·마지막운행·오늘건수+최근로그), `/api/debug/logs/:userId?key=<KEY>`, `/api/admin/work-sessions?key=<KEY>`(근무세션 요약 km·시간, v56+). 샌드박스 web_fetch 또는 claude-in-chrome으로 JSON 조회(캐시 우회 `&cb=N`).
+- **★ 관리자 접근 방식 변경(2026-08-27) — `?key=` 는 이제 막혔다(403).** 위치정보법 고시 제8조 대응.
+  - **스크립트·진단**: 헤더 `x-admin-key: <KEY>` 로만. 예: `Invoke-RestMethod <url> -Headers @{'x-admin-key'=$k}`
+  - **브라우저**: `callradar-server.onrender.com/admin/login` 에서 1회 로그인 → 8시간 세션 쿠키(HttpOnly). 주소창에 키가 안 남는다.
+  - **키는 어디에도 적지 않는다.** Render 환경변수에만 있다. 필요하면 대표에게 그때그때 받는다(채팅에 남기지 말 것).
+  - 모든 관리자 접근은 `admin_access_log` 에 자동 기록된다(고시 제10조, 1년 보존). 실패한 시도도 남는다.
+  - 조회 엔드포인트: `/api/admin/testers-data`(활성유저·마지막운행), `/api/debug/logs/:userId`, `/api/admin/work-sessions`(근무세션 요약), `/api/admin/growth`(가입·유지율), `/api/admin/access-log`(접근기록), `/api/admin/bookings-count`. 캐시 우회 `?cb=N`.
 - SERVICE 로그에 앱버전 기록됨(`v3.1x2 연결됨 | 앱 2.5.x-onestore`) → 유저 버전 판별.
 - 스톨(유령트립) 신호: TRIP_START/BOARDING 후 TRIP_END 없이 배지 물림. 회복: 강제중지/재설치 or R1(새 탑승 감지 시 자동마감). 6시간 상한은 인천공항 장거리 때문 → 시간마감 말고 양성신호로만.
 
