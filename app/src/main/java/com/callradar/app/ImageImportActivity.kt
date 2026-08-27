@@ -67,6 +67,12 @@ class ImageImportActivity : ComponentActivity() {
 // 미리보기 행: 일(day) + 수입 + 지출 (문자열로 편집) + [v54] LPG 리터(수량, 소수2자리)
 private data class ImpRow(var day: Int, var income: String, var expense: String, var liters: Double = 0.0)
 
+/** 40.510 → "40.51", 40.0 → "40". 안내문에 군더더기 0 을 안 보이게 한다. */
+private fun trimNum(d: Double): String {
+    val s = String.format("%.3f", d).trimEnd('0').trimEnd('.')
+    return if (s.isEmpty() || s == "-") "0" else s
+}
+
 // [v19] 가져오기 파싱 규칙 — 서버(/api/import/rules)에서 받아 파서에 적용. 못 받으면 이 기본값 사용.
 //  서버→앱 단방향(유저 데이터 수집 X). 새 양식은 서버 규칙만 고치면 앱 업데이트 없이 전 유저 반영.
 private data class ImportRules(
@@ -310,8 +316,51 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                         status = "${rows.size}건 인식됨 — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
                         onComplete()
                     } else {
-                        // 표로 안 풀리면 기존 정규식 경로로 (영수증형·단일 날짜)
-                        handleOcrText(best, accumulate, onComplete)
+                        // ── [유저제보] 영수증 한 장은 장부(표)가 아니라 LedgerGrid 로 안 풀린다 ──
+                        //  예전엔 여기서 곧장 정규식 경로로 떨어졌다. 그래서 금액이 틀리고
+                        //  리터는 아예 안 잡혔다("2달째 학습이 안되나보다" — 대표 지적).
+                        //  이제 주유·충전 영수증 전용 판독기(FuelReceipt)로 먼저 보낸다.
+                        //  이 판독기는 '제일 큰 숫자 찍기'를 하지 않는다 — 수량×단가=금액 을 검산한다.
+                        val v = if (bestIdx >= 0) visions[bestIdx] else null
+                        val fr = if (v != null) try { FuelReceipt.parse(v) } catch (e: Throwable) { null } else null
+
+                        if (fr != null && fr.usable) {
+                            val amt = fr.amount!!
+                            val lit = fr.liters ?: 0.0
+                            // 영수증에 적힌 날짜가 기준이다. 못 읽었으면 오늘로 두고 기사가 고친다.
+                            val day = (fr.day ?: cal.get(Calendar.DAY_OF_MONTH)).coerceIn(1, 31)
+                            // 고른 달과 영수증의 달이 다르면, 영수증 쪽으로 맞춘다(단, 누적 중이 아닐 때만).
+                            var moved = ""
+                            if (!accumulate && fr.year != null && fr.month != null &&
+                                (fr.year != year || fr.month != month)) {
+                                moved = " · ${fr.year}년 ${fr.month}월로 맞췄습니다"
+                                year = fr.year; month = fr.month
+                            }
+                            val one = ImpRow(day, "", amt.toString(), lit)
+                            rawText = best
+                            aiTotal = amt
+                            rows = if (accumulate) {
+                                val merged = rows.toMutableList()
+                                val idx = merged.indexOfFirst { it.day == one.day }
+                                if (idx >= 0) {
+                                    val ex = merged[idx]
+                                    merged[idx] = ex.copy(
+                                        expense = ((ex.expense.toIntOrNull() ?: 0) + amt).toString(),
+                                        liters = ex.liters + lit)
+                                } else merged.add(one)
+                                merged
+                            } else listOf(one)
+                            busy = false
+                            val qtyTxt = if (lit > 0) " · ${trimNum(lit)}${if (fr.unitPrice != null && fr.unitPrice!! < 700) "kWh" else "L"}" else ""
+                            status = if (fr.verified)
+                                "✅ ${month}/${day} · ${String.format("%,d", amt)}원$qtyTxt — 수량×단가가 금액과 일치합니다$moved"
+                            else
+                                "⚠️ ${month}/${day} · ${String.format("%,d", amt)}원$qtyTxt — 검산이 안 됐습니다. 숫자를 꼭 확인·수정하세요$moved"
+                            onComplete()
+                        } else {
+                            // 영수증도 아니고 표도 아니면 기존 정규식 경로로 (마지막 수단)
+                            handleOcrText(best, accumulate, onComplete)
+                        }
                     }
                 }
             }
@@ -378,6 +427,24 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
         // [유저요청] 수입 개념 완전 제거 — 가져오기는 '지출 전용'. 수입은 운행기록에서만 잡힌다.
         //  (모드 칩·수입 입력칸이 남아 있어 혼란을 줬음 → 화면에서 통째로 삭제)
 
+        // [대표지시] "사진 인식률이 낮습니다 수동으로 하세요 문구 넣고"
+        //  감열지 영수증은 인쇄가 흐리고 구겨져서 기계가 100% 읽을 수 없다.
+        //  못 읽는 걸 숨기지 않고 먼저 말한다 — 기사가 숫자를 안 보고 넣는 게 제일 위험하다.
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(Color(0x33F59E0B), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Text("⚠️", fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+            Text(
+                "사진 인식률은 100%가 아닙니다. 감열지 영수증은 흐리거나 구겨지면 숫자를 잘못 읽을 수 있어요.\n" +
+                    "가져오기 전에 표의 금액·수량을 꼭 확인하시고, 틀리면 직접 고쳐 넣으세요.",
+                fontSize = 11.sp, color = Color(0xFFFBBF24), modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+
         // 연·월 선택 (달력 사진엔 연도가 없어 여기서 지정)
         Text("가져올 연·월", fontSize = 13.sp, color = muted)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)) {
@@ -396,16 +463,36 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             Button(onClick = { filePicker.launch("*/*") }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151)), shape = RoundedCornerShape(12.dp)) { Text("📄 파일", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
         }
 
-        if (status.isNotEmpty()) Text(status, fontSize = 12.sp, color = if (rows.isEmpty() && !busy) red else green, modifier = Modifier.padding(top = 10.dp))
+        // 검산 결과를 색으로도 알린다. ⚠️(검산 실패)는 초록으로 칠하면 안 된다 — 확인하라는 신호다.
+        if (status.isNotEmpty()) Text(
+            status, fontSize = 12.sp,
+            color = when {
+                status.startsWith("⚠️") -> accent
+                rows.isEmpty() && !busy -> red
+                else -> green
+            },
+            modifier = Modifier.padding(top = 10.dp)
+        )
 
         // [v19] 인식이 안 돼도 항상 표를 보여줘서 '직접 추가'로 넣을 수 있게 (기록 안됨 방지)
         run {
             Spacer(Modifier.height(12.dp))
-            Text("표에서 날짜(일)·지출 금액을 확인·수정하세요. 위의 연·월이 이 표의 기준이에요.", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 6.dp))
+            Text("표에서 날짜(일)·지출 금액을 확인·수정하세요. 위의 연·월이 이 표의 기준이에요.", fontSize = 11.sp, color = muted, modifier = Modifier.padding(bottom = 2.dp))
+            // [유저제보] 충전량 칸이 아예 없었다. ImpRow 에 liters 는 있는데 화면에 안 그려서
+            //  가스·전기 영수증을 넣어도 리터/kWh 가 사라졌다. 연비·전비가 계산될 수 없던 이유.
+            // [유저제안] 단위는 **기사 설정의 연료 종류**를 따른다.
+            //  기사는 차가 하나라 매번 고를 이유가 없다. 설정 한 번이면 앱 전체가 맞춰진다.
+            //  (더보기 → 기사 설정 → 가스·연료 → LPG / ⚡전기차)
+            val isEv = (prefs.getString("fuel_type", "lpg") ?: "lpg") == "ev"
+            val fuelUnit = if (isEv) "kWh" else "L"
+            Text("${if (isEv) "전기 충전" else "가스"} 영수증이면 충전량($fuelUnit)도 함께 넣어 주세요. " +
+                 "${if (isEv) "전비" else "연비"} 계산에 쓰입니다.  ·  단위는 기사 설정을 따릅니다",
+                fontSize = 11.sp, color = accent, modifier = Modifier.padding(bottom = 6.dp))
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text("${month}월 일", fontSize = 12.sp, color = muted, modifier = Modifier.width(56.dp))
                 if (importMode != "expense") Text("수입", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))   // [v53] 지출 컨텍스트에선 수입칸 숨김
                 Text("지출", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
+                Text(fuelUnit, fontSize = 12.sp, color = muted, modifier = Modifier.width(74.dp))
                 Spacer(Modifier.width(32.dp))
             }
             // 편집 표 (날짜·금액 모두 수정 가능 — 오인식 교정)
@@ -424,6 +511,18 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                         }
                         OutlinedTextField(value = r.expense, onValueChange = { v -> rows = rows.toMutableList().also { it[idx] = r.copy(expense = v.filter { c -> c.isDigit() }) } },
                             modifier = Modifier.weight(1f), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = red),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        Spacer(Modifier.width(6.dp))
+                        // [유저제보] 충전량 — 가스는 리터, 전기는 kWh. 소수점 허용(38.412L 같은 값이 흔하다).
+                        //  0 이면 빈칸으로 보여준다(0을 굳이 보여줄 이유가 없다).
+                        OutlinedTextField(
+                            value = if (r.liters > 0.0) (if (r.liters % 1.0 == 0.0) r.liters.toInt().toString() else r.liters.toString()) else "",
+                            onValueChange = { v ->
+                                val cleaned = v.filter { c -> c.isDigit() || c == '.' }
+                                rows = rows.toMutableList().also { it[idx] = r.copy(liters = cleaned.toDoubleOrNull() ?: 0.0) }
+                            },
+                            modifier = Modifier.width(74.dp), singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = accent),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                         TextButton(onClick = { rows = rows.toMutableList().also { it.removeAt(idx) } }) { Text("✕", color = muted) }
                     }
@@ -445,7 +544,8 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                 scope.launch {
                     try {
                         val resp = withContext(Dispatchers.IO) {
-                            val json = JSONObject().apply { put("user_id", userId); put("records", JSONArray(payload)) }
+                            // [유저제안] 기사 설정의 연료 종류를 같이 보낸다 → 서버가 LPG/전기를 정확히 갈라 저장.
+                            val json = JSONObject().apply { put("user_id", userId); put("records", JSONArray(payload)); put("fuel_type", prefs.getString("fuel_type", "lpg") ?: "lpg") }
                             val conn = (URL("${Config.SERVER_URL}/api/import/bulk").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 10000; readTimeout = 15000 }
                             conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)) }
                             conn.inputStream.bufferedReader().readText()

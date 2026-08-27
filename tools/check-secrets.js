@@ -27,6 +27,15 @@ const SCAN = [
   { dir: path.join(ROOT, 'server'), ext: ['.js'], skip: ['node_modules', 'public'] },
 ];
 
+// [2026-08-27 보강] 운영 스크립트(.bat/.ps1)도 훑는다.
+//  이 검사기를 두 번이나 고쳐놓고도, 저장소 루트의 `_grant65.ps1` 4개와
+//  `헬스체크_받기.bat` 에 ADMIN_KEY 가 평문으로 박힌 걸 못 잡았다.
+//  이유는 단순하다 — .kt 와 .js 만 보고 있었다.
+//  게다가 그 .ps1 들은 git 에 추적되고 있었다(= 키가 원격 저장소에 올라갔다).
+//  "검사기를 만들었으니 안전하다"가 제일 위험한 착각이다. 보는 범위를 계속 넓힌다.
+const SCRIPT_SCAN = [ROOT, path.join(ROOT, 'tools'), path.join(ROOT, 'server')];
+const SCRIPT_EXT = ['.bat', '.cmd', '.ps1', '.sh'];
+
 function walk(dir, ext, skip, out) {
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
@@ -39,7 +48,17 @@ function walk(dir, ext, skip, out) {
   return out;
 }
 
+/** 한 폴더만(하위폴더 안 들어감) — 루트엔 build·node_modules·.git 이 있어 재귀하면 안 된다. */
+function flat(dir, ext) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter(e => e.isFile() && ext.some(x => e.name.endsWith(x)))
+      .map(e => path.join(dir, e.name));
+  } catch (e) { return []; }
+}
+
 const files = SCAN.flatMap(s => walk(s.dir, s.ext, s.skip, []));
+const scriptFiles = [...new Set(SCRIPT_SCAN.flatMap(d => flat(d, SCRIPT_EXT)))];
 const problems = [];
 
 /**
@@ -143,7 +162,50 @@ for (const file of files) {
   });
 }
 
-// ── 검사 3: 방침 근거 없는 호스트가 아직 남아 있는가 (요약만) ──────
+// ── 검사 3: 운영 스크립트에 박힌 키 / 주소창 인증 ──────────────────
+//  (가) .bat/.ps1 안의 긴 hex·base64 리터럴 = 사실상 전부 비밀값이다.
+//  (나) `?key=` 주소 인증 = 위치정보법 고시 제8조 대응으로 폐지했다.
+//       키가 브라우저 주소창·프록시 로그·화면 캡처에 남기 때문이다.
+//       서버는 403 으로 막았지만, 스크립트에 남아 있으면 언젠가 되살아난다.
+const SCRIPT_SECRET = /(?:^|[^0-9A-Za-z])([0-9a-f]{32,64}|[A-Za-z0-9+/]{40,}={0,2})(?![0-9A-Za-z])/g;
+const QUERY_KEY_AUTH = /[?&]key=(?!%|\$|<)/;
+const SHA_CONTEXT = /\b(commit|sha|git|hash|checksum|sha1|sha256|md5)\b/i;
+
+for (const file of [...scriptFiles, ...files]) {
+  const rel = path.relative(ROOT, file);
+  const isScript = SCRIPT_EXT.some(x => file.endsWith(x));
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  lines.forEach((text, i) => {
+    const t = text.trim();
+    const commented = t.startsWith('//') || /^rem\b/i.test(t) || t.startsWith('::') ||
+      (isScript && t.startsWith('#'));
+    // 줄 끝 주석은 코드가 아니다. 여기서 안 잘라내면
+    //   `$H = @{ 'x-admin-key' = $k }   # ?key= 는 이제 403`
+    // 같은 '설명문'이 위반으로 잡힌다. 오탐 내는 검사기는 결국 무시당한다.
+    const code = (isScript ? text.split(/\s#(?!\{)/)[0] : text.split('//')[0]);
+    if (isScript && !commented) {
+      SCRIPT_SECRET.lastIndex = 0;
+      let m;
+      while ((m = SCRIPT_SECRET.exec(code)) !== null) {
+        if (SHA_CONTEXT.test(text)) continue;             // 커밋 해시는 비밀이 아니다
+        problems.push({
+          kind: '스크립트에 키',
+          msg: `스크립트에 비밀값으로 보이는 리터럴이 박혀 있다 (${m[1].slice(0, 6)}…) — 환경변수나 실행 시 입력으로 빼야 한다`,
+          where: `${rel}:${i + 1}`,
+        });
+      }
+    }
+    if (!commented && QUERY_KEY_AUTH.test(code) && /admin|ADMIN_KEY|CR_ADMIN|%KEY%|\$k\b/.test(code)) {
+      problems.push({
+        kind: '주소창 인증',
+        msg: '`?key=` 로 관리자 인증하고 있다 — 헤더 x-admin-key 로 보내야 한다 (고시 제8조)',
+        where: `${rel}:${i + 1}`,
+      });
+    }
+  });
+}
+
+// ── 검사 4: 방침 근거 없는 호스트가 아직 남아 있는가 (요약만) ──────
 const noPolicy = cfg.allow.filter(a => !a.policy);
 
 console.log('[시크릿·토큰 검사]\n');

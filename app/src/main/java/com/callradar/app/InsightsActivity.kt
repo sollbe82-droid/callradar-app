@@ -6,7 +6,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -68,6 +71,9 @@ private fun InsightsScreen(onClose: () -> Unit) {
     // [데이터 품질] 내 기록 중 이상해 보이는 것 — 자동으로 지우지 않고 기사에게 확인받는다.
     //  (심야할증 단거리처럼 진짜 그 요금인 경우가 있어서, 판단은 기사 몫으로 남긴다)
     var badRecs by remember { mutableStateOf<JSONObject?>(null) }
+    // [유저제보] 수정·삭제 대상. null 이면 다이얼로그 안 뜸.
+    var editing by remember { mutableStateOf<JSONObject?>(null) }
+    var deleting by remember { mutableStateOf<JSONObject?>(null) }
     val scope = rememberCoroutineScope()
     suspend fun loadBad() {
         try {
@@ -93,6 +99,104 @@ private fun InsightsScreen(onClose: () -> Unit) {
             data = JSONObject(txt)
         } catch (e: Exception) { err = "불러오지 못했어요. 잠시 후 다시 시도해 주세요." }
         loading = false
+    }
+
+    // ── [유저제보] 금액 수정 다이얼로그 ──────────────────────────────
+    //  '맞아요'는 "이 값이 옳다"는 뜻이라, 틀린 값에는 쓰면 안 된다.
+    //  그런데 고칠 방법이 없어서 틀린 것도 '맞아요'로 없애게 되고 있었다 → 통계가 더 나빠진다.
+    editing?.let { rec ->
+        var fareInput by remember(rec) { mutableStateOf(rec.optInt("fare").toString()) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("금액 수정", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${rec.optString("time")} · ${rec.optString("origin")} → ${rec.optString("destination")}",
+                        fontSize = 12.sp, color = muted)
+                    Text(rec.optString("message"), fontSize = 11.sp, color = red)
+                    OutlinedTextField(
+                        value = fareInput,
+                        onValueChange = { v -> fareInput = v.filter { c -> c.isDigit() }.take(7) },
+                        label = { Text("요금 (원)", color = muted) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = AppTheme.surface2,
+                            focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    Text("고치면 '확인 필요' 표시가 풀리고 통계에 다시 들어갑니다.", fontSize = 10.sp, color = muted)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val id = rec.optInt("id"); val newFare = fareInput.toIntOrNull() ?: 0
+                    editing = null
+                    if (newFare > 0) scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                // 요금을 고치고, 이어서 '확인됨'으로 풀어 통계에 되돌린다.
+                                val c1 = (URL("https://callradar-server.onrender.com/api/trips/$id").openConnection().apply {
+                                    com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
+                                } as HttpURLConnection).apply {
+                                    requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true
+                                    connectTimeout = 8000; readTimeout = 15000
+                                }
+                                c1.outputStream.use { os -> os.write(JSONObject().put("user_id", userId).put("fare", newFare).toString().toByteArray()) }
+                                c1.responseCode
+                                val c2 = (URL("https://callradar-server.onrender.com/api/quality/confirm/$id").openConnection().apply {
+                                    com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
+                                } as HttpURLConnection).apply {
+                                    requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true
+                                    connectTimeout = 8000; readTimeout = 15000
+                                }
+                                c2.outputStream.use { os -> os.write(JSONObject().put("user_id", userId).toString().toByteArray()) }
+                                c2.responseCode
+                            }
+                            loadBad()
+                        } catch (e: Exception) {}
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { OutlinedButton(onClick = { editing = null }) { Text("취소", color = muted) } },
+            containerColor = AppTheme.card
+        )
+    }
+
+    // ── [유저제보] 삭제 확인 ────────────────────────────────────────
+    //  되돌릴 수 없으니 무엇을 지우는지 보여주고 한 번 더 묻는다.
+    deleting?.let { rec ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("이 기록을 지울까요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("${rec.optString("time")} · ${rec.optString("origin")} → ${rec.optString("destination")}",
+                        fontSize = 13.sp, color = AppTheme.text)
+                    Text("${nf(rec.optInt("fare"))}원 · ${rec.optDouble("km", 0.0)}km", fontSize = 12.sp, color = muted)
+                    Text("지우면 되돌릴 수 없어요. 금액만 틀린 거라면 지우지 말고 수정하세요.", fontSize = 11.sp, color = red)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val id = rec.optInt("id"); deleting = null
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val c = (URL("https://callradar-server.onrender.com/api/trips/$id").openConnection().apply {
+                                    com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
+                                } as HttpURLConnection).apply {
+                                    requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true
+                                    connectTimeout = 8000; readTimeout = 15000
+                                }
+                                c.outputStream.use { os -> os.write(JSONObject().put("user_id", userId).toString().toByteArray()) }
+                                c.responseCode
+                            }
+                            loadBad()
+                        } catch (e: Exception) {}
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("지우기", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { OutlinedButton(onClick = { deleting = null }) { Text("취소", color = muted) } },
+            containerColor = AppTheme.card
+        )
     }
 
     Column(Modifier.fillMaxSize().background(AppTheme.bg)) {
@@ -126,14 +230,21 @@ private fun InsightsScreen(onClose: () -> Unit) {
                         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("⚠️ 확인이 필요한 기록 ${cnt}건", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red)
-                                Text("금액이나 거리가 이상해 보여 통계에서 빼두었어요. 맞는 기록이면 '맞아요'를 눌러주세요.",
+                                // [유저제보] 예전엔 '맞아요'만 있고 고치거나 지울 방법이 없었다.
+                                //  게다가 "기록 화면에서 고치라"고 안내만 하고 거기로 가는 길도 없었다.
+                                //  → 줄을 누르면 그 기록으로 이동해 수정, 🗑 은 확인 후 삭제.
+                                Text("금액이나 거리가 이상해 보여 통계에서 빼두었어요.\n" +
+                                     "맞는 기록이면 '맞아요', 고치려면 줄을 누르세요. 잘못 들어온 기록은 🗑 로 지웁니다.",
                                     fontSize = 11.sp, color = muted, lineHeight = 16.sp)
                                 val items = badRecs?.optJSONArray("items")
                                 if (items != null) for (i in 0 until minOf(items.length(), 6)) {
                                     val it0 = items.getJSONObject(i)
                                     Column(Modifier.fillMaxWidth()) {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                            Column(Modifier.weight(1f)) {
+                                            // [유저제보] 줄을 누르면 그 기록을 바로 고칠 수 있게 — 수정 다이얼로그를 연다.
+                                            //  '맞아요'는 "이 값이 옳다"는 뜻인데, 틀린 값도 그걸 누를 수밖에 없어서
+                                            //  오히려 잘못된 데이터가 통계에 들어가고 있었다.
+                                            Column(Modifier.weight(1f).clickable { editing = it0 }) {
                                                 Text("${it0.optString("time")} · ${it0.optString("origin")} → ${it0.optString("destination")}",
                                                     fontSize = 12.sp, color = AppTheme.text)
                                                 Text("${nf(it0.optInt("fare"))}원 · ${it0.optDouble("km", 0.0)}km", fontSize = 11.sp, color = muted)
@@ -157,6 +268,8 @@ private fun InsightsScreen(onClose: () -> Unit) {
                                                     } catch (e: Exception) {}
                                                 }
                                             }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("맞아요", fontSize = 12.sp, color = green) }
+                                            // [유저제보] 지우기 — 실수로 눌리면 안 되니 확인 후 삭제.
+                                            TextButton(onClick = { deleting = it0 }, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("🗑", fontSize = 13.sp) }
                                         }
                                         HorizontalDivider(color = AppTheme.surface2, modifier = Modifier.padding(top = 4.dp))
                                     }

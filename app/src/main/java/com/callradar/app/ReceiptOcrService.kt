@@ -88,10 +88,34 @@ class ReceiptOcrService {
         return try {
             val ws = OcrLayout.words(v)
             if (ws.isEmpty()) return r
-            // 금액: 결제 총액을 가리키는 라벨을 넓게 잡는다(영수증마다 표기가 제각각).
+
+            // ── 0) 주유·충전 영수증이면 전용 판독기를 먼저 쓴다 ─────────────
+            //  FuelReceipt 는 '수량 × 단가 = 금액' 을 검산한다.
+            //  검산이 맞으면 정규식보다 이쪽이 확실하므로 값을 갈아끼운다.
+            //  (OcrLayout.money/decimal 은 낱말 하나 안에서만 라벨을 찾아서
+            //   '수 량:' 처럼 띄어 인쇄된 영수증을 못 읽는다 — 그 구멍을 메운다.)
+            val fr = try { FuelReceipt.parse(v) } catch (e: Throwable) { null }
+            if (fr != null && fr.usable && fr.verified) {
+                val amt = fr.amount ?: 0
+                val lit = (fr.liters ?: 0.0).toFloat()
+                val ppl = (fr.unitPrice ?: 0.0).toInt()
+                val dt = if (fr.year != null && fr.month != null && fr.day != null)
+                    "%04d-%02d-%02d".format(fr.year, fr.month, fr.day) else (r?.date ?: "")
+                return if (r == null) ReceiptResult(
+                    type = ReceiptType.UNKNOWN, typeName = "영수증", amount = amt,
+                    time = "", date = dt, memo = "", rawText = v.text,
+                    liters = lit, pricePerLiter = ppl
+                ) else r.copy(
+                    amount = amt, liters = lit, pricePerLiter = ppl,
+                    date = if (r.date.isBlank()) dt else r.date
+                )
+            }
+
+            // ── 1) 검산이 안 되면 기존 방식 — 비었거나 이상한 값만 메운다 ────
+            //  잘 되던 영수증이 퇴행하지 않는 게 우선이다.
             val byLabel = OcrLayout.money(
                 ws, "합계", "총액", "총합계", "결제금액", "승인금액", "받을금액", "청구금액", "판매금액", "금액"
-            )
+            ) ?: fr?.amount
             val amount = when {
                 r == null || r.amount <= 0 -> byLabel ?: OcrLayout.biggestMoney(ws)
                 byLabel != null && byLabel != r.amount && r.amount < 100 -> byLabel  // 한두 자리는 오독일 확률이 높다
@@ -99,9 +123,10 @@ class ReceiptOcrService {
             } ?: 0
             // 리터: LPG 영수증에서 '수량/충전량' 옆의 소수.
             val liters = if (r != null && r.liters > 0f) r.liters
-                         else (OcrLayout.decimal(ws, "수량", "충전량", "리터")?.toFloat() ?: 0f)
+                         else (OcrLayout.decimal(ws, "수량", "충전량", "리터")?.toFloat()
+                             ?: fr?.liters?.toFloat() ?: 0f)
             val ppl = if (r != null && r.pricePerLiter > 0) r.pricePerLiter
-                      else (OcrLayout.money(ws, "단가", "리터당") ?: 0)
+                      else (OcrLayout.money(ws, "단가", "리터당") ?: fr?.unitPrice?.toInt() ?: 0)
 
             if (r == null) {
                 if (amount <= 0) null
