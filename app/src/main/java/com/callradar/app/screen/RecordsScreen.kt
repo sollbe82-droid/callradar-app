@@ -558,8 +558,14 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                     Switch(checked = expenseTaxDeductible, onCheckedChange = { expenseTaxDeductible = it }, colors = SwitchDefaults.colors(checkedTrackColor = green, checkedThumbColor = Color.White))
                 }
-                if (expenseCategory == "LPG" && editingExpenseId == null) {
-                    // LPG: 리터 + 단가 → 금액 자동 (수정 모드에선 원본 리터가 없어 금액 직접입력)
+                if (expenseCategory == "LPG" && editingExpenseId != null) {
+                    // [유저제보] 수정 모드에도 리터 칸을 준다.
+                    //  금액은 직접 입력하게 두고(원본 금액을 함부로 다시 계산하면 값이 바뀐다),
+                    //  리터만 따로 고칠 수 있게 한다. 리터는 연비·정산에 쓰이는 값이라 빠지면 안 된다.
+                    OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                } else if (expenseCategory == "LPG") {
+                    // LPG 신규: 리터 + 단가 → 금액 자동
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                         OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text("단가 (원/L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
@@ -601,7 +607,9 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                 scope.launch {
                                     val ok = withContext(Dispatchers.IO) {
                                         try {
-                                            val json = JSONObject().apply { put("user_id", userId); put("category", cat); put("amount", amt); put("expense_type", etype); put("tax_deductible", taxD); put("memo", memoFull) }
+                                            // [유저제보] 리터를 같이 보낸다. 예전엔 PUT 본문에 아예 없어서
+                                            //  수정만 하면 리터가 사라졌다(연비·정산이 틀어지는 원인).
+                                            val json = JSONObject().apply { put("user_id", userId); put("category", cat); put("amount", amt); put("expense_type", etype); put("tax_deductible", taxD); put("memo", memoFull); put("liters", expenseLiters.toDoubleOrNull() ?: 0.0) }
                                             val conn = (URL("$SERVER_URL/api/expenses/$editId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                                             conn.outputStream.use { it.write(json.toString().toByteArray(Charsets.UTF_8)); it.flush() }
                                             conn.responseCode in 200..299
@@ -784,7 +792,12 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(expenses) { _, exp ->
-                            Card(modifier = Modifier.fillMaxWidth().clickable { editingExpenseId = exp.id; expenseCategory = exp.category; expenseAmount = exp.amount.toString(); expenseType = exp.expenseType; expenseTaxDeductible = exp.expenseType != "personal"; expenseMemo = exp.memo; showExpenseDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth().clickable { editingExpenseId = exp.id; expenseCategory = exp.category; expenseAmount = exp.amount.toString(); expenseType = exp.expenseType; expenseTaxDeductible = exp.expenseType != "personal"; expenseMemo = exp.memo
+                                // [유저제보] 수정 화면에 리터 칸이 없었다. 원본 리터를 채워 넣는다.
+                                //  ExpenseRecord 는 예전부터 liters 를 들고 있었는데 프리필을 안 해서
+                                //  "원본 리터가 없다"는 전제로 칸까지 숨겨져 있었다.
+                                expenseLiters = if (exp.liters > 0) (if (exp.liters % 1.0 == 0.0) exp.liters.toInt().toString() else exp.liters.toString()) else ""
+                                showExpenseDialog = true }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(10.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

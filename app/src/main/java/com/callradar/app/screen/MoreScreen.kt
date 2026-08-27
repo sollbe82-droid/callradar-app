@@ -533,7 +533,8 @@ private fun AiAssistantView(userId: String, context: Context, accent: Color, mut
                                                 else scope.launch {
                                                     val area = withContext(Dispatchers.IO) {
                                                         try {
-                                                            val g = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/geocode/reverse?x=${loc.longitude}&y=${loc.latitude}"))
+                                                            // [고시 제6조③] user_id 동봉 — 취급대장에 주체가 남게(토큰 없는 계정 대비)
+                                                            val g = org.json.JSONObject(moreGet("$SETTINGS_SERVER/api/geocode/reverse?x=${loc.longitude}&y=${loc.latitude}" + (if (userId.isNotBlank()) "&user_id=$userId" else "")))
                                                             val region = g.optString("region")
                                                             region.split(" ").firstOrNull { it.endsWith("구") || it.endsWith("시") || it.endsWith("군") } ?: region.split(" ").lastOrNull() ?: ""
                                                         } catch (e: Exception) { "" }

@@ -1156,7 +1156,15 @@ class NaviIntentReceiver : AccessibilityService() {
     // [주소통일] 카카오 좌표→행정동+지번(서버가 KAKAO_REST_KEY로 처리). 구단위 폴백 제거 → '역삼동 823-24' 형태로 통일.
     private fun reverseGeocode(lat: Double, lng: Double): String? {
         try {
-            val conn = (URL("$SERVER_URL/api/geocode/reverse?x=$lng&y=$lat").openConnection().apply {
+            // [고시 제6조③ 2026-08-27] user_id 를 함께 보낸다.
+            //  취급대장은 "누구 위치를 언제 무슨 목적으로 취급했는가"를 확인할 수 있어야 하는데,
+            //  토큰이 없는 구버전 계정에서는 주체가 null 로 남아 확인이 안 됐다.
+            //  (토큰이 있으면 서버가 그쪽을 우선 쓴다. 이건 없을 때의 보조수단이다.)
+            val uidQ = try {
+                val u = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
+                if (u.isNotBlank()) "&user_id=$u" else ""
+            } catch (e: Exception) { "" }
+            val conn = (URL("$SERVER_URL/api/geocode/reverse?x=$lng&y=$lat$uidQ").openConnection().apply {
                 com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
             } as HttpURLConnection).apply {
                 connectTimeout = 8000; readTimeout = 8000
