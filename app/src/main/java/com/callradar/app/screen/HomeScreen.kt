@@ -43,7 +43,7 @@ private const val SERVER_URL = Config.SERVER_URL
 
 // [v24] 자가치유 GET — 토큰이 stale/불일치라 403/401 나면 토큰 비우고 무토큰으로 1회 재시도.
 //  (특정 유저가 '서버 연결 실패' 지속되던 문제: 페어링/계정전환 후 남은 토큰↔user_id 불일치 → 403)
-private fun getWithSelfHeal(prefs: android.content.SharedPreferences, urlStr: String): String {
+private fun getWithSelfHeal(prefs: android.content.SharedPreferences, urlStr: String, ctx: android.content.Context? = null): String {
     fun open(withToken: Boolean): java.net.HttpURLConnection {
         val c = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
         c.connectTimeout = 10000; c.readTimeout = 40000   // [v25] 콜드스타트(서버 깨어남) 대비 넉넉히
@@ -57,8 +57,13 @@ private fun getWithSelfHeal(prefs: android.content.SharedPreferences, urlStr: St
             var code = conn.responseCode
             if ((code == 401 || code == 403) && !com.callradar.app.Auth.tok.isNullOrBlank()) {
                 try { conn.disconnect() } catch (e: Exception) {}
-                com.callradar.app.Auth.clear(prefs)   // stale/불일치 토큰 제거 → 무토큰 재시도(phase-1 통과)
-                conn = open(false); code = conn.responseCode
+                // [보안 2026-08-28] 예전엔 토큰을 지우고 **무토큰으로** 재시도했다.
+                //  서버가 무토큰을 통과시키던 시절의 복구책인데, 그 통과가 곧 IDOR 구멍이었다.
+                //  서버에서 그걸 막는 순간 이 코드는 '토큰만 지우고 영구 로그아웃'이 된다.
+                //  이제 기기 식별자로 조용히 재발급받아 다시 시도한다. 실패해도 토큰은 지우지 않는다.
+                if (ctx != null && com.callradar.app.Auth.reissue(ctx, prefs)) {
+                    conn = open(true); code = conn.responseCode
+                }
             }
             if (code in 200..299) return conn.inputStream.bufferedReader().readText()
             throw java.io.IOException("HTTP $code")
@@ -360,7 +365,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             try {
                 // [v23] 계정 dayStart 동기화 — 서브폰도 같은 영업일 기준으로 오늘매출 계산되게(today 조회 전에 갱신)
                 try { withContext(Dispatchers.IO) { val s = (URL("$SERVER_URL/api/user-settings/$userId").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }.inputStream.bufferedReader().readText(); val ds = JSONObject(s).optInt("day_start", prefs.getInt("day_start_hour", 0)); prefs.edit().putInt("day_start_hour", ds).apply() } } catch (e: Exception) {}
-                val todayResponse = withContext(Dispatchers.IO) { getWithSelfHeal(prefs, "$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}") }
+                val todayResponse = withContext(Dispatchers.IO) { getWithSelfHeal(prefs, "$SERVER_URL/api/today/$userId?dayStart=${prefs.getInt("day_start_hour", 0)}", context) }
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
