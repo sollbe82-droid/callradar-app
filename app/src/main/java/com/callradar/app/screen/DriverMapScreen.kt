@@ -177,9 +177,14 @@ fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = fals
             }
 
             // [v44] 레이더 임베드에선 '내 운행 밀도' 범례를 숨겨 지도 뷰 가림 방지. 단 지도 인증 실패 경고는 유지.
+            // [유저제보 124 · 2026-08-27] "좌측 상단에 버튼이 가려진 것 같아요"
+            //  범례 카드가 폭 94%를 먹어서 좌우에 3%씩만 남았고, 그 아래로 필터 버튼(📍오늘)이 깔렸다.
+            //  카드를 아래로 내리는 대신 **필터 버튼 높이만큼 위 여백을 주고** 폭을 줄인다.
+            //  · 카드를 아래로만 내리면 지도가 더 가려진다(범례는 어차피 상단에 있어야 한다).
+            //  · 겹침을 없애면서 지도 보이는 면적은 유지하는 쪽을 택했다.
             if (!embedded || authFailed)
             Card(
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).fillMaxWidth(0.94f),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 52.dp).fillMaxWidth(0.94f),
                 colors = CardDefaults.cardColors(containerColor = AppTheme.card.copy(alpha = 0.92f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
