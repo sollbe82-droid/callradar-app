@@ -67,6 +67,26 @@ class ImageImportActivity : ComponentActivity() {
 // 미리보기 행: 일(day) + 수입 + 지출 (문자열로 편집) + [v54] LPG 리터(수량, 소수2자리)
 private data class ImpRow(var day: Int, var income: String, var expense: String, var liters: Double = 0.0)
 
+/**
+ * [대표 지시] 영수증 항목을 **전부** 담는 편집 상태.
+ *
+ *  "이 영수증 항목을 다 파싱해서 입력 칸을 넣어라. 그리고 필요한 3항목만 표시되게 하면 되잖아?"
+ *
+ *  왜 이게 맞는가 — 저는 지금까지 '하나의 정답'(금액 한 개)을 맞히려 했고 두 번 빗나갔다.
+ *  빗나가면 기사는 왜 틀렸는지 알 수 없고, 장부 파서가 승인번호 같은 숫자를 골라
+ *  40,428 / 464,043 같은 값을 조용히 집어넣었다.
+ *  읽은 것을 전부 보여주면, 하나가 틀려도 기사가 그 칸만 고치면 끝난다.
+ *  게다가 수량×단가=금액, 공급가액+세액=금액 두 항등식이 화면에서 바로 검산된다.
+ */
+private data class RcptFields(
+    var date: String = "",     // yyyy-MM-dd
+    var qty: String = "",      // 수량 (L / kWh)
+    var price: String = "",    // 단가
+    var supply: String = "",   // 공급가액
+    var tax: String = "",      // 세액
+    var amount: String = ""    // 금액  ← 기록에 들어가는 값
+)
+
 /** 40.510 → "40.51", 40.0 → "40". 안내문에 군더더기 0 을 안 보이게 한다. */
 private fun trimNum(d: Double): String {
     val s = String.format("%.3f", d).trimEnd('0').trimEnd('.')
@@ -125,6 +145,10 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
     var showRaw by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    // [대표 지시] 영수증 한 장을 읽으면 항목별 칸으로 보여준다. null 이면 이 카드는 안 보인다.
+    var rcpt by remember { mutableStateOf<RcptFields?>(null) }
+    // [유저제안] 단위는 기사 설정의 연료 종류를 따른다 — 차가 하나인데 매번 고를 이유가 없다.
+    val myFuelIsEv = (prefs.getString("fuel_type", "lpg") ?: "lpg") == "ev"
 
     // 이미지 1장 OCR → 표 채우기 (갤러리·카메라 공용). [v19] 회전 사진 자동 보정.
     fun handleOcrText(best: String, accumulate: Boolean = false, onComplete: () -> Unit = {}) {
@@ -294,8 +318,53 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                         else ImpRow(g.day, "", g.amount.toString(), 0.0)
                     }
                 } else null
+                // ── [유저제보 2차] 영수증인데 장부 파서가 먼저 먹어버렸다 ──────────────
+                //  1차 수정에서 "LedgerGrid 가 빈손일 때만 FuelReceipt" 로 짰다.
+                //  그런데 LedgerGrid 는 영수증에서도 아무 숫자나 2건씩 뱉는다.
+                //  그래서 제 영수증 판독기는 **한 번도 실행되지 않았다**(리터 칸이 계속 빈 이유).
+                //  순서를 바꾼다: 검산이 통과한 영수증이면 장부 파서보다 우선한다.
+                //  근거 — 장부 사진에서 '수량 × 단가 = 금액' 이 우연히 맞을 확률은 사실상 0이다.
+                val vBest = if (bestIdx >= 0) visions[bestIdx] else null
+                val fr = if (vBest != null) try { FuelReceipt.parse(vBest) } catch (e: Throwable) { null } else null
+
+                // ── [진단] ML Kit 이 실제로 무엇을 읽었는지 파일로 남긴다 ──────────────
+                //  같은 증상이 세 번 반복됐는데, 저는 매번 파서를 고쳤다.
+                //  정작 'ML Kit 이 이 영수증을 어떻게 읽는가'를 한 번도 본 적이 없었기 때문이다.
+                //  추측으로 고치면 또 빗나간다. 근거를 남긴다.
+                //  저장 위치: /sdcard/Android/data/com.callradar.app/files/cr_ocr_dump.txt
+                //  (앱 전용 폴더라 다른 앱은 못 읽고, 앱 지우면 같이 지워진다)
+                try {
+                    val sb = StringBuilder()
+                    sb.append("=== 회전선택 idx=").append(bestIdx).append(" ===\n")
+                    sb.append("=== FuelReceipt 결과 ===\n")
+                    if (fr == null) sb.append("null (글자 4개 미만이거나 아무 항목도 못 읽음)\n")
+                    else sb.append("일시=").append(fr.year).append("-").append(fr.month).append("-").append(fr.day)
+                        .append(" 금액=").append(fr.amount).append(" 수량=").append(fr.liters)
+                        .append(" 단가=").append(fr.unitPrice).append(" 공급가액=").append(fr.supply)
+                        .append(" 세액=").append(fr.tax).append(" 검산=").append(fr.verified)
+                        .append(" 경로=").append(fr.how).append("\n")
+                    sb.append("=== accumulate=").append(accumulate).append(" ===\n")
+                    if (vBest != null) {
+                        sb.append("=== ML Kit 줄 단위(Line) ===\n")
+                        OcrLayout.lineRows(vBest).forEachIndexed { li, row ->
+                            sb.append(li).append(": [")
+                            sb.append(row.joinToString(" | ") { "${it.text}@${it.box.left},${it.cy}" })
+                            sb.append("]\n")
+                        }
+                    }
+                    sb.append("=== 납작한 원문 ===\n").append(best).append("\n")
+                    java.io.File(ctx.getExternalFilesDir(null), "cr_ocr_dump.txt")
+                        .writeText(sb.toString())
+                } catch (e: Throwable) { }
+                // [대표 지시] 영수증에서 뭐라도 읽었으면 **항목 편집 화면**으로 간다.
+                //  장부(달력) 파서에 넘기지 않는다 — 그게 승인번호를 금액으로 집어넣던 경로다.
+                //  한 장씩 넣을 때(누적 아님)만 적용한다. 여러 장 장부 스캔은 기존대로.
+                //  · 검산이 통과한 영수증이면 여러 장 스캔 중이어도 장부 파서보다 우선한다.
+                //  · 한 장만 넣는 중이면 부분만 읽혔어도 카드를 띄워 기사가 채우게 한다.
+                val receiptWins = fr != null && (fr.verified || (!accumulate && fr.anyField))
+
                 run {
-                    val aiRows = gridRows
+                    val aiRows = if (receiptWins) null else gridRows
                     if (aiRows != null && aiRows.isNotEmpty()) {
                         rawText = best
                         aiTotal = aiRows.sumOf { (it.income.toIntOrNull() ?: 0) + (it.expense.toIntOrNull() ?: 0) }
@@ -313,53 +382,64 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
                             merged
                         } else aiRows
                         busy = false
-                        status = "${rows.size}건 인식됨 — 숫자를 확인·수정한 뒤 가져오기를 누르세요."
+                        // 장부 파서가 이겼을 때, 영수증 판독이 왜 졌는지 화면에 남긴다.
+                        //  이 한 줄이 없어서 "영수증 경로가 아예 실행 안 됐다"는 걸 세 번 만에 알았다.
+                        val why = if (fr == null) "영수증아님" else "영수증부분(${fr.how})"
+                        status = "${rows.size}건 인식됨(장부표) — 숫자를 확인·수정한 뒤 가져오기를 누르세요. [$why]"
                         onComplete()
                     } else {
-                        // ── [유저제보] 영수증 한 장은 장부(표)가 아니라 LedgerGrid 로 안 풀린다 ──
-                        //  예전엔 여기서 곧장 정규식 경로로 떨어졌다. 그래서 금액이 틀리고
-                        //  리터는 아예 안 잡혔다("2달째 학습이 안되나보다" — 대표 지적).
-                        //  이제 주유·충전 영수증 전용 판독기(FuelReceipt)로 먼저 보낸다.
-                        //  이 판독기는 '제일 큰 숫자 찍기'를 하지 않는다 — 수량×단가=금액 을 검산한다.
-                        val v = if (bestIdx >= 0) visions[bestIdx] else null
-                        val fr = if (v != null) try { FuelReceipt.parse(v) } catch (e: Throwable) { null } else null
-
-                        if (fr != null && fr.usable) {
-                            val amt = fr.amount!!
-                            val lit = fr.liters ?: 0.0
-                            // 영수증에 적힌 날짜가 기준이다. 못 읽었으면 오늘로 두고 기사가 고친다.
-                            val day = (fr.day ?: cal.get(Calendar.DAY_OF_MONTH)).coerceIn(1, 31)
-                            // 고른 달과 영수증의 달이 다르면, 영수증 쪽으로 맞춘다(단, 누적 중이 아닐 때만).
-                            var moved = ""
-                            if (!accumulate && fr.year != null && fr.month != null &&
-                                (fr.year != year || fr.month != month)) {
-                                moved = " · ${fr.year}년 ${fr.month}월로 맞췄습니다"
-                                year = fr.year; month = fr.month
-                            }
-                            val one = ImpRow(day, "", amt.toString(), lit)
+                        if (fr != null && fr.anyField) {
+                            // [대표 지시] 읽은 항목을 **전부 칸에 채워** 보여준다. 표에 바로 밀어넣지 않는다.
+                            //  못 읽은 칸은 비워 둔다 — 0 이나 엉뚱한 숫자로 채우면 기사가 못 알아챈다.
                             rawText = best
-                            aiTotal = amt
-                            rows = if (accumulate) {
+                            aiTotal = fr.amount ?: 0
+                            if (fr.year != null && fr.month != null) { year = fr.year; month = fr.month }
+                            if (accumulate) {
+                                // 여러 장 스캔 중이면 카드를 띄울 자리가 없다(장마다 하나씩 뜰 수 없으므로).
+                                //  검산이 통과한 것만 여기 오므로 표에 바로 넣는다.
+                                val amt = fr.amount ?: 0
+                                val lit = fr.liters ?: 0.0
+                                val day = (fr.day ?: cal.get(Calendar.DAY_OF_MONTH)).coerceIn(1, 31)
                                 val merged = rows.toMutableList()
-                                val idx = merged.indexOfFirst { it.day == one.day }
+                                val idx = merged.indexOfFirst { it.day == day }
                                 if (idx >= 0) {
                                     val ex = merged[idx]
                                     merged[idx] = ex.copy(
                                         expense = ((ex.expense.toIntOrNull() ?: 0) + amt).toString(),
                                         liters = ex.liters + lit)
-                                } else merged.add(one)
-                                merged
-                            } else listOf(one)
+                                } else merged.add(ImpRow(day, "", amt.toString(), lit))
+                                rows = merged
+                                busy = false
+                                onComplete()
+                                return@run
+                            }
+                            rcpt = RcptFields(
+                                date = if (fr.year != null && fr.month != null && fr.day != null)
+                                    "%04d-%02d-%02d".format(fr.year, fr.month, fr.day) else "",
+                                qty = fr.liters?.let { trimNum(it) } ?: "",
+                                price = fr.unitPrice?.let { trimNum(it) } ?: "",
+                                supply = fr.supply?.toString() ?: "",
+                                tax = fr.tax?.toString() ?: "",
+                                amount = fr.amount?.toString() ?: ""
+                            )
                             busy = false
-                            val qtyTxt = if (lit > 0) " · ${trimNum(lit)}${if (fr.unitPrice != null && fr.unitPrice!! < 700) "kWh" else "L"}" else ""
-                            status = if (fr.verified)
-                                "✅ ${month}/${day} · ${String.format("%,d", amt)}원$qtyTxt — 수량×단가가 금액과 일치합니다$moved"
-                            else
-                                "⚠️ ${month}/${day} · ${String.format("%,d", amt)}원$qtyTxt — 검산이 안 됐습니다. 숫자를 꼭 확인·수정하세요$moved"
+                            val missing = listOfNotNull(
+                                if (fr.day == null) "일시" else null,
+                                if (fr.liters == null) "수량" else null,
+                                if (fr.amount == null) "금액" else null
+                            )
+                            status = if (missing.isEmpty()) "영수증을 읽었습니다 — 아래에서 확인하세요. [${fr.how}]"
+                                     else "일부만 읽었습니다 (못 읽음: ${missing.joinToString("·")}) — 아래 칸에 직접 넣어 주세요. [${fr.how}]"
                             onComplete()
                         } else {
-                            // 영수증도 아니고 표도 아니면 기존 정규식 경로로 (마지막 수단)
-                            handleOcrText(best, accumulate, onComplete)
+                            // 영수증도 아니고 표도 아니면 기존 정규식 경로로 (마지막 수단).
+                            //  여기까지 왔다는 건 영수증 판독기가 금액조차 못 찾았다는 뜻이므로,
+                            //  무엇을 못 찾았는지 화면에 남긴다 — 이게 없어서 원인 찾는 데 계속 헤맸다.
+                            handleOcrText(best, accumulate) {
+                                status = status + "  [영수증판독 실패: " +
+                                    (if (fr == null) "글자 부족" else "금액 못찾음") + "]"
+                                onComplete()
+                            }
                         }
                     }
                 }
@@ -382,9 +462,18 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             rows = emptyList()
             var i = 0
             fun next() {
-                if (i >= uris.size) { busy = false; status = "${rows.size}건 인식 완료 — 확인 후 가져오기를 누르세요."; return }
-                status = "여러 장 읽는 중… (${i + 1}/${uris.size})"
-                runOcr(uris[i], accumulate = true) { i++; next() }
+                if (i >= uris.size) {
+                    busy = false
+                    // [버그] 한 장만 골라도 여기서 상태문구를 덮어써서, 영수증 카드 안내가 사라졌다.
+                    if (rcpt == null) status = "${rows.size}건 인식 완료 — 확인 후 가져오기를 누르세요."
+                    return
+                }
+                if (uris.size > 1) status = "여러 장 읽는 중… (${i + 1}/${uris.size})"
+                // [버그·핵심] 예전엔 한 장을 골라도 accumulate=true 로 넘겼다.
+                //  그런데 영수증 판독 경로는 '한 장(accumulate=false)'일 때만 돌게 돼 있어서
+                //  **영수증 카드가 한 번도 안 떴다.** 기사가 쓰는 버튼은 '갤러리(여러장)' 하나뿐인데.
+                //  장수로 판단한다 — 한 장이면 영수증, 여러 장이면 장부 누적.
+                runOcr(uris[i], accumulate = uris.size > 1) { i++; next() }
             }
             next()
         }
@@ -473,6 +562,107 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
             },
             modifier = Modifier.padding(top = 10.dp)
         )
+
+        // ── [대표 지시] 영수증 항목 카드 ────────────────────────────────
+        //  "영수증 항목을 다 파싱해서 입력 칸을 넣어라. 필요한 3항목만 표시되게."
+        //  일시·수량·금액만 기록에 들어가고, 단가·공급가액·세액은 **검산 근거**로 보여준다.
+        //  기계가 틀려도 기사가 그 칸만 고치면 끝난다.
+        rcpt?.let { r ->
+            val q = r.qty.toDoubleOrNull() ?: 0.0
+            val p = r.price.toDoubleOrNull() ?: 0.0
+            val a = r.amount.toIntOrNull() ?: 0
+            val sup = r.supply.toIntOrNull() ?: 0
+            val tx = r.tax.toIntOrNull() ?: 0
+            val calcQP = if (q > 0 && p > 0) Math.round(q * p).toInt() else 0
+            val calcST = if (sup > 0 && tx > 0) sup + tx else 0
+            val okQP = calcQP > 0 && a > 0 && kotlin.math.abs(calcQP - a) <= maxOf(2, a / 50)
+            val okST = calcST > 0 && a > 0 && kotlin.math.abs(calcST - a) <= 2
+
+            Spacer(Modifier.height(14.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .background(Color(0xFF111827), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+            ) {
+                Text("🧾 영수증에서 읽은 항목", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accent)
+                Text("빈 칸은 못 읽은 것이에요. 직접 넣으시면 됩니다.", fontSize = 11.sp, color = muted,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+
+                @Composable
+                fun field(label: String, value: String, unit: String, hint: String,
+                          keyboard: KeyboardType, onChange: (String) -> Unit) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Text(label, fontSize = 13.sp, color = muted, modifier = Modifier.width(78.dp))
+                        OutlinedTextField(
+                            value = value, onValueChange = onChange,
+                            placeholder = { Text(hint, fontSize = 12.sp, color = Color(0xFF4B5563)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (unit.isNotEmpty())
+                            Text(unit, fontSize = 12.sp, color = muted, modifier = Modifier.padding(start = 6.dp).width(34.dp))
+                        else Spacer(Modifier.width(40.dp))
+                    }
+                }
+
+                val unitName = if (myFuelIsEv) "kWh" else "L"
+                field("일시", r.date, "", "2026-08-16", KeyboardType.Text) { rcpt = r.copy(date = it) }
+                field("수량", r.qty, unitName, "51.980", KeyboardType.Decimal) { rcpt = r.copy(qty = it) }
+                field("단가", r.price, "원", "1162", KeyboardType.Decimal) { rcpt = r.copy(price = it) }
+                field("공급가액", r.supply, "원", "54910", KeyboardType.Number) { rcpt = r.copy(supply = it) }
+                field("세액", r.tax, "원", "5491", KeyboardType.Number) { rcpt = r.copy(tax = it) }
+                field("금액", r.amount, "원", "60401", KeyboardType.Number) { rcpt = r.copy(amount = it) }
+
+                // 검산 — 기계가 맞았는지 기사가 눈으로 확인할 수 있게 근거를 보여준다.
+                val checks = buildList {
+                    if (calcQP > 0) add((if (okQP) "✅" else "⚠️") +
+                        " 수량×단가 = ${String.format("%,d", calcQP)}원")
+                    if (calcST > 0) add((if (okST) "✅" else "⚠️") +
+                        " 공급가액+세액 = ${String.format("%,d", calcST)}원")
+                }
+                if (checks.isNotEmpty()) Text(
+                    checks.joinToString("   ") + if (a > 0) "   (금액 ${String.format("%,d", a)}원)" else "",
+                    fontSize = 12.sp, color = if (okQP || okST) green else accent,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            val day = Regex("(\\d{1,2})\\s*$").find(r.date.trim())?.groupValues?.get(1)?.toIntOrNull()
+                                ?: cal.get(Calendar.DAY_OF_MONTH)
+                            Regex("(20\\d{2})[-./](\\d{1,2})").find(r.date)?.let { m ->
+                                year = m.groupValues[1].toInt(); month = m.groupValues[2].toInt()
+                            }
+                            val amt = r.amount.toIntOrNull() ?: 0
+                            val one = ImpRow(day.coerceIn(1, 31), "", if (amt > 0) amt.toString() else "",
+                                r.qty.toDoubleOrNull() ?: 0.0)
+                            val merged = rows.toMutableList()
+                            val idx = merged.indexOfFirst { it.day == one.day }
+                            if (idx >= 0) {
+                                val ex = merged[idx]
+                                merged[idx] = ex.copy(
+                                    expense = ((ex.expense.toIntOrNull() ?: 0) + amt).toString(),
+                                    liters = ex.liters + one.liters)
+                            } else merged.add(one)
+                            rows = merged
+                            rcpt = null
+                            status = "표에 넣었습니다 — 확인 후 '이 내용으로 가져오기'를 누르세요."
+                        },
+                        enabled = (r.amount.toIntOrNull() ?: 0) > 0,
+                        colors = ButtonDefaults.buttonColors(containerColor = green),
+                        shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f)
+                    ) { Text("아래 표에 넣기", color = Color.Black, fontWeight = FontWeight.Bold) }
+                    OutlinedButton(onClick = { rcpt = null }, shape = RoundedCornerShape(10.dp)) {
+                        Text("버리기", color = muted)
+                    }
+                }
+            }
+        }
 
         // [v19] 인식이 안 돼도 항상 표를 보여줘서 '직접 추가'로 넣을 수 있게 (기록 안됨 방지)
         run {

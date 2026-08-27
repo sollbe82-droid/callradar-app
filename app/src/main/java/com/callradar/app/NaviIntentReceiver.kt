@@ -83,6 +83,8 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastSentTime = 0L
     private var lastTriggerTime = 0L
     @Volatile private var lastTripId = -1
+    // [티머니 취소] '승객 신고 사유' 창을 본 시각. [신고] 클릭이 이 창의 것인지 판단하는 데 쓴다.
+    @Volatile private var cancelDialogSeenAt = 0L
     private var lastTaxiPlatform = "카카오T"
     private var tripPlatform = ""  // 현재 트립이 시작된 플랫폼
     private var lastDetectedFare = 0  // 우버 금액 캐싱
@@ -191,6 +193,10 @@ class NaviIntentReceiver : AccessibilityService() {
         }
         val appVer = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
         sendDebugLog("SERVICE", "v3.1x2 연결됨 | 앱 $appVer")
+        // [103-2] 업데이트·강제종료로 프로세스가 죽었다면 진행 중이던 운행을 먼저 이어받는다.
+        //  이걸 아래 '재연결 복구 스캔'보다 먼저 해야 한다 — 그 스캔은 activeTripId<=0 이면
+        //  운행을 '새 콜'로 보고 새로 만들어버려서, 기록이 갈리고 출발지가 도중부터 찍힌다.
+        restoreTripState()
         Log.d(TAG, "NaviIntentReceiver v3.1x2 연결됨 (택시앱 전용) | 앱 $appVer")
         Thread {
             Thread.sleep(5000)
@@ -266,8 +272,15 @@ class NaviIntentReceiver : AccessibilityService() {
             finalizeCurrentTrip(if (lastDetectedFare > 0) lastDetectedFare else 0)
         }
 
+        // [유저제보 103] "운행 중에 우버나 티머니 들어가면 자동기록이 끊긴다"
+        //  원인: 여기서 화면에 뜬 앱으로 lastPlatform 을 **매 이벤트 덮어썼다.**
+        //  기사는 카카오T·우버·티머니를 동시에 켜두고 먼저 잡히는 콜을 받는다.
+        //  카카오 운행 중에 티머니를 열어보면 lastPlatform 이 '티머니고'로 바뀌고,
+        //  그 뒤 티머니의 '콜 리스트'(=대기화면)가 진행 중인 **카카오 트립을 취소**시켰다.
+        //  우버 홈('온라인 상태입니다')은 카카오 트립을 **완료로 마감**시켰다.
+        //  → 운행 중에는 트립의 플랫폼을 고정한다. 화면에 뜬 앱은 lastTaxiPlatform 에만 둔다.
         lastTaxiPlatform = PLATFORM_NAMES[pkg] ?: "카카오T"
-        lastPlatform = lastTaxiPlatform
+        if (lastTripId <= 0 || tripPlatform.isEmpty()) lastPlatform = lastTaxiPlatform
 
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
             val clickedText = event.contentDescription?.toString()
@@ -278,7 +291,8 @@ class NaviIntentReceiver : AccessibilityService() {
             if (clickedText.contains("운행 완료") || clickedText.contains("운행완료") ||
                 (clickedText.contains("콜") && clickedText.contains("완료"))) {
                 Log.d(TAG, "우버 완료 클릭! 즉시 금액 읽기")
-                if (lastTripId > 0) {
+                //  [103] 다른 앱에서 누른 '완료'는 내 트립의 완료가 아니다.
+                if (lastTripId > 0 && screenOwnsTrip(pkg)) {
                     try {
                         val root = rootInActiveWindow
                         if (root != null) {
@@ -291,6 +305,20 @@ class NaviIntentReceiver : AccessibilityService() {
                         }
                     } catch (e: Exception) { Log.e(TAG, "완료 금액 읽기 실패: ${e.message}") }
                 }
+                return
+            }
+            // ── [유저제보] 티머니 콜 취소를 못 잡는다 ────────────────────────────
+            //  티머니고의 취소는 '콜 취소' → **'승객 신고 사유' 창**(승객 없음/승객 취소/…) → [신고] 다.
+            //  지금까지는 '콜 리스트'(대기화면)로 돌아오는 것만 보고 있었는데,
+            //  이 신고 창을 거치는 동안 화면 텍스트가 달라서 취소를 놓쳤다.
+            //  창이 뜬 것만으로는 취소가 아니다(기사가 [취소]로 닫을 수 있다).
+            //  **[신고] 버튼 클릭**이라는 확실한 신호에서만 트립을 지운다.
+            if (clickedText.trim() == "신고" && cancelDialogSeenAt > 0 &&
+                now - cancelDialogSeenAt < 120000L && lastTripId > 0 && screenOwnsTrip(pkg)) {
+                Log.d(TAG, "🚫 티머니 승객신고(콜취소) 확정 → 트립 취소")
+                sendDebugLog("CANCEL_REPORT", "#$lastTripId | $lastPlatform | 승객 신고로 콜 취소")
+                cancelDialogSeenAt = 0L
+                deleteCurrentTrip()
                 return
             }
             // [취소후 새콜] '이 손님 다시 만나지 않기'(승객 차단)는 '손님'이 들어가지만 탑승/길안내가 아님 → 제외.
@@ -314,6 +342,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     }
                     passengerBoarded = true; autoBoarded = true; Log.d(TAG, "✅ 손님 탑승(클릭) → 취소방지 활성 + 출발지 재설정")
                     restampOriginAtBoarding()
+                    saveTripState()   // [103-2] 탑승상태·재설정 출발지를 디스크에
                 }
                 clickHandledUntil = now + CLICK_SUPPRESS_WINDOW
                 lastTriggerTime = now
@@ -326,6 +355,24 @@ class NaviIntentReceiver : AccessibilityService() {
         if (now - lastTriggerTime < TRIGGER_COOLDOWN) return
         lastTriggerTime = now
         Handler(mainLooper).postDelayed({ extractTaxiInfo(pkg) }, 500)
+    }
+
+    /**
+     * [유저제보 103] 이 화면(pkg)이 **지금 진행 중인 트립의 앱**인가?
+     *
+     * 기사는 카카오T·우버·티머니를 동시에 켜두고 먼저 잡히는 콜을 받는다.
+     * 그래서 카카오 운행 중에 우버·티머니를 열어보는 건 아주 흔한 일이다.
+     * 그런데 남의 앱 대기화면은 진행 중인 내 트립에 대해 **아무 정보도 주지 않는다.**
+     *   · 티머니 '콜 리스트'  → 카카오 트립을 취소(삭제)시켰다
+     *   · 우버 홈 '온라인 상태입니다' → 카카오 트립을 완료로 마감시켰다
+     * 둘 다 "운행 중에 다른 앱 들어가면 자동기록이 끊긴다"로 나타난다.
+     *
+     * tripPlatform 이 비어 있으면(구버전 상태 복원 등) 판단할 근거가 없으므로 막지 않는다.
+     * 막는 쪽으로 기울면 정상 마감까지 놓쳐 유령트립이 되므로, 확실할 때만 막는다.
+     */
+    private fun screenOwnsTrip(pkg: String): Boolean {
+        if (lastTripId <= 0 || tripPlatform.isEmpty()) return true
+        return (PLATFORM_NAMES[pkg] ?: "") == tripPlatform
     }
 
     private fun extractTaxiInfo(pkg: String) {
@@ -347,10 +394,18 @@ class NaviIntentReceiver : AccessibilityService() {
             // [v53] 화면주소 파싱 제거 — 가맹 화면 라벨('출발/도착')을 POI로 오긁는 회귀(#101).
             //   주소는 전부 GPS 역지오코딩(탑승·완료 순간)만 사용한다. extractScreenAddress는 더 이상 호출하지 않음.
 
+            // [티머니 취소] 승객 신고 사유 창 감지 — 창 자체는 취소가 아니고, [신고] 클릭의 근거로만 쓴다.
+            if (allText.contains("승객 신고 사유") || allText.contains("승객 없음") ||
+                (allText.contains("부당 요구") && allText.contains("다른 승객 탑승"))) {
+                cancelDialogSeenAt = System.currentTimeMillis()
+                sendDebugLog("CANCEL_DIALOG", "$lastPlatform | 승객 신고 사유 창 감지")
+            }
             if (lastTripId <= 0 && allText.contains("라이더") && allText.contains("평가")) return
 
             // 운행 중인데 대기 화면 감지 = 취소 완료
-            if (lastTripId > 0) {
+            //  [103] 단, **그 트립을 만든 앱의 대기화면일 때만** 취소로 본다.
+            //   카카오 운행 중에 티머니 '콜 리스트'를 열어본 것은 카카오 콜 취소가 아니다.
+            if (lastTripId > 0 && screenOwnsTrip(pkg)) {
                 val isCancelledToIdle = when (pkg) {
                     TMONEYGO, TMONEYGO_NAVI -> allText.contains("콜 리스트") && !allText.contains("출발지 길안내") && !allText.contains("목적지 길안내") && !allText.contains("승객 탑승")
                     KAKAO_TAXI -> allText.contains("콜 대기") || allText.contains("퇴근하기")
@@ -442,7 +497,10 @@ class NaviIntentReceiver : AccessibilityService() {
             }
 
             // 완료/결제 신호
-            val isCompletionSignal = when (pkg) {
+            //  [103] 남의 앱 화면은 내 트립을 마감시킬 수 없다.
+            //   특히 우버 홈('온라인 상태입니다' + '마지막 운행')은 우버를 안 쓰는 순간에도 떠서,
+            //   진행 중인 카카오·티머니 트립을 60초 뒤 마감해버렸다.
+            val isCompletionSignal = if (!screenOwnsTrip(pkg)) false else when (pkg) {
                 UBER -> allText.contains("영수증") ||
                     allText.contains("결제 완료") || allText.contains("운행이 완료") ||
                     ((allText.contains("운행 완료") || allText.contains("운행완료")) && extractFare(lines, pkg) > 0) ||
@@ -646,6 +704,7 @@ class NaviIntentReceiver : AccessibilityService() {
                     activeTripId = lastTripId; activeTripStartedAt = System.currentTimeMillis()  // [v3.1x]
                     if (lastTripId > 0) {
                         db.markSynced(localId, lastTripId)
+                        saveTripState()   // [103-2] 앱이 죽어도 이 운행을 이어받을 수 있게
                         Log.d(TAG, "🚕 새 트립: #$lastTripId | $oName | $lastPlatform")
                         sendDebugLog("TRIP_START", "#$lastTripId | $lastPlatform | 출발 $oName")
                         if (lastPlatform == UBER && !boardedAtSent) { boardedAtSent = true; markBoardedAtNow(lastTripId) }  // [v53 #124] 우버 실차 시작시각 즉시 기록(실차율 정확도)
@@ -972,6 +1031,67 @@ class NaviIntentReceiver : AccessibilityService() {
         try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().remove("auto_origin_dong").remove("auto_cur_dong").apply() } catch (e: Exception) {}
     }
 
+    // ── [유저제보 103-2] 운행 중 앱 업데이트/강제종료 → 기록이 둘로 갈라진다 ──────────
+    //  "자동 운행 중 업데이트 하니 기록이 분산된다. 앱이 스스로 재시작은 했으나
+    //   출발지가 다시 시작한 지점부터다"
+    //
+    //  원인: 트립 상태(lastTripId·출발좌표·탑승여부)가 **메모리에만** 있었다.
+    //   앱을 업데이트하면 프로세스가 죽고 전부 -1 로 초기화된다.
+    //   그 뒤 택시앱 화면이 다시 뜨면 '새 콜'로 보고 트립을 새로 만든다.
+    //   → 한 운행이 두 건으로 갈리고, 새 건의 출발지는 재시작한 지점(=도중)이 된다.
+    //   운행 중 업데이트는 흔한 일이라 이건 반드시 살아남아야 하는 상태다.
+    //
+    //  해결: 트립을 만들 때·손님 태울 때 디스크에 적어두고, 서비스가 다시 붙으면 이어받는다.
+    //   좌표는 Float 로 저장하면 소수점이 잘려 출발지가 수십 미터 틀어지므로 문자열로 둔다.
+    private fun saveTripState() {
+        try {
+            getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit()
+                .putInt("auto_trip_id", lastTripId)
+                .putString("auto_trip_platform", tripPlatform)
+                .putLong("auto_trip_started", tripStartedAt)
+                .putString("auto_trip_olat", originLat.toString())
+                .putString("auto_trip_olng", originLng.toString())
+                .putBoolean("auto_trip_boarded", passengerBoarded)
+                .putInt("auto_trip_fare", lastDetectedFare)
+                .apply()
+        } catch (e: Exception) {}
+    }
+
+    private fun clearTripState() {
+        try {
+            getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit()
+                .remove("auto_trip_id").remove("auto_trip_platform").remove("auto_trip_started")
+                .remove("auto_trip_olat").remove("auto_trip_olng")
+                .remove("auto_trip_boarded").remove("auto_trip_fare").apply()
+        } catch (e: Exception) {}
+    }
+
+    /** 서비스가 다시 붙었을 때 진행 중이던 운행을 이어받는다. 이어받을 게 없으면 아무것도 안 한다. */
+    private fun restoreTripState() {
+        try {
+            val p = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            val tid = p.getInt("auto_trip_id", -1)
+            val startedAt = p.getLong("auto_trip_started", 0L)
+            if (tid <= 0 || startedAt <= 0L) return
+            // 6시간(MAX_TRIP_DURATION)이 지난 건 이어받지 않는다 — 어제 것이 되살아나면 더 나쁘다.
+            if (System.currentTimeMillis() - startedAt > MAX_TRIP_DURATION) { clearTripState(); return }
+            lastTripId = tid
+            activeTripId = tid
+            activeTripStartedAt = startedAt
+            tripStartedAt = startedAt
+            tripPlatform = p.getString("auto_trip_platform", "") ?: ""
+            if (tripPlatform.isNotEmpty()) { lastPlatform = tripPlatform; lastTaxiPlatform = tripPlatform }
+            originLat = p.getString("auto_trip_olat", "0")?.toDoubleOrNull() ?: 0.0
+            originLng = p.getString("auto_trip_olng", "0")?.toDoubleOrNull() ?: 0.0
+            passengerBoarded = p.getBoolean("auto_trip_boarded", false)
+            if (passengerBoarded) autoBoarded = true
+            lastDetectedFare = p.getInt("auto_trip_fare", 0)
+            val mins = (System.currentTimeMillis() - startedAt) / 60000
+            Log.d(TAG, "♻️ 트립 이어받음: #$tid | $tripPlatform | ${mins}분 경과")
+            sendDebugLog("TRIP_RESTORE", "#$tid | $tripPlatform | ${mins}분 경과 | 탑승=$passengerBoarded")
+        } catch (e: Exception) { Log.e(TAG, "트립 복원 실패: ${e.message}") }
+    }
+
     // [v53 #124] 플로팅 배지에서 기사가 직접 거는 수동 취소 — 가맹 자동취소 놓침·유령콜 안전망.
     fun cancelActiveTripManually() {
         if (lastTripId <= 0) return
@@ -1016,7 +1136,7 @@ class NaviIntentReceiver : AccessibilityService() {
                 conn.outputStream.write(json.toString().toByteArray()); conn.responseCode
                 Log.d(TAG, "🗑️ 취소 트립 삭제: #$tripId"); conn.disconnect()
             } catch (e: Exception) { Log.e(TAG, "트립 삭제 실패: ${e.message}") }
-            finally { clearAutoBadgePrefs(); synchronized(this) { lastTripId = -1; activeTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; passengerBoarded = false; originLat = 0.0; originLng = 0.0; tripPlatform = ""
+            finally { clearAutoBadgePrefs(); clearTripState(); synchronized(this) { lastTripId = -1; activeTripId = -1; lastLocalTripId = -1; lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L; passengerBoarded = false; originLat = 0.0; originLng = 0.0; tripPlatform = ""
                 // [취소후 새콜] 취소 직후 이어지는 새 콜이 즉시 감지되게 억제창·잔여상태 완전 초기화.
                 clickHandledUntil = 0L; lastTriggerTime = 0L; originRestamped = false; recentFinalTripId = -1; isSendingTrip = false; screenAddrPickup = ""; screenAddrDest = ""; lastLoggedScreenAddr = "" } }
         }.start()
@@ -1110,7 +1230,7 @@ class NaviIntentReceiver : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "트립 마감 실패: ${e.message}")
             } finally {
-                clearAutoBadgePrefs()
+                clearAutoBadgePrefs(); clearTripState()
                 synchronized(this) {
                     lastTripId = -1; activeTripId = -1; lastLocalTripId = -1
                     lastSentDest = ""; lastSentTime = 0L; tripStartedAt = 0L

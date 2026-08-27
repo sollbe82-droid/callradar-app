@@ -45,9 +45,18 @@ object FuelReceipt {
         val liters: Double?,     // 수량 (L 또는 kWh)
         val unitPrice: Double?,  // 단가 (원/L, 원/kWh)
         val verified: Boolean,   // 수량×단가=금액 또는 공급가액+세액=금액 이 맞는가
-        val how: String          // 어떻게 얻었는지 (디버그·안내용)
+        val how: String,         // 어떻게 얻었는지 (디버그·안내용)
+        // [대표 지시] "영수증 항목을 다 파싱해서 입력 칸을 넣어라. 필요한 3항목만 표시되게."
+        //  하나의 정답을 맞히려다 두 번 빗나갔다. 읽은 것을 **전부 보여주고** 기사가 확인·수정하게 한다.
+        //  공급가액·세액은 기록에 넣지 않지만, 검산 근거로 화면에 보여준다.
+        val supply: Int? = null, // 공급가액
+        val tax: Int? = null,    // 세액
+        val store: String = ""   // 상호명(있으면)
     ) {
         val usable: Boolean get() = amount != null && amount > 0
+        /** 하나라도 읽었는가 — 영수증 편집 화면을 띄울지 판단. */
+        val anyField: Boolean get() = amount != null || liters != null || unitPrice != null ||
+            supply != null || tax != null || day != null
     }
 
     // ── 값의 상식 범위 ────────────────────────────────────────────────
@@ -193,6 +202,88 @@ object FuelReceipt {
         return Cols(null, null, null)
     }
 
+    // ── [실기기 덤프로 확인] 라벨은 못 믿는다. 숫자의 '관계'로 찾는다 ──────────────
+    //
+    //  실제 폰에서 이 영수증을 읽힌 결과(2026-08-27 덤프):
+    //     15: [수단공세@346,1491]   ← '수/단/공/세' 라벨 네 글자가 세로로 한 덩어리
+    //     16: [고가액:@354,1513]    ← 공급가액
+    //     20: [애@532,1705]         ← 금액
+    //  즉 '수량'·'금액'·'합계금액' 이라는 글자가 **영수증 어디에도 없다.**
+    //  띄어 인쇄된 한글이 흐리면 ML Kit 이 왼쪽 라벨 열을 통째로 뭉갠다.
+    //  라벨을 찾는 방식은 이 영수증에서 원리적으로 불가능하다.
+    //
+    //  그런데 숫자는 살아 있었다: 40,428 / 4,042 / 1162.0 / 38.2?0
+    //  주유 영수증에는 반드시 이 관계가 성립한다.
+    //     세액 = 공급가액 ÷ 10        (부가세 10%)
+    //     금액 = 공급가액 + 세액
+    //     수량 = 금액 ÷ 단가
+    //  숫자를 전부 모아 이 관계를 만족하는 조합만 고르면 라벨이 없어도 정답이 나온다.
+    //  승인번호(464043)·카드번호·전화번호는 이 관계를 만족할 수 없으므로 저절로 걸러진다.
+    //  ※ 표에 찍히던 40,428 과 464,043 이 각각 공급가액과 승인번호였다.
+
+    private data class Tok(val v: Double, val dec: Boolean)
+
+    /** 행을 이어붙여 숫자 덩어리를 전부 뽑는다. '4,' + '042' 처럼 쪼개진 것도 붙여서 읽는다. */
+    private fun tokens(rows: List<List<OcrLayout.Word>>): List<Tok> {
+        val out = ArrayList<Tok>()
+        val seen = HashSet<String>()
+        for (r in rows) {
+            val t = r.joinToString("") { it.text }.replace(" ", "")
+            for (m in Regex("[0-9][0-9,.]{1,13}").findAll(t)) {
+                val raw = m.value.trimEnd('.', ',')
+                if (raw.length < 2) continue
+                if (!seen.add(raw)) continue
+                val dec = Regex("\\.\\d{1,3}$").containsMatchIn(raw)
+                val v = raw.replace(",", "").toDoubleOrNull() ?: continue
+                out.add(Tok(v, dec))
+            }
+        }
+        return out
+    }
+
+    private data class Money3(val supply: Int, val tax: Int, val amount: Int)
+
+    /**
+     * 부가세 관계(세액 = 공급가액/10)를 만족하는 짝을 찾는다.
+     * 여러 개면 금액이 가장 큰 것 — 영수증에서 가장 의미 있는 금액 조합이다.
+     */
+    private fun byTaxIdentity(toks: List<Tok>): Money3? {
+        val ints = toks.filter { !it.dec }.map { it.v.toInt() }.distinct()
+        val strs = toks.map { it.v.toInt().toString() }
+
+        /**
+         * 뒷받침 근거 점수. 우연히 t ≈ s/10 인 숫자쌍(승인번호 등)을 걸러내기 위한 것.
+         *  2점 = 계산한 금액이 영수증에도 그대로 있다
+         *  1점 = 앞자리만 잘린 채로 있다(44,470 을 4,470 으로 읽는 일이 잦다 — 금액 줄은 글자가 커서 잘 잘린다)
+         *  0점 = 근거 없음
+         */
+        fun corroboration(a: Int): Int {
+            val s = a.toString()
+            if (strs.any { it == s }) return 2
+            if (s.length >= 3 && strs.any { it.length in (s.length - 2) until s.length && s.endsWith(it) }) return 1
+            return 0
+        }
+
+        var best: Money3? = null
+        var bestScore = -1
+        for (s in ints) {
+            if (s < 900 || s > AMT_MAX) continue
+            for (t in ints) {
+                if (t == s || t < 90) continue
+                // 반올림·절사 편차 1~2원까지 인정한다.
+                if (abs(s / 10.0 - t) > 2.0) continue
+                val a = s + t
+                if (a !in AMT_MIN..AMT_MAX) continue
+                val sc = corroboration(a)
+                // 근거 점수 우선, 같으면 큰 금액 우선.
+                if (sc > bestScore || (sc == bestScore && (best == null || a > best!!.amount))) {
+                    best = Money3(s, t, a); bestScore = sc
+                }
+            }
+        }
+        return best
+    }
+
     /** 영수증 어디서든 날짜를 찾는다. 날짜 라벨이 있는 행을 먼저 본다. */
     private fun findDate(rows: List<List<OcrLayout.Word>>): Triple<Int, Int, Int>? {
         fun pick(t: String): Triple<Int, Int, Int>? {
@@ -226,7 +317,14 @@ object FuelReceipt {
     fun parse(v: Text): Result? {
         val ws = OcrLayout.words(v)
         if (ws.size < 4) return null
-        val rows = OcrLayout.rows(ws)
+
+        // [기울기 대응] 행을 두 방식으로 만들어 **둘 다** 뒤진다.
+        //  ① ML Kit 이 묶어준 줄 — 각도·휨 보정이 이미 들어간 결과. 이게 1순위다.
+        //  ② 기울기를 측정해 뺀 좌표로 다시 묶은 것 — ①이 줄을 쪼갠 경우의 보험.
+        //  라벨 우선순위 순서로 찾으므로, 같은 라벨이면 ①의 결과가 먼저 잡힌다.
+        val lineRows = OcrLayout.lineRows(v)
+        val k = OcrLayout.slope(lineRows)
+        val rows = lineRows + OcrLayout.rowsDeskewed(ws, k)
         if (rows.isEmpty()) return null
 
         val date = findDate(rows)
@@ -247,29 +345,63 @@ object FuelReceipt {
         }
 
         // ── 3) 공급가액 + 세액 = 금액 (합계 라벨을 못 읽었을 때) ────────
-        val supply = findMoney(rows, L_SUPPLY)?.first
-        val tax = findMoney(rows, L_TAX)?.first
+        var supply = findMoney(rows, L_SUPPLY)?.first
+        var tax = findMoney(rows, L_TAX)?.first
+
+        // ── 3-b) 라벨이 다 뭉개졌으면 숫자의 관계로 찾는다 ─────────────────
+        //  이게 실기기에서 실제로 통하는 유일한 경로였다(위 주석 참고).
+        if (supply == null || tax == null || amount == null) {
+            val toks = tokens(rows)
+            byTaxIdentity(toks)?.let { m ->
+                if (supply == null) supply = m.supply
+                if (tax == null) tax = m.tax
+                if (amount == null) { amount = m.amount; how.append("+부가세관계") }
+                else if (abs(amount!! - m.amount) > 2) {
+                    // 라벨로 읽은 금액이 관계식과 어긋난다 → 관계식을 믿는다.
+                    //  (금액 줄은 글자가 커서 앞자리가 잘려 나가는 일이 잦다: 44,470 → 4,470)
+                    how.append("+부가세관계로교정(").append(amount).append("→").append(m.amount).append(")")
+                    amount = m.amount
+                }
+            }
+            // 단가: 라벨이 없으면 소수 형태의 숫자 중 단가 범위에 드는 것.
+            if (price == null) {
+                price = toks.filter { it.dec && it.v in PRICE_MIN..PRICE_MAX }
+                    .minByOrNull { abs(it.v - 1200.0) }?.v          // LPG 대역에 가까운 것 우선
+                    ?: toks.filter { !it.dec && it.v in PRICE_MIN..PRICE_MAX }
+                        .minByOrNull { abs(it.v - 1200.0) }?.v
+                if (price != null) how.append("+단가추정")
+            }
+        }
         if (amount == null && supply != null && tax != null) {
             amount = supply + tax
             how.append("+공급가액합")
         }
 
-        if (amount == null || amount !in AMT_MIN..AMT_MAX) return null
+        // [대표 지시] 금액을 못 읽었어도 **읽은 것만이라도 돌려준다.**
+        //  예전엔 여기서 null 을 반환해 장부 파서로 넘어갔고, 그 장부 파서가
+        //  승인번호·가맹점번호 같은 숫자를 골라 40428 / 464043 같은 값을 만들었다.
+        //  차라리 빈 칸을 보여주고 기사가 채우는 게 낫다 — 틀린 숫자를 조용히 넣는 것보다.
+        if (amount != null && amount !in AMT_MIN..AMT_MAX) amount = null
+        if (amount == null && qty == null && price == null && supply == null && tax == null && date == null) return null
 
         // ── 4) 검산 ─────────────────────────────────────────────────
         var verified = false
-        if (qty != null && price != null) {
+        if (amount != null && qty != null && price != null) {
             val expect = qty * price
             if (abs(expect - amount) <= maxOf(2.0, amount * 0.02)) { verified = true; how.append("·검산OK") }
             else how.append("·검산불일치")
         }
-        if (!verified && supply != null && tax != null && abs((supply + tax) - amount) <= 2) {
+        if (!verified && amount != null && supply != null && tax != null && abs((supply + tax) - amount) <= 2) {
             verified = true; how.append("·세액검산OK")
         }
 
-        // ── 5) 수량이 비었는데 단가를 알면 나눗셈으로 채운다 ─────────────
-        //     추측이 아니라 산수다. 다만 검산이 된 경우에만 한다.
-        if (qty == null && price != null && price > 0) {
+        // ── 5) 빈 칸을 산수로 메운다 (추측이 아니라 계산이다) ─────────────
+        if (amount == null && supply != null && tax != null) { amount = supply + tax; how.append("·금액=공급+세액") }
+        if (amount == null && qty != null && price != null) {
+            val a = Math.round(qty * price).toInt()
+            if (a in AMT_MIN..AMT_MAX) { amount = a; how.append("·금액=수량×단가") }
+        }
+        if (qty == null && price != null && price > 0 && amount != null) {
             val d = amount / price
             if (d in QTY_MIN..QTY_MAX) { qty = Math.round(d * 1000.0) / 1000.0; how.append("·수량역산") }
         }
@@ -277,7 +409,8 @@ object FuelReceipt {
         return Result(
             year = date?.first, month = date?.second, day = date?.third,
             amount = amount, liters = qty, unitPrice = price,
-            verified = verified, how = how.toString().trimStart('+')
+            verified = verified, how = how.toString().trimStart('+'),
+            supply = supply, tax = tax
         )
     }
 }

@@ -221,7 +221,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val expensePrefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
     val dayStartHour = expensePrefs.getInt("day_start_hour", 0)   // [v19] 영업일 시작(야간·일차 기사)
-    var expenseCategory by remember { mutableStateOf("LPG") }
+    // [유저제안] 기사 설정의 연료 종류(fuel_type)를 기본값으로 쓴다.
+    //  전기차 기사에게 매번 'LPG'가 먼저 뜨는 건 말이 안 된다. 차는 하나고 잘 안 바뀐다.
+    //  (설정: 더보기 → 기사 설정 → 가스·연료 → LPG / ⚡전기차)
+    val myFuel = expensePrefs.getString("fuel_type", "lpg") ?: "lpg"
+    var expenseCategory by remember { mutableStateOf(if (myFuel == "ev") "전기" else "LPG") }
     var expenseAmount by remember { mutableStateOf("") }
     var expenseLiters by remember { mutableStateOf("") }
     var lpgPrice by remember { mutableStateOf(expensePrefs.getInt("lpg_price", 1050).toString()) }
@@ -547,7 +551,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                         color = if (expenseDate != todayStr) accent else AppTheme.text, fontSize = 14.sp)
                 }
                 Text("카테고리", fontSize = 13.sp, color = Color(0xFF9CA3AF))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("LPG", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
+                // [유저제보] '전기' 추가. 홈에는 🔌전기 버튼이 있는데 수동 입력 카테고리엔 없어서
+                //  전기차 기사가 충전량(kWh)을 넣을 데가 없었다. 앞뒤가 안 맞던 것.
+                //  칩이 6개라 한 줄에 안 들어간다 → FlowRow 로 자동 줄바꿈(가로 스크롤은 숨은 칩이 생겨 안 좋다).
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf("LPG", "전기", "식비", "세차", "주차", "기타").forEach { c -> FilterChip(selected = expenseCategory == c, onClick = { expenseCategory = c }, label = { Text(c, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = Color.Black, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 Text("구분", fontSize = 13.sp, color = Color(0xFF9CA3AF))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("사업지출" to "business", "개인지출" to "personal", "잡지출" to "misc").forEach { (label, value) -> FilterChip(selected = expenseType == value, onClick = { expenseType = value; expenseTaxDeductible = value != "personal" }, label = { Text(label, fontSize = 11.sp) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (value == "business") red else if (value == "personal") Color(0xFFF97316) else Color(0xFF8B5CF6), selectedLabelColor = Color.White, containerColor = AppTheme.surface2, labelColor = muted)) } }
                 // [v32] 세금적용(경비 인정) 토글 — 세무 리포트 장부 경비에 포함할지. 개인지출은 기본 제외.
@@ -558,20 +565,26 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     }
                     Switch(checked = expenseTaxDeductible, onCheckedChange = { expenseTaxDeductible = it }, colors = SwitchDefaults.colors(checkedTrackColor = green, checkedThumbColor = Color.White))
                 }
-                if (expenseCategory == "LPG" && editingExpenseId != null) {
-                    // [유저제보] 수정 모드에도 리터 칸을 준다.
+                // [유저제보] 충전량 칸 — LPG는 리터(L), 전기는 kWh.
+                //  단위만 다르고 구조는 같아서 한 분기로 묶는다(연비·전비 계산에 둘 다 필요).
+                val isFuel = expenseCategory == "LPG" || expenseCategory == "전기"
+                val unitLabel = if (expenseCategory == "전기") "충전량 (kWh)" else "리터 (L)"
+                val priceLabel = if (expenseCategory == "전기") "단가 (원/kWh)" else "단가 (원/L)"
+                val discLabel = if (expenseCategory == "전기") "kWh당 할인 (원, 선택)" else "리터당 할인 (원/L, 선택)"
+                if (isFuel && editingExpenseId != null) {
+                    // [유저제보] 수정 모드에도 충전량 칸을 준다.
                     //  금액은 직접 입력하게 두고(원본 금액을 함부로 다시 계산하면 값이 바뀐다),
-                    //  리터만 따로 고칠 수 있게 한다. 리터는 연비·정산에 쓰이는 값이라 빠지면 안 된다.
-                    OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    //  충전량만 따로 고칠 수 있게 한다. 연비·정산에 쓰이는 값이라 빠지면 안 된다.
+                    OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(unitLabel, color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     OutlinedTextField(value = expenseAmount, onValueChange = { expenseAmount = it.filter { c -> c.isDigit() } }, label = { Text("금액 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
-                } else if (expenseCategory == "LPG") {
-                    // LPG 신규: 리터 + 단가 → 금액 자동
+                } else if (isFuel) {
+                    // 신규: 충전량 + 단가 → 금액 자동
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("리터 (L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
-                        OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text("단가 (원/L)", color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                        OutlinedTextField(value = expenseLiters, onValueChange = { expenseLiters = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(unitLabel, color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                        OutlinedTextField(value = lpgPrice, onValueChange = { lpgPrice = it.filter { c -> c.isDigit() } }, label = { Text(priceLabel, color = muted) }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     }
-                    // [v19] 가스비 할인(리터당) — 주유소 할인 반영. 실부담 = 리터 × (단가 − 할인)
-                    OutlinedTextField(value = lpgDiscount, onValueChange = { lpgDiscount = it.filter { c -> c.isDigit() } }, label = { Text("리터당 할인 (원/L, 선택)", color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = green, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
+                    // [v19] 할인(단위당) — 충전소 할인 반영. 실부담 = 충전량 × (단가 − 할인)
+                    OutlinedTextField(value = lpgDiscount, onValueChange = { lpgDiscount = it.filter { c -> c.isDigit() } }, label = { Text(discLabel, color = muted) }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = green, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                     val netPrice = ((lpgPrice.toIntOrNull() ?: 0) - (lpgDiscount.toIntOrNull() ?: 0)).coerceAtLeast(0)
                     val calcAmt = ((expenseLiters.toDoubleOrNull() ?: 0.0) * netPrice).toInt()
                     val discTotal = ((expenseLiters.toDoubleOrNull() ?: 0.0) * (lpgDiscount.toIntOrNull() ?: 0)).toInt()
@@ -591,7 +604,8 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                     OutlinedButton(onClick = { editingExpenseId = null; showExpenseDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) { Text("취소") }
                     Button(onClick = {
                         val editId = editingExpenseId
-                        val isLpg = expenseCategory == "LPG" && editId == null
+                        // [유저제보] 전기(kWh)도 LPG와 같은 계산 구조를 쓴다.
+                        val isLpg = (expenseCategory == "LPG" || expenseCategory == "전기") && editId == null
                         val liters = expenseLiters.toDoubleOrNull() ?: 0.0
                         val price = lpgPrice.toIntOrNull() ?: 0
                         val disc = lpgDiscount.toIntOrNull() ?: 0
@@ -772,6 +786,11 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 val lpgLiters = expenses.filter { it.category == "LPG" }.sumOf { it.liters }
                 val lpgDiscountPerL = expensePrefs.getInt("lpg_discount", 0)
                 val companyDiscount = (lpgLiters * lpgDiscountPerL).toInt()
+                // [유저제보] 전기차 기사용 — 충전량(kWh) 합계와 평균 단가.
+                //  LPG와 같은 liters 칸에 저장되지만 단위가 다르므로 카테고리로 갈라서 보여준다.
+                val elecKwh = expenses.filter { it.category == "전기" }.sumOf { it.liters }
+                val elecCost = expenses.filter { it.category == "전기" }.sumOf { it.amount }
+                val lpgCost = expenses.filter { it.category == "LPG" }.sumOf { it.amount }
                 if (businessTotal > 0 || personalTotal > 0) {
                     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -781,14 +800,28 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("총 지출", fontSize = 13.sp, color = AppTheme.text); Text("-${String.format("%,d", businessTotal + personalTotal)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = red) }
                             if (lpgLiters > 0) {
                                 HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("⛽ LPG 총 리터", fontSize = 13.sp, color = muted); Text("${String.format("%.1f", lpgLiters)}L", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent) }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("⛽ LPG 총 리터", fontSize = 13.sp, color = muted)
+                                    // 평균 단가를 같이 보여준다 — 리터만 있으면 비싸게 넣었는지 알 수가 없다.
+                                    Text("${String.format("%.1f", lpgLiters)}L" + (if (lpgCost > 0) "  ·  평균 ${String.format("%,d", (lpgCost / lpgLiters).toInt())}원/L" else ""),
+                                        fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accent)
+                                }
                                 if (companyDiscount > 0) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("회사 할인 (리터당 ${lpgDiscountPerL}원)", fontSize = 12.sp, color = muted); Text("-${String.format("%,d", companyDiscount)}원", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = green) } }
+                            }
+                            // [유저제보] 전기차 기사 — 충전량 합계. LPG와 별도 줄로 둔다(단위가 달라 합치면 안 된다).
+                            if (elecKwh > 0) {
+                                HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("🔌 전기 총 충전량", fontSize = 13.sp, color = muted)
+                                    Text("${String.format("%.1f", elecKwh)}kWh" + (if (elecCost > 0) "  ·  평균 ${String.format("%,d", (elecCost / elecKwh).toInt())}원/kWh" else ""),
+                                        fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3B82F6))
+                                }
                             }
                         }
                     }
                 }
                 if (expenses.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💰", fontSize = 48.sp); Spacer(Modifier.height(12.dp)); Text("지출 기록이 없어요", fontSize = 14.sp, color = muted); Spacer(Modifier.height(8.dp)); TextButton(onClick = { editingExpenseId = null; expenseCategory = "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출 추가하기", color = accent) } } }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("💰", fontSize = 48.sp); Spacer(Modifier.height(12.dp)); Text("지출 기록이 없어요", fontSize = 14.sp, color = muted); Spacer(Modifier.height(8.dp)); TextButton(onClick = { editingExpenseId = null; expenseCategory = if (myFuel == "ev") "전기" else "LPG"; expenseAmount = ""; expenseMemo = ""; expenseType = "business"; showExpenseDialog = true }) { Text("+ 지출 추가하기", color = accent) } } }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(expenses) { _, exp ->
@@ -801,9 +834,10 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text(when(exp.category) { "LPG" -> "⛽"; "식비" -> "🍚"; "세차" -> "🚿"; "주차" -> "🅿️"; else -> "📝" }, fontSize = 16.sp)
+                                            Text(when(exp.category) { "LPG" -> "⛽"; "전기" -> "🔌"; "식비" -> "🍚"; "세차" -> "🚿"; "주차" -> "🅿️"; else -> "📝" }, fontSize = 16.sp)
                                             Text(exp.category, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                            if (exp.liters > 0) Text("${String.format("%.1f", exp.liters)}L", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)   // [v53] 리터 표시(도급·법인 기사)
+                                            // [v53] 충전량 표시(도급·법인 기사). [유저제보] 전기는 kWh 로 — 단위가 틀리면 안 읽힌다.
+                                            if (exp.liters > 0) Text(String.format("%.1f", exp.liters) + (if (exp.category == "전기") "kWh" else "L"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (exp.category == "전기") Color(0xFF3B82F6) else accent)
                                             Card(colors = CardDefaults.cardColors(containerColor = if (exp.expenseType == "business") Color(0xFF7F1D1D) else Color(0xFF78350F)), shape = RoundedCornerShape(4.dp)) { Text(if (exp.expenseType == "business") "사업" else "개인", fontSize = 9.sp, color = AppTheme.text, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)) }
                                         }
                                         Text("${exp.date}${if (exp.memo.isNotEmpty()) " · ${exp.memo}" else ""}", fontSize = 11.sp, color = muted)

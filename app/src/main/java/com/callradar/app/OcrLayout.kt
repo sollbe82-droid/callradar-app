@@ -178,16 +178,89 @@ object OcrLayout {
      * y 좌표로 군집화해 **행**을 만든다. 달력형 장부·거래내역표에 쓴다.
      * 같은 행 판정: 세로 중심 차이가 글자 높이의 0.8배 이내.
      */
+    /**
+     * [기울기 대응 ①] **ML Kit 이 이미 묶어 놓은 '줄'을 그대로 쓴다.**
+     *
+     * 기사가 손으로 든 감열지는 기울기가 매번 다르고, 종이가 휘어 한 줄 안에서도 각도가 변한다.
+     * 그걸 제가 y좌표로 다시 묶으려 하니 `수 량:` 과 `51.980` 이 갈라졌다.
+     *
+     * 그런데 ML Kit 은 애초에 줄 단위(Text.Line)로 묶어서 준다. 그 묶음은
+     * 각도·휨을 감안한 결과다. 우리가 그걸 버리고 y좌표로 다시 묶은 게 실수였다.
+     * 기하학은 ML Kit 이 우리보다 잘한다 — 그 결과를 그대로 쓴다.
+     */
+    fun lineRows(v: Text): List<List<Word>> {
+        val out = ArrayList<List<Word>>()
+        for (b in v.textBlocks) for (l in b.lines) {
+            val ws = ArrayList<Word>()
+            for (e in l.elements) {
+                val bb = e.boundingBox ?: continue
+                val t = e.text.trim()
+                if (t.isNotEmpty()) ws.add(Word(t, bb))
+            }
+            if (ws.isNotEmpty()) out.add(ws.sortedBy { it.box.left })
+        }
+        return out.sortedBy { r -> r.minOf { it.cy } }
+    }
+
+    /**
+     * [기울기 대응 ②] 낱말들이 이루는 **기울기**를 잰다(줄별 기울기의 중앙값).
+     *
+     * "기울기는 언제나 랜덤이잖아" — 맞다. 그래서 임계값으로 버티지 않고 **측정해서 뺀다.**
+     * 중앙값을 쓰는 이유: 한두 줄이 잘못 묶여도 전체 추정이 흔들리지 않는다.
+     */
+    fun slope(rowsHint: List<List<Word>>): Double {
+        val s = ArrayList<Double>()
+        for (r in rowsHint) {
+            if (r.size < 2) continue
+            val f = r.first(); val l = r.last()
+            val dx = (l.cx - f.cx).toDouble()
+            if (kotlin.math.abs(dx) < 8.0) continue      // 너무 짧은 줄은 각도 추정에 못 쓴다
+            val k = (l.cy - f.cy) / dx
+            if (kotlin.math.abs(k) < 0.6) s.add(k)       // 세로쓰기·오검출 배제
+        }
+        if (s.isEmpty()) return 0.0
+        s.sort()
+        return s[s.size / 2]
+    }
+
+    /**
+     * 기울기를 뺀 좌표로 행을 묶는다. 사진이 몇 도로 돌아가 있든 상관없다.
+     *  (y - 기울기×x) 를 쓰면 기울어진 줄이 수평선으로 펴진다.
+     */
+    fun rowsDeskewed(ws: List<Word>, k: Double): List<List<Word>> {
+        if (ws.isEmpty()) return emptyList()
+        val u = unit(ws)
+        fun ry(w: Word) = w.cy - k * w.cx
+        val sorted = ws.sortedBy { ry(it) }
+        val out = ArrayList<MutableList<Word>>()
+        var cur = mutableListOf(sorted.first())
+        var sum = ry(sorted.first()); var cnt = 1
+        for (w in sorted.drop(1)) {
+            val ref = sum / cnt
+            if (kotlin.math.abs(ry(w) - ref) <= u * 0.9) { cur.add(w); sum += ry(w); cnt++ }
+            else { out.add(cur); cur = mutableListOf(w); sum = ry(w); cnt = 1 }
+        }
+        out.add(cur)
+        return out.map { r -> r.sortedBy { it.box.left } }
+    }
+
     fun rows(ws: List<Word>): List<List<Word>> {
         if (ws.isEmpty()) return emptyList()
         val u = unit(ws)
         val sorted = ws.sortedBy { it.cy }
         val out = ArrayList<MutableList<Word>>()
         var cur = mutableListOf(sorted.first())
-        var ref = sorted.first().cy
+        // [실제 영수증 대응] 기준을 '첫 글자의 y'로 고정하면 **휜 영수증**에서 한 줄이 두 줄로 갈라진다.
+        //  기사가 손으로 들고 찍은 감열지는 가운데가 볼록해서, 같은 줄이라도
+        //  왼쪽 '수 량:' 과 오른쪽 '51.980' 의 y 가 글자 높이만큼 어긋난다.
+        //  → 기준을 그 줄의 **평균 y** 로 두고 글자가 붙을 때마다 갱신한다(줄을 따라 기울기를 쫓아간다).
+        //  허용폭도 0.8 → 1.1 로 조금 넓힌다. 줄 간격은 보통 글자 높이의 1.6배 이상이라 붙을 위험은 낮다.
+        var sum = sorted.first().cy.toLong()
+        var cnt = 1
         for (w in sorted.drop(1)) {
-            if (kotlin.math.abs(w.cy - ref) <= u * 0.8) { cur.add(w) }
-            else { out.add(cur); cur = mutableListOf(w); ref = w.cy }
+            val ref = (sum / cnt).toInt()
+            if (kotlin.math.abs(w.cy - ref) <= u * 1.1) { cur.add(w); sum += w.cy; cnt++ }
+            else { out.add(cur); cur = mutableListOf(w); sum = w.cy.toLong(); cnt = 1 }
         }
         out.add(cur)
         return out.map { r -> r.sortedBy { it.box.left } }
