@@ -644,6 +644,12 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
     var sharePromo by remember { mutableStateOf(prefs.getString("share_promo", "") ?: "") }
     var showShareCfg by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    // [2026-08-28 회원 탈퇴] 오탭으로 몇 달치 장부가 날아가면 안 되므로 2단계로 받는다.
+    //  1단계: 무엇이 지워지는지 알린다 / 2단계: '탈퇴'를 직접 입력해야 버튼이 열린다.
+    var showWithdrawConfirm by remember { mutableStateOf(false) }
+    var showWithdrawFinal by remember { mutableStateOf(false) }
+    var withdrawTyped by remember { mutableStateOf("") }
+    var withdrawBusy by remember { mutableStateOf(false) }
     var showPairCode by remember { mutableStateOf(false) }
     var pairCodeGen by remember { mutableStateOf("") }
     var pairGenLoading by remember { mutableStateOf(false) }
@@ -743,8 +749,14 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
                 try { com.callradar.app.InsightsActivity.start(context) } catch (e: Exception) {}
             },
             MoreEntry("🏆", "랭킹", "기사 랭킹·내 순위", chevron = true) { onNavigate(R_RANKING) },
-            MoreEntry("📥", "내보내기", "이번 달 운행 엑셀로 저장", right = "엑셀") {
-                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$SETTINGS_SERVER/api/export/$userId"))) } catch (e: Exception) {}
+            // [2026-08-28] 라벨이 "이번 달"이었는데 실제로는 month 파라미터 없이 부르므로 **전체 기간**이 나온다.
+            //  탈퇴 안내가 "먼저 내보내기를 하라"고 권하는 마당에, 범위를 잘못 알리면 다 받은 줄 알고 지운다.
+            MoreEntry("📥", "내 운행기록 파일로 저장", "지금까지의 운행 전부 · 엑셀에서 열림", right = "엑셀") {
+                openExport(context, scope, "$SETTINGS_SERVER/api/export/$userId")
+            },
+            // 지출은 운행과 다른 테이블이라 위 파일에 안 담긴다. 탈퇴하면 같이 지워지므로 따로 받게 한다.
+            MoreEntry("📥", "내 지출기록 파일로 저장", "주유·통행료 등 전부 · 엑셀에서 열림", right = "엑셀") {
+                openExport(context, scope, "$SETTINGS_SERVER/api/export/$userId/expenses")
             },
             // [v95][유저제보] 이름을 화면과 맞춘다. 55ae3d1(v53)에서 지출 화면의 수입 칸을 숨기며
             //  화면 전체가 지출 전용이 됐는데 메뉴 이름만 '과거기록'으로 남아 어긋났다.
@@ -835,7 +847,11 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             MoreEntry("📄", "이용약관", "서비스·개인정보·위치기반·자동기록 약관", chevron = true) {
                 com.callradar.app.TermsListActivity.start(context)
             },
-            MoreEntry("🚪", "로그아웃", "", danger = true) { showLogoutConfirm = true }
+            MoreEntry("🚪", "로그아웃", "", danger = true) { showLogoutConfirm = true },
+            // [2026-08-28] 회원 탈퇴. 개인정보처리방침 제6조가 이미 "앱 내 더보기 > 회원 탈퇴"로
+            //  열람·삭제·처리정지 권리를 행사할 수 있다고 고지하고 있었는데 정작 기능이 없었다.
+            //  고지한 것을 이행할 수단이 없는 상태라 먼저 만든다.
+            MoreEntry("🗑️", "회원 탈퇴", "계정과 모든 기록을 삭제합니다", danger = true) { showWithdrawConfirm = true }
         ))
     )
 
@@ -989,6 +1005,90 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             text = { Text("로그아웃하면 로그인 화면으로 돌아가요.\n다른 계정으로 로그인할 수 있어요.\n(설정·기록은 그대로 보관됩니다)", color = Color(0xFF9CA3AF)) },
             confirmButton = { Button(onClick = { showLogoutConfirm = false; onLogout() }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("로그아웃", color = AppTheme.text) } },
             dismissButton = { OutlinedButton(onClick = { showLogoutConfirm = false }) { Text("취소") } }, containerColor = AppTheme.card)
+    }
+
+    // ===== 회원 탈퇴 1단계: 무엇이 지워지는지 =====
+    if (showWithdrawConfirm) {
+        AlertDialog(onDismissRequest = { showWithdrawConfirm = false },
+            title = { Text("회원 탈퇴", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column {
+                Text("탈퇴하면 아래가 모두 삭제됩니다.", color = AppTheme.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text("· 지금까지의 모든 운행 기록과 매출\n· 지출·영수증·근무 기록\n· 운행 궤적과 위치 정보\n· 노하우 노트, 설정, 즐겨찾기\n· 받은 예약 내역",
+                    color = Color(0xFF9CA3AF), fontSize = 13.sp, lineHeight = 20.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("한 번 지우면 되돌릴 수 없습니다.\n기록을 남기고 싶으면 먼저 '내보내기'를 하세요.",
+                    color = red, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 19.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("· 탈퇴 즉시 로그인할 수 없게 되고, 30일 이내에 서버에서 완전히 파기됩니다.\n· 법령상 보존 의무가 있는 기록(위치정보 취급대장 등)은 정해진 기간 동안만 남습니다.",
+                    color = Color(0xFF6B7280), fontSize = 11.sp, lineHeight = 17.sp)
+            } },
+            confirmButton = { Button(onClick = { showWithdrawConfirm = false; withdrawTyped = ""; showWithdrawFinal = true },
+                colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("계속", color = AppTheme.text) } },
+            dismissButton = { OutlinedButton(onClick = { showWithdrawConfirm = false }) { Text("취소") } },
+            containerColor = AppTheme.card)
+    }
+
+    // ===== 회원 탈퇴 2단계: '탈퇴'를 직접 입력해야 열린다 =====
+    if (showWithdrawFinal) {
+        val ok = withdrawTyped.trim() == "탈퇴"
+        AlertDialog(onDismissRequest = { if (!withdrawBusy) showWithdrawFinal = false },
+            title = { Text("정말 탈퇴하시겠어요?", color = AppTheme.text, fontWeight = FontWeight.Bold) },
+            text = { Column {
+                Text("확인을 위해 아래에 «탈퇴» 를 입력해 주세요.", color = Color(0xFF9CA3AF), fontSize = 13.sp)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = withdrawTyped, onValueChange = { withdrawTyped = it },
+                    singleLine = true, enabled = !withdrawBusy,
+                    placeholder = { Text("탈퇴", color = Color(0xFF4B5563)) },
+                    modifier = Modifier.fillMaxWidth())
+            } },
+            confirmButton = {
+                Button(enabled = ok && !withdrawBusy,
+                    onClick = {
+                        withdrawBusy = true
+                        scope.launch {
+                            val r = withContext(Dispatchers.IO) { com.callradar.app.Auth.withdraw(context) }
+                            withdrawBusy = false
+                            if (r) {
+                                android.widget.Toast.makeText(context, "탈퇴 처리되었습니다. 30일 이내에 모든 기록이 파기됩니다.", android.widget.Toast.LENGTH_LONG).show()
+                                showWithdrawFinal = false
+                                onLogout()
+                            } else {
+                                android.widget.Toast.makeText(context, "탈퇴에 실패했습니다. 통신 상태를 확인하고 다시 시도해 주세요.", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = red)) {
+                    Text(if (withdrawBusy) "처리 중…" else "탈퇴하기", color = AppTheme.text)
+                }
+            },
+            dismissButton = { OutlinedButton(enabled = !withdrawBusy, onClick = { showWithdrawFinal = false }) { Text("취소") } },
+            containerColor = AppTheme.card)
+    }
+}
+
+/**
+ * [2026-08-28] CSV 내보내기를 연다.
+ *
+ * 그냥 URL 을 브라우저로 열면 **401 JSON 이 뜬다.** 서버가 `/api/export/` 를 무토큰이면 막는데
+ * 브라우저에는 Bearer 토큰이 없기 때문이다(8/28 IDOR 하드닝 때 생긴 회귀).
+ * 그래서 앱이 먼저 5분짜리 일회용 티켓을 받아 `?t=` 로 붙여 연다.
+ * 티켓을 못 받으면 열지 않는다 — 열어봐야 에러 JSON 이라 기사가 더 헷갈린다.
+ */
+fun openExport(context: android.content.Context, scope: kotlinx.coroutines.CoroutineScope, baseUrl: String) {
+    scope.launch {
+        val t = withContext(Dispatchers.IO) { com.callradar.app.Auth.exportTicket(context) }
+        if (t == null) {
+            android.widget.Toast.makeText(context, "파일을 준비하지 못했습니다. 통신 상태를 확인해 주세요.", android.widget.Toast.LENGTH_LONG).show()
+            return@launch
+        }
+        val sep = if (baseUrl.contains("?")) "&" else "?"
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$baseUrl$sep" + "t=" + t))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "브라우저를 열 수 없습니다.", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 }
 

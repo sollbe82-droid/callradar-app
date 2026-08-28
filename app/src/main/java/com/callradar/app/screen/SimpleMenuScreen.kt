@@ -29,6 +29,7 @@ fun SimpleMenuScreen(
     onSwitchClassic: () -> Unit
 ) {
     val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()   // [2026-08-28] 내보내기 티켓 발급용(네트워크)
     val accent = Color(0xFFF59E0B); val muted = Color(0xFF6B7280)
     // [v91] 캡처 버튼 표시 토글 — 간편모드에서도 바로 끌 수 있게.
     //  고급 설정 안에만 두면 '메뉴 → 고급설정 → 스크롤'로 두 단계라 거슬려서 끄려는 사람에겐 너무 멀다.
@@ -146,21 +147,38 @@ fun SimpleMenuScreen(
                 val act = context as? com.callradar.app.MainActivity
                 if (p.getBoolean("floating_on", false)) { act?.stopFloatingButton(); act?.startFloatingButton() }
             }
-            MenuRow("📤", "데이터 내보내기", "전체 운행기록 CSV 다운로드") {
-                try {
-                    val uid = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
-                    if (uid.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://callradar-server.onrender.com/api/export/$uid")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                } catch (e: Exception) {}
+            // [2026-08-28] 브라우저로 그냥 열면 401 이라 티켓을 받아 연다(openExport). 홈모드와 같은 경로를 쓴다.
+            MenuRow("📤", "내 운행기록 파일로 저장", "지금까지의 운행 전부 · 엑셀에서 열림") {
+                val uid = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
+                if (uid.isNotEmpty()) openExport(context, exportScope, "${Config.SERVER_URL}/api/export/$uid")
+            }
+            MenuRow("📤", "내 지출기록 파일로 저장", "주유·통행료 등 전부 · 엑셀에서 열림") {
+                val uid = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getString("user_id", "") ?: ""
+                if (uid.isNotEmpty()) openExport(context, exportScope, "${Config.SERVER_URL}/api/export/$uid/expenses")
             }
 
-            Spacer(Modifier.height(6.dp))
-            // 나머지(계정 연결·이름·공유설정·로그아웃 등)만 전체 메뉴로
-            Card(modifier = Modifier.fillMaxWidth().clickable { onFullMenu() }, colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(14.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("⋯ 계정 · 연결 · 고급 설정", fontSize = 14.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("›", fontSize = 18.sp, color = muted)
-                }
+            // ══════════════════════════════════════════════════════════
+            // [2026-08-28] 간편모드에서 안 보이던 것들을 **유형별로 묶어** 꺼낸다.
+            //
+            //  왜: 홈모드 더보기에만 있던 항목이 26개였고, 그중 계정·권리 관련은 "⋯ 계정·연결·고급 설정"
+            //      카드 뒤에 통째로 숨어 있었다. 오늘 대표가 회원 탈퇴를 못 찾은 게 그 증상이다.
+            //      개인정보처리방침 제6조는 "앱 내 더보기 > 회원 탈퇴"로 권리 행사가 가능하다고 고지한다.
+            //
+            //  어떻게: 26개를 그대로 나열하면 간편모드가 아니게 된다. 홈모드 더보기의 그룹 구조를 빌려
+            //      **유형당 한 줄**로 묶고, 그 줄을 누르면 홈모드 더보기로 보낸다.
+            //      버튼 모양·투명도 같은 홈모드 전용 설정과 이미 위에 있는 항목은 넣지 않는다.
+            // ══════════════════════════════════════════════════════════
+            Spacer(Modifier.height(14.dp))
+            Text("계정 · 정보", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent,
+                modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
+
+            MenuRow("👤", "내 계정 · 다른 폰 연결", "이름 변경 · 계정 ID · 2·3폰 연결 · 계정 합치기") { onFullMenu() }
+            MenuRow("🚕", "예약 · 공유", "단골 예약 요청 · 명함 공유 설정") { onFullMenu() }
+            MenuRow("🌐", "정보 · 도움", "유용한 링크 · 오픈톡방 · 내 운행 지도") { onFullMenu() }
+            MenuRow("📄", "약관 · 개인정보", "서비스·위치기반·자동기록 약관 전문") {
+                try { com.callradar.app.TermsListActivity.start(context) } catch (e: Exception) {}
             }
+            MenuRow("🚪", "로그아웃 · 회원 탈퇴", "계정에서 나가거나 모든 기록을 삭제") { onFullMenu() }
 
             Spacer(Modifier.height(10.dp))
             // 홈 모드 되돌리기 — [위치수정] 맨 밑(weight)에서 전체 메뉴 바로 아래로 올림(너무 밑에 있다는 피드백).
