@@ -107,7 +107,8 @@ fun Stats2Screen(userId: String) {
         // ② KPI 4
         kpi?.let { k ->
             val fare7 = k.optLong("fare7"); val fare14 = k.optLong("fare14")
-            val delta = if (fare14 > 0) ((fare7 - fare14) * 100 / fare14).toInt() else 0
+            // [2026-08-28] 분모 하한. 지난주 8천원이면 이번주 70만원에 +8650% 가 찍힌다.
+        val delta = if (fare14 >= 50000) ((fare7 - fare14) * 100 / fare14).toInt() else 0
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KpiBox(Modifier.weight(1f), "주간 매출", "${String.format("%,d", fare7)}원",
                     if (fare14 > 0) (if (delta >= 0) "▲ 전주 대비 +$delta%" else "▼ 전주 대비 $delta%") else "첫 주", if (delta >= 0) green else Color(0xFFF87171))

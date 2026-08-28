@@ -236,6 +236,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var profile by remember { mutableStateOf<HomeProfile?>(null) }
     var todayTrips by remember { mutableStateOf(0) }
     var todayFare by remember { mutableStateOf(0) }
+    // [2026-08-28] 시간당 매출의 분모. 서버가 "운행이 있었던 시(hour)의 개수"로 계산해 내려준다.
+    var todayActiveHours by remember { mutableStateOf(0) }
     var noFareCount by remember { mutableStateOf(0) }   // [v23] 오늘 금액 미입력 운행 수 (조용한 안전망 배너)
     var recentTrips by remember { mutableStateOf<List<RecentTrip>>(emptyList()) }
     var platformStats by remember { mutableStateOf<List<PlatformStat>>(emptyList()) }
@@ -369,6 +371,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val todayJson = JSONObject(todayResponse)
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
+                todayActiveHours = todayJson.optInt("activeHours", 0)
                 noFareCount = todayJson.optInt("noFareCount", 0)
 
                 val recentArr = todayJson.optJSONArray("recentTrips") ?: JSONArray()
@@ -687,7 +690,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // [km폭주 수정②] 비현실(>16h 유령) 세션은 거리 신뢰불가 → 0. (workStart 스톨로 미터가 오래 돌아 수백 km 누적되던 것 차단)
                     sumDistKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f
                     sumFare = sFare
-                    sumPerHour = if (hrs > 0.05) (sFare / hrs).toInt() else 0
+                    // [2026-08-28] 이 값은 카톡 공유·로컬 이력·서버 work-session/close 세 곳으로 나간다.
+                    //  가드가 3분이라 "3분 근무 + 하루매출 30만원 = 시간당 598만원"이 DB에 박제될 수 있었다.
+                    val hrsRate = maxOf(hrs, todayActiveHours.toDouble())
+                    sumPerHour = if (hrsRate >= 1.0) (sFare / hrsRate).toInt() else 0
                     // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
                     // [개인/법인 분리] 개인택시는 사납금이 없음 → 고정비=유류만. 법인만 사납 포함(잔존 사납값 누출 방지).
                     val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
@@ -982,9 +988,30 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // [시간당매출 정정] 이전엔 '출근 후 매출'(총매출-출근시점매출)만 나눠서, 출근 전 자동기록분이 빠져 낮게 나왔음.
                     //  → 오늘 총매출 ÷ 하루 근무시간으로 통일(오늘 매출 카드와 일치). '짧은 세션 수백만원' 버그는 하루 누적시간(workedHours)으로 이미 방지됨.
                     val sessionFare = todayFare.coerceAtLeast(0)
-                    val perHour = if (workedHours > 0.05) (sessionFare / workedHours).toInt() else 0
+                    // ══════════════════════════════════════════════════════
+                    // [2026-08-28 유저제보 103] "시매 오류가 있는 것 같아요"
+                    //   근무 38분·1콜인데 시간당 매출 33,199원이 찍혔다. 산술은 맞지만 의미가 없다.
+                    //   그 기사의 7일 실측 시간당은 27,615원이다(서버 stats2).
+                    //
+                    //   원인 둘:
+                    //    ① 가드가 workedHours > 0.05, 즉 **3분**이었다. 주석엔 "짧은 세션 폭주는 방지됨"이라
+                    //       적혀 있었지만 실제로는 무방비였다. 3분에 첫 콜 21,200원이면 424,000원이 찍힌다.
+                    //    ② **분자와 분모의 기간이 다르다.** 분자는 오늘 총매출(자동기록·출근 전 것 포함),
+                    //       분모는 출근 이후 세션시간. 자동기록으로 20만원 쌓인 뒤 출근을 3분 전에 누르면
+                    //       시간당 3,992,015원이 나온다. 이건 표본 문제가 아니라 계산이 틀린 것이다.
+                    //
+                    //   고침: 분모를 **활동시간**(운행이 있었던 시의 개수, 서버 /api/today activeHours)으로.
+                    //     출근 버튼과 무관해서 안 눌러도·늦게 눌러도 분자와 기간이 어긋나지 않는다.
+                    //     출근을 눌렀다면 그 시간과 합집합(더 긴 쪽)을 쓴다.
+                    //   1시간 미만이면 숫자를 만들지 않고 "1시간 후"로 둔다 —
+                    //     "—"나 "집계 중"은 고장으로 의심받는다(왜 없는지·언제 나오는지를 못 준다).
+                    // ══════════════════════════════════════════════════════
+                    val hoursForRate = maxOf(workedHours, todayActiveHours.toDouble())
+                    val perHour = if (hoursForRate >= 1.0) (sessionFare / hoursForRate).toInt() else -1
                     val distKm = workDist / 1000f
-                    val perKm = if (distKm > 0.3f) (sessionFare / distKm).toInt() else 0
+                    // km당 매출도 같은 이유. 분모가 '이동 거리·탭 초기화' 버튼으로 언제든 0이 되므로
+                    //  0.3km 하한은 사실상 없는 것과 같았다(리셋 직후 310m 이동 시 645,161원/km).
+                    val perKm = if (distKm >= 5f) (sessionFare / distKm).toInt() else -1
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -994,7 +1021,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 }
                                 if (active) Column(horizontalAlignment = Alignment.End) {
                                     Text("시간당 매출", fontSize = 11.sp, color = muted)
-                                    Text("${String.format("%,d", perHour)}원", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = accent)
+                                    // 1시간 미만이면 숫자 대신 언제 나오는지를 준다.
+                                    Text(if (perHour >= 0) "${String.format("%,d", perHour)}원" else "1시간 후",
+                                        fontSize = if (perHour >= 0) 20.sp else 15.sp,
+                                        fontWeight = FontWeight.Bold, color = if (perHour >= 0) accent else muted)
                                 }
                             }
                             // [근무 구간] 일시정지로 나뉜 실제 근무 구간 — "06:00~11:00 · 15:00~23:00"
@@ -1061,7 +1091,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(vertical = 8.dp, horizontal = 10.dp)) {
                                         Column {
                                             Text("km당 매출", fontSize = 10.sp, color = muted)
-                                            Text(if (perKm > 0) "${String.format("%,d", perKm)}원" else "—", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = green)
+                                            Text(if (perKm >= 0) "${String.format("%,d", perKm)}원" else "5km 후",
+                                                fontSize = if (perKm >= 0) 16.sp else 13.sp,
+                                                fontWeight = FontWeight.Bold, color = if (perKm >= 0) green else muted)
                                         }
                                     }
                                 }

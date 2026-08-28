@@ -457,7 +457,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.fleetSection(d: JSONO
             val hs = d.optJSONArray("hours")
             if (hs != null) {
                 val vals = (0 until hs.length()).map { hs.getJSONObject(it) }
-                val mx = vals.maxOfOrNull { it.optInt("perMin") } ?: 1
+                // [2026-08-28] ?:1 은 빈 리스트만 막는다. 원소는 있는데 전부 0이면 0 으로 나눠 NaN.dp → 레이아웃 예외.
+                val mx = (vals.maxOfOrNull { it.optInt("perMin") } ?: 1).coerceAtLeast(1)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     vals.forEach { h ->
                         val v = h.optInt("perMin")

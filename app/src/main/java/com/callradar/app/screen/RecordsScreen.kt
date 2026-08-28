@@ -790,8 +790,13 @@ fun RecordsScreen(userId: String, onOpenDailySettlement: () -> Unit = {}, onOpen
                 // [유저제보] 전기차 기사용 — 충전량(kWh) 합계와 평균 단가.
                 //  LPG와 같은 liters 칸에 저장되지만 단위가 다르므로 카테고리로 갈라서 보여준다.
                 val elecKwh = expenses.filter { it.category == "전기" }.sumOf { it.liters }
-                val elecCost = expenses.filter { it.category == "전기" }.sumOf { it.amount }
-                val lpgCost = expenses.filter { it.category == "LPG" }.sumOf { it.amount }
+                // [2026-08-28 계산 오류 수정] 평균 단가의 분자·분모 표본이 서로 달랐다.
+                //  리터(kWh)는 **입력한 행만** 더하는데 금액은 **전부** 더해서, 리터 칸을 비운 지출이 하나만 있어도
+                //  단가가 부풀었다. 예: 5만원짜리 LPG 3건 중 한 건만 45L 입력 → 150,000/45 = 3,333원/L
+                //  (실제 LPG 는 1,100원대). 전기는 더 심해서 1,500원/kWh 까지 나온다(실제 300원대).
+                //  화면 문구가 "평균 N원/L"이라 기사는 이걸 주유소 단가로 읽는다 → 금액도 리터가 있는 행만 더한다.
+                val elecCost = expenses.filter { it.category == "전기" && it.liters > 0 }.sumOf { it.amount }
+                val lpgCost = expenses.filter { it.category == "LPG" && it.liters > 0 }.sumOf { it.amount }
                 if (businessTotal > 0 || personalTotal > 0) {
                     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), colors = CardDefaults.cardColors(containerColor = AppTheme.surface2), shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {

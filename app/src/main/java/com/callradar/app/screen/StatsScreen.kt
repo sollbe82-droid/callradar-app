@@ -137,8 +137,9 @@ fun StatsScreen(userId: String) {
             }
             // ── 핵심 KPI (한눈에) ──
             comparison?.let { c ->
-                val wDiff = c.thisWeekFare - c.lastWeekFare; val wPct = if (c.lastWeekFare > 0) wDiff * 100 / c.lastWeekFare else 0
-                val mDiff = c.thisMonthFare - c.lastMonthFare; val mPct = if (c.lastMonthFare > 0) mDiff * 100 / c.lastMonthFare else 0
+                // [2026-08-28] 분모가 1원만 있어도 통과해서 "▲8650%" 같은 값이 나왔다. 비교할 만한 크기가 있을 때만 낸다.
+        val wDiff = c.thisWeekFare - c.lastWeekFare; val wPct = if (c.lastWeekFare >= 50000) wDiff * 100 / c.lastWeekFare else 0
+                val mDiff = c.thisMonthFare - c.lastMonthFare; val mPct = if (c.lastMonthFare >= 50000) mDiff * 100 / c.lastMonthFare else 0
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -193,7 +194,8 @@ fun StatsScreen(userId: String) {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(modifier = Modifier.fillMaxWidth().clickable { showOtherStats = !showOtherStats }, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(if (showOtherStats) "▼ 더 많은 통계 보기" else "▶ 더 많은 통계 보기", fontSize = 14.sp, color = muted, fontWeight = FontWeight.Bold) }
-                    if (showOtherStats) { Spacer(Modifier.height(16.dp)); Text("⏰ 시간대별 콜 패턴", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 12.dp)); if (hourlyPattern.isEmpty()) { Text("데이터 쌓이는 중...", fontSize = 13.sp, color = muted) } else { val maxCount = hourlyPattern.maxOf { it.count }.toFloat(); hourlyPattern.forEach { item -> Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) { Text("${item.hour}시", fontSize = 12.sp, color = muted, modifier = Modifier.width(36.dp)); Box(modifier = Modifier.weight(1f).height(20.dp).background(AppTheme.surface2, RoundedCornerShape(4.dp))) { Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(item.count / maxCount).background(accent, RoundedCornerShape(4.dp))) }; Text(" ${item.count}회", fontSize = 12.sp, color = green, modifier = Modifier.width(40.dp)) } } }; Spacer(Modifier.height(20.dp)); HorizontalDivider(color = AppTheme.surface2); Spacer(Modifier.height(20.dp)); Text("📍 자주 간 목적지 TOP 10", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
+                    if (showOtherStats) { Spacer(Modifier.height(16.dp)); Text("⏰ 시간대별 콜 패턴", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 12.dp)); if (hourlyPattern.isEmpty()) { Text("데이터 쌓이는 중...", fontSize = 13.sp, color = muted) } else { // [2026-08-28] 모든 count 가 0이면 0f 로 나눠 NaN → fillMaxWidth 예외. 하한 1.
+            val maxCount = hourlyPattern.maxOf { it.count }.toFloat().coerceAtLeast(1f); hourlyPattern.forEach { item -> Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) { Text("${item.hour}시", fontSize = 12.sp, color = muted, modifier = Modifier.width(36.dp)); Box(modifier = Modifier.weight(1f).height(20.dp).background(AppTheme.surface2, RoundedCornerShape(4.dp))) { Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(item.count / maxCount).background(accent, RoundedCornerShape(4.dp))) }; Text(" ${item.count}회", fontSize = 12.sp, color = green, modifier = Modifier.width(40.dp)) } } }; Spacer(Modifier.height(20.dp)); HorizontalDivider(color = AppTheme.surface2); Spacer(Modifier.height(20.dp)); Text("📍 자주 간 목적지 TOP 10", fontSize = 14.sp, color = muted, modifier = Modifier.padding(bottom = 8.dp))
                         // [v95][유저제보] 기간 칩 — 예전엔 전체 기간 고정이라 순위가 영영 안 바뀌었다.
                         //  시간대별 콜 패턴도 같은 응답을 쓰므로 함께 바뀐다.
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {

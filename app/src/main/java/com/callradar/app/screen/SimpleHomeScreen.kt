@@ -90,6 +90,8 @@ fun SimpleHomeScreen(
     var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
     var lastLocalChange by remember { mutableStateOf(0L) }
     var todayFare by remember { mutableStateOf(0) }
+    // [2026-08-28] 시간당 매출의 분모(서버 /api/today activeHours)
+    var todayActiveHours by remember { mutableStateOf(0) }
     var supplyInfo by remember { mutableStateOf<Pair<String, String>?>(null) }   // [귀로내비] (라벨, 부제)
     var showEndConfirm by remember { mutableStateOf(false) }
     // [v93 휴식 확인] 퇴근 시 '운행 없던 긴 구간'을 기사에게 확인받는다. 자동으로 빼지 않는다.
@@ -137,6 +139,7 @@ fun SimpleHomeScreen(
                         JSONObject(conn.inputStream.bufferedReader().readText())
                     }
                     todayFare = o.optInt("todayFare", 0)
+                    todayActiveHours = o.optInt("activeHours", 0)
                     try { prefs.edit().putInt("cache_today_fare", todayFare).putLong("cache_today_day", dayKeyNow).apply() } catch (e: Exception) {}
                 } catch (e: Exception) {}
             }
@@ -269,7 +272,9 @@ fun SimpleHomeScreen(
             val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
             prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
             val sFare = todayFare.coerceAtLeast(0)   // [시간당매출 정정] 오늘 총매출 기준(라이브 카드와 일치)
-            val pH = if (dayNetMs > 3000000L) (sFare / (dayNetMs / 3600000.0)).toInt() else 0
+            // [2026-08-28] 활동시간과 근무시간 중 긴 쪽. 1시간 미만이면 0(표시하지 않음).
+            val hrsPH = maxOf(dayNetMs / 3600000.0, todayActiveHours.toDouble())
+            val pH = if (hrsPH >= 1.0) (sFare / hrsPH).toInt() else 0
             val dKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f   // [km폭주②] 비현실(>16h) 세션 거리 신뢰불가→0
             workStart = 0L; pausedTotal = 0L; pauseStart = 0L
             lastLocalChange = now
@@ -303,7 +308,8 @@ fun SimpleHomeScreen(
                         // 세션 구간에 운행이 있었다면 그 값이 진실이다. -1(조회 실패)이면 건드리지 않는다.
                         if (rangeFare >= 0 && rangeFare != sFare) {
                             fixedFare = rangeFare
-                            fixedPerHour = if (dayNetMs > 3000000L) (rangeFare / (dayNetMs / 3600000.0)).toInt() else 0
+                            val hrsFix = maxOf(dayNetMs / 3600000.0, todayActiveHours.toDouble())
+                            fixedPerHour = if (hrsFix >= 1.0) (rangeFare / hrsFix).toInt() else 0
                         }
                     }
                 } catch (e: Exception) {}
@@ -323,7 +329,10 @@ fun SimpleHomeScreen(
     val workedMin = (dayNetPrev + curNet) / 60000L
     val hh = workedMin / 60; val mm = workedMin % 60
     val workedHours = (dayNetPrev + curNet).toDouble() / 3600000.0
-    val perHour = if (workedHours > 0.05) (todayFare / workedHours).toInt() else 0   // [시간당매출 정정] 오늘 총매출 ÷ 근무시간
+    // [2026-08-28 유저제보] 가드가 3분이라 38분·1콜에 시간당 33,199원이 찍혔다(실측 27,615원).
+    //  분모를 활동시간(운행이 있던 시의 개수)과 근무시간 중 긴 쪽으로 바꾸고, 1시간 미만은 숫자를 만들지 않는다.
+    val hoursForRate = maxOf(workedHours, todayActiveHours.toDouble())
+    val perHour = if (hoursForRate >= 1.0) (todayFare / hoursForRate).toInt() else -1
     val distKm = workDist / 1000f
 
     if (showEndConfirm) {
@@ -597,7 +606,7 @@ fun SimpleHomeScreen(
                 Text("오늘 매출", fontSize = 11.sp, color = muted)
                 if (active) {
                     Spacer(Modifier.height(6.dp))
-                    Text("시간당 ${String.format("%,d", perHour)}원 · ${String.format("%.1f", distKm)}km", fontSize = 12.sp, color = muted)
+                    Text((if (perHour >= 0) "시간당 ${String.format("%,d", perHour)}원" else "시간당 1시간 후") + " · ${String.format("%.1f", distKm)}km", fontSize = 12.sp, color = muted)
                     // [근무 구간] 일시정지로 나뉜 구간을 그대로 보여준다 — "06:00~11:00 · 15:00~23:00"
                     //  (예전엔 한 덩어리로만 보여서, 중간에 몇 시간 쉬었는지 알 수 없었다)
                     val segTxt = remember(nowTick, paused) {

@@ -332,7 +332,8 @@ class TrackActivity : ComponentActivity() {
         val lkm = s.loadedM / 1000.0
         val ekm = s.emptyM / 1000.0
         val tkm = lkm + ekm
-        val occ = if (tkm > 0) (lkm / tkm * 100).toInt() else 0
+        // [2026-08-28] 최소 거리 가드. GPS 노이즈 20m 가 전부 실차로 잡히면 "실차율 100%" 가 공유 이미지·카톡에 나간다.
+        val occ = if (tkm >= 5.0) (lkm / tkm * 100).toInt() else -1
         val totalMin = s.loadedMinutes + s.emptyMinutes
 
         val pad = w * 0.055f
@@ -346,7 +347,7 @@ class TrackActivity : ComponentActivity() {
         // 3열 — 총 주행 / 실차율 / 운행시간. 한 줄에 다 보이는 게 핵심이라 항목을 늘리지 않는다.
         val cols = listOf(
             Triple("총 주행", String.format("%.1f km", tkm), null),
-            Triple("실차율", "${occ}%", "#10B981"),
+            Triple("실차율", if (occ >= 0) "${occ}%" else "5km 후", "#10B981"),
             Triple("운행시간", if (totalMin >= 60) "${totalMin / 60}시간 ${totalMin % 60}분" else "${totalMin}분", null)
         )
         val colW = (w - pad * 2) / 3f
@@ -426,10 +427,16 @@ class TrackActivity : ComponentActivity() {
                     // [v92] 이미지를 못 받는 대상(문자·메모 등)에도 수치가 남게 본문에도 넣는다
                     putExtra(Intent.EXTRA_TEXT, stats?.let { s ->
                         val lkm = s.loadedM / 1000.0; val ekm = s.emptyM / 1000.0; val tkm = lkm + ekm
-                        val occ = if (tkm > 0) (lkm / tkm * 100).toInt() else 0
+                        // [2026-08-28] 최소 거리 가드. GPS 노이즈 20m 가 전부 실차로 잡히면 "실차율 100%" 가 공유 이미지·카톡에 나간다.
+        val occ = if (tkm >= 5.0) (lkm / tkm * 100).toInt() else -1
                         val m = s.loadedMinutes + s.emptyMinutes
-                        String.format("%s 운행 · 총 %.1fkm (실차 %.1f / 공차 %.1f) · 실차율 %d%% · %d시간 %d분\n— 콜레이더",
-                            dateLabel, tkm, lkm, ekm, occ, m / 60, m % 60)
+                        // [2026-08-28] 실차율이 -1(거리 부족)이면 카톡 문구에서 아예 뺀다. "-1%" 가 나가면 안 된다.
+                        if (occ >= 0)
+                            String.format("%s 운행 · 총 %.1fkm (실차 %.1f / 공차 %.1f) · 실차율 %d%% · %d시간 %d분\n— 콜레이더",
+                                dateLabel, tkm, lkm, ekm, occ, m / 60, m % 60)
+                        else
+                            String.format("%s 운행 · 총 %.1fkm (실차 %.1f / 공차 %.1f) · %d시간 %d분\n— 콜레이더",
+                                dateLabel, tkm, lkm, ekm, m / 60, m % 60)
                     } ?: "오늘 운행 궤적 (콜레이더)")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -478,11 +485,12 @@ class TrackActivity : ComponentActivity() {
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(18.dp)) {
                             val lkm = s.loadedM / 1000.0; val ekm = s.emptyM / 1000.0; val tkm = lkm + ekm
-                            val occ = if (tkm > 0) (lkm / tkm * 100).toInt() else 0
+                            // [2026-08-28] 최소 거리 가드. GPS 노이즈 20m 가 전부 실차로 잡히면 "실차율 100%" 가 공유 이미지·카톡에 나간다.
+        val occ = if (tkm >= 5.0) (lkm / tkm * 100).toInt() else -1
                             Text("오늘 요약", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = text, modifier = Modifier.padding(bottom = 8.dp))
                             KV("실차 거리", String.format("%.1f km", lkm), blue)
                             KV("공차 거리", String.format("%.1f km", ekm), muted)
-                            KV("실차율(거리)", "${occ}%", green)
+                            KV("실차율(거리)", if (occ >= 0) "${occ}%" else "5km 후", green)
                             HorizontalDivider(color = surface2, modifier = Modifier.padding(vertical = 6.dp))
                             KV("실차 시간", "${s.loadedMinutes}분", blue)
                             KV("공차/대기 시간", "${s.emptyMinutes}분", muted)
