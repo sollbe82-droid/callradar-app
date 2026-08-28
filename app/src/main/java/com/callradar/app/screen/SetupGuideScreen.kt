@@ -31,6 +31,20 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
+/**
+ * [구글플레이 심사 2026-08-28] 다른 스토어로 유도하는 안내를 끈다.
+ *
+ * 원래는 "플레이 버전은 정책상 수동·반자동만 제공하니 완전자동은 원스토어에서 받으세요" 였다.
+ * 두 가지 이유로 지금은 내보내면 안 된다.
+ *  ① 사실이 아니게 됐다 — play 빌드에도 접근성 자동기록이 들어갔다.
+ *  ② 플레이 앱 안에서 다른 스토어로 유도하는 문구는 그 자체로 정책 위험이고,
+ *     하필 **접근성 심사 중에** 심사자 눈에 띄면 접근성 건과 별개의 위반으로 번진다.
+ *
+ * 코드는 남겨 둔다 — 구글이 접근성을 거부하면 play 를 다시 접근성 없는 빌드로 되돌리고
+ * 이 값을 true 로 켜서 예전 안내를 살린다.
+ */
+private const val SHOW_OTHER_STORE_PITCH = false
+
 @Composable
 fun SetupGuideScreen(onSetupComplete: () -> Unit) {
     val context = LocalContext.current
@@ -636,7 +650,7 @@ fun AutoSetupWizardPopup(force: Boolean = false, onFinish: (startFloating: Boole
                 }
 
                 // [구글판] 완전자동 원스토어 전환 카드 — 마지막 단계 아래에
-                if (!isOnestore && idx == steps.size - 1) {
+                if (SHOW_OTHER_STORE_PITCH && !isOnestore && idx == steps.size - 1) {
                     Spacer(Modifier.height(8.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = AppTheme.card), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp)) {

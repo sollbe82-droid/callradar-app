@@ -854,7 +854,9 @@ class MainActivity : ComponentActivity() {
                     Text(if (guestLoading) "시작하는 중..." else "로그인 없이 둘러보기", color = AppTheme.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
                 // [v43] 게스트는 기기·스토어 변경 시 데이터가 옮겨지지 않음을 명확히 고지(카카오 로그인 유도)
-                Text("⚠️ 게스트는 폰을 바꾸거나 스토어(구글↔원스토어)를 옮기면 기록이 옮겨지지 않아요. 카카오로 로그인하면 어디서든 유지됩니다.", fontSize = 11.sp, color = Color(0xFF9CA3AF), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp))
+                // [구글플레이 심사 2026-08-28] 로그인 화면은 심사자가 반드시 본다.
+                //  다른 스토어 이름을 굳이 띄울 이유가 없다. 뜻은 그대로 두고 표현만 바꾼다.
+                Text("⚠️ 게스트는 폰을 바꾸거나 앱을 지웠다 다시 설치하면 기록이 옮겨지지 않아요. 카카오로 로그인하면 어디서든 유지됩니다.", fontSize = 11.sp, color = Color(0xFF9CA3AF), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp))
 
                 // [디버그 전용] 테스트 로그인 버튼 — 릴리스/스토어 빌드엔 표시 안 됨
                 if (com.callradar.app.BuildConfig.DEBUG) {

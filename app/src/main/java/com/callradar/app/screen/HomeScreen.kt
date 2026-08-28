@@ -330,7 +330,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             } catch (e: Exception) { false }
                         }
                         adminBusy = false
-                        if (ok) { acctAdmin = true; prefs.edit().putBoolean("acct_admin", true).putBoolean("is_admin", true).apply(); adminKeyInput = ""; android.widget.Toast.makeText(context, "이 계정이 관리자로 등록됨 · 자동기록 사용 가능 (원스토어+접근성)", android.widget.Toast.LENGTH_LONG).show() }
+                        if (ok) { acctAdmin = true; prefs.edit().putBoolean("acct_admin", true).putBoolean("is_admin", true).apply(); adminKeyInput = ""; android.widget.Toast.makeText(context, "이 계정이 관리자로 등록됨 · 자동기록 사용 가능 (접근성 권한 필요)", android.widget.Toast.LENGTH_LONG).show() }
                         else android.widget.Toast.makeText(context, "키가 올바르지 않아요", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text(if (adminBusy) "확인 중" else "관리자 등록", color = Color.Black, fontWeight = FontWeight.Bold) }
@@ -1266,7 +1266,17 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 //  permCheckTick(=MainActivity.onResume)을 같이 키로 걸어 돌아온 시점에 다시 읽는다.
                 val permTick = com.callradar.app.MainActivity.permCheckTick.value
                 var floatingOn by remember(refreshKey, permTick) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
-                val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
+                val showAuto = (
+                    // [구글플레이 자동화 도전 2026-08-28]
+                    //  · onestore: 지금까지대로 관리자·권한 부여자에게만 노출.
+                    //  · play    : 권한 게이트 없이 누구에게나 보인다.
+                    //    구글 심사자는 계정 권한이 없으므로, 게이트를 두면 고지·동의 화면에
+                    //    **도달할 방법이 없어** 심사 자체가 불가능하다. 구글 요건에도
+                    //    "일반 사용 과정에서 보여야 하고 메뉴를 헤집게 하면 안 된다"가 있다.
+                    //    비공개 테스트 트랙은 초대한 사람만 받으므로 노출 위험은 없다.
+                    if (com.callradar.app.BuildConfig.FLAVOR == "play") true
+                    else (acctAdmin || acctEntitled)
+                )
                 var autoRec by remember(refreshKey, permTick) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
                 var showAutoSetup by remember { mutableStateOf(false) }
                 // [v53 #103/#124] 업데이트 후 삼성 '제한된 설정'으로 접근성이 꺼진 경우 자동 감지 → 설정 안내 자동 표시.
@@ -1299,8 +1309,22 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                             Box(modifier = divider().background(AppTheme.surface2))
                             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f).clickable { showAutoSetup = true }) {
-                                    Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                    Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
+                                    // [구글플레이 심사 2026-08-28] play 빌드에서는 "(관리자)" 표기를 뺀다.
+                                //  원스토어는 실제로 권한을 받은 기사만 쓰므로 그 표기가 맞지만,
+                                //  플레이 심사자가 보면 "관리자 전용 기능인데 왜 일반 사용자에게
+                                //  접근성 권한을 요구하나"로 읽혀 반려 사유가 된다.
+                                //  또 부제에 접근성을 쓴다는 사실을 먼저 밝혀, 심사자가 이 줄에서
+                                //  바로 고지 화면으로 이어지는 흐름을 알아보게 한다.
+                                Text(
+                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                        (if (autoRec) "🤖 자동 기록 켜짐" else "🤖 자동 기록")
+                                    else (if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)"),
+                                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    Text(
+                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                        "택시앱 화면을 읽어 운행·요금을 자동 기록합니다 (접근성 서비스 · 켤 때 안내와 동의)"
+                                    else "택시앱 운행·요금 자동 기록 (탭: 설정 점검)",
+                                    fontSize = 11.sp, color = muted)
                                 }
                                 Switch(checked = autoRec, onCheckedChange = { on ->
                                     // [v94 접근성 공개·동의] 켤 때는 반드시 명시적 공개 화면을 먼저 거친다.

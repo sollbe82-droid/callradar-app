@@ -34,7 +34,10 @@ private data class SimpleCard(val id: String, val icon: String, val label: Strin
 
 // [목업 반영] 콜카드에 색·설명 추가. 편집에서 켜고 끌 수 있음.
 private val SIMPLE_CARD_REGISTRY = listOf(
-    SimpleCard("record_settings", "🤖", "자동설정", 0xFF10B981, "운행버튼·자동기록·금액입력"),
+    SimpleCard("record_settings", "🤖", "자동설정", 0xFF10B981,
+        // [구글플레이 심사] 심사자가 이 카드가 접근성 설정으로 가는 길임을 알아보게 한다.
+        if (com.callradar.app.BuildConfig.FLAVOR == "play") "운행버튼·자동기록(접근성)·금액입력"
+        else "운행버튼·자동기록·금액입력"),
     SimpleCard("radar", "📡", "레이더", 0xFFF59E0B, "지금 콜 잘 잡히는 자리·핫존"),
     SimpleCard("airport", "✈️", "공항", 0xFF38BDF8, "인천공항 실시간 입국·수요"),
     SimpleCard("records", "📋", "기록·정산", 0xFF3B82F6, "운행 기록·월별 정산·지출"),
@@ -48,6 +51,20 @@ private val SIMPLE_CARD_REGISTRY = listOf(
     SimpleCard("salary", "💰", "월급 예상", 0xFF34D399, "사납·기본급 규칙으로 실수령 계산"),
     SimpleCard("tax", "🧾", "세무 리포트", 0xFFF87171, "개인·도급 종소세와 경비 한눈에")
 )
+
+/**
+ * [구글플레이 심사 2026-08-28] 다른 스토어로 유도하는 안내를 끈다.
+ *
+ * 원래는 "플레이 버전은 정책상 수동·반자동만 제공하니 완전자동은 원스토어에서 받으세요" 였다.
+ * 두 가지 이유로 지금은 내보내면 안 된다.
+ *  ① 사실이 아니게 됐다 — play 빌드에도 접근성 자동기록이 들어갔다.
+ *  ② 플레이 앱 안에서 다른 스토어로 유도하는 문구는 그 자체로 정책 위험이고,
+ *     하필 **접근성 심사 중에** 심사자 눈에 띄면 접근성 건과 별개의 위반으로 번진다.
+ *
+ * 코드는 남겨 둔다 — 구글이 접근성을 거부하면 play 를 다시 접근성 없는 빌드로 되돌리고
+ * 이 값을 true 로 켜서 예전 안내를 살린다.
+ */
+private const val SHOW_OTHER_STORE_PITCH = false
 
 @Composable
 fun SimpleHomeScreen(
@@ -427,7 +444,17 @@ fun SimpleHomeScreen(
     var floatingOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
     val acctAdmin = prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))
     val acctEntitled = prefs.getBoolean("acct_entitled", false)
-    val showAuto = com.callradar.app.BuildConfig.FLAVOR == "onestore" && (acctAdmin || acctEntitled)
+    val showAuto = (
+        // [구글플레이 자동화 도전 2026-08-28]
+        //  · onestore: 지금까지대로 관리자·권한 부여자에게만 노출.
+        //  · play    : 권한 게이트 없이 누구에게나 보인다.
+        //    구글 심사자는 계정 권한이 없으므로, 게이트를 두면 고지·동의 화면에
+        //    **도달할 방법이 없어** 심사 자체가 불가능하다. 구글 요건에도
+        //    "일반 사용 과정에서 보여야 하고 메뉴를 헤집게 하면 안 된다"가 있다.
+        //    비공개 테스트 트랙은 초대한 사람만 받으므로 노출 위험은 없다.
+        if (com.callradar.app.BuildConfig.FLAVOR == "play") true
+        else (acctAdmin || acctEntitled)
+    )
     var autoRec by remember(permTickHome) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
     val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
     var capOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
@@ -732,8 +759,22 @@ fun SimpleHomeScreen(
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppTheme.surface2))
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f).clickable { showAutoSetup = true }) {
-                                Text(if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
-                                Text("택시앱 운행·요금 자동 기록 (탭: 설정 점검)", fontSize = 11.sp, color = muted)
+                                // [구글플레이 심사 2026-08-28] play 빌드에서는 "(관리자)" 표기를 뺀다.
+                                //  원스토어는 실제로 권한을 받은 기사만 쓰므로 그 표기가 맞지만,
+                                //  플레이 심사자가 보면 "관리자 전용 기능인데 왜 일반 사용자에게
+                                //  접근성 권한을 요구하나"로 읽혀 반려 사유가 된다.
+                                //  또 부제에 접근성을 쓴다는 사실을 먼저 밝혀, 심사자가 이 줄에서
+                                //  바로 고지 화면으로 이어지는 흐름을 알아보게 한다.
+                                Text(
+                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                        (if (autoRec) "🤖 자동 기록 켜짐" else "🤖 자동 기록")
+                                    else (if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)"),
+                                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                Text(
+                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                        "택시앱 화면을 읽어 운행·요금을 자동 기록합니다 (접근성 서비스 · 켤 때 안내와 동의)"
+                                    else "택시앱 운행·요금 자동 기록 (탭: 설정 점검)",
+                                    fontSize = 11.sp, color = muted)
                             }
                             Switch(checked = autoRec, onCheckedChange = { on ->
                                 // [v94 접근성 공개·동의] 켤 때는 반드시 명시적 공개 화면을 먼저 거친다.
@@ -762,7 +803,7 @@ fun SimpleHomeScreen(
                         }
                     }
                     // [구글 정책] play 버전은 접근성 완전자동 미제공 → 자동화 원하면 원스토어로 안내
-                    if (com.callradar.app.BuildConfig.FLAVOR != "onestore") {
+                    if (SHOW_OTHER_STORE_PITCH && com.callradar.app.BuildConfig.FLAVOR != "onestore") {
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppTheme.surface2))
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
                             Text("🤖 완전 자동 기록을 원하세요?", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
