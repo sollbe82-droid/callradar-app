@@ -299,7 +299,10 @@ class NaviIntentReceiver : AccessibilityService() {
                             val fareLines = mutableListOf<String>()
                             fun t(n: android.view.accessibility.AccessibilityNodeInfo?) { n ?: return; n.text?.toString()?.trim()?.let { if (it.isNotEmpty()) fareLines.add(it) }; for (i in 0 until n.childCount) t(n.getChild(i)) }
                             t(root)
-                            val fare = extractFare(fareLines)
+                            // [v99 #12559] 이 경로는 pkg 를 안 넘겨서 우버 하한이 안 걸리고 있었다(수정 반쪽).
+                            //  pkg 를 넘기면 isUberFareScreen 허용목록까지 같이 켜져 기존 동작이 바뀌므로,
+                            //  하한만 호출부에서 적용한다.
+                            val fare = if (pkg == UBER) uberFloor(extractFare(fareLines)) else extractFare(fareLines)
                             sendDebugLog("CLICK_END", "$lastPlatform | $clickedText | ${fare}원")
                             finalizeCurrentTrip(fare)
                         }
@@ -451,7 +454,8 @@ class NaviIntentReceiver : AccessibilityService() {
                         if (v in 3000..500000 && v > meterFare) meterFare = v  // 최댓값 = 미터요금(통행료보다 큼)
                     }
                 }
-                if (meterFare == 0) meterFare = extractFare(lines, pkg)  // 라벨 못 찾으면 폴백
+                // 라벨 못 찾으면 폴백. 여기도 같은 입력 화면이므로 중간값 하한을 건다.
+                if (meterFare == 0) meterFare = uberFloor(extractFare(lines, pkg))
                 // [유저592 제보] 우버 현금 운행이 '자동결제'로 기록되던 문제.
                 //  실제 화면 구분(스크린샷 확인):
                 //   · 자동결제 → 금액칸 아래 "자동 결제" 배지 + "일반 콜 운행완료" 버튼
@@ -1354,6 +1358,16 @@ class NaviIntentReceiver : AccessibilityService() {
 
     private fun extractFare(lines: List<String>): Int = extractFare(lines, null)
 
+    /**
+     * [v99 #12559] 우버 요금 하한.
+     *  우버는 기사가 **타이핑하는 중인 입력칸**을 읽는다. 21,500 을 치는 동안 2,150 같은 중간값이
+     *  그대로 잡혀 서버에 굳는다(실측: 47분 서울 운행이 2,150원으로 기록됨).
+     *  미터요금은 전국 어느 지역 기본요금(3,800~4,800)보다 낮을 수 없으므로 3,000 미만은 중간값으로 본다.
+     *  ★ 이 하한은 **우버의 요금 입력·완료 경로에서만** 쓴다. extractFare 전체에 걸면
+     *    카카오·티머니의 확정 요금 화면까지 영향을 받아 회귀가 난다(그쪽은 타이핑을 읽지 않는다).
+     */
+    private fun uberFloor(v: Int): Int = if (v in 1..2999) 0 else v
+
     private fun extractFare(lines: List<String>, pkg: String?): Int {
         val allTextRaw = lines.joinToString(" ")
 
@@ -1390,11 +1404,7 @@ class NaviIntentReceiver : AccessibilityService() {
             val matches = pattern.findAll(cleaned)
             for (m in matches) {
                 val amount = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
-                // [v99 #12559] 우버만 하한 3000. 우버는 기사가 **타이핑 중인 입력칸**을 읽기 때문에
-                //  21,500을 치는 도중의 2,150 같은 중간값이 잡힌다(위 미터요금 블록과 같은 이유).
-                //  카카오·티머니는 확정된 요금 화면을 읽으므로 종전 1000 그대로 둔다(회귀 방지).
-                val floor = if (pkg == UBER) 3000 else 1000
-                if (amount in floor..500000 && amount > maxFare) maxFare = amount
+                if (amount in 1000..500000 && amount > maxFare) maxFare = amount
             }
         }
         return maxFare
