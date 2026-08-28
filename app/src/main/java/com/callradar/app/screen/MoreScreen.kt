@@ -1407,6 +1407,35 @@ private fun SettlementSettings(userId: String, context: Context, card: Color, ac
                 OutlinedTextField(value = sanapInput, onValueChange = { sanapInput = it.filter { c -> c.isDigit() } }, label = { Text("사납금 (원)", color = muted) }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = Color(0xFF374151), focusedTextColor = AppTheme.text, unfocusedTextColor = AppTheme.text))
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0, 100000, 120000, 150000).forEach { amount -> OutlinedButton(onClick = { sanapInput = amount.toString() }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) { Text(if (amount == 0) "없음" else "${amount/10000}만", fontSize = 12.sp) } } }
+
+                // ══════════════════════════════════════════════════════
+                // [2026-08-28] 사납금 범위 경고.
+                //  실측: 활성기사 60명 중 한 명이 5,000,000원을 넣어두고 381콜을 뛰었다.
+                //  월 사납금을 일 사납금 칸에 적은 것으로 보인다(500만 ÷ 26일 = 192,308원).
+                //  그동안 그 기사는 순수익이 매일 마이너스 480만원으로 계산되고 있었다.
+                //
+                //  ★ 막지 않는다. 되묻기만 한다.
+                //    사납금은 기사의 실제 계약 조건이고 우리가 짐작해서 고칠 성질이 아니다.
+                //    하한을 하드코딩해 막으면 반일 도급·특수계약 기사가 아예 못 넣는다.
+                //    실제 분포는 11~25만원이고, 10~30만원을 정상 범위로 본다.
+                // ══════════════════════════════════════════════════════
+                val sn = sanapInput.toIntOrNull() ?: 0
+                if (sn > 300000) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("혹시 월 사납금을 적으셨나요?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B))
+                    Text("여기는 하루 기준입니다. 보통 11~25만원이에요.", fontSize = 11.sp, color = muted)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { sanapInput = (sn / 26).toString() },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF59E0B))) {
+                        Text("26일로 나눠 ${String.format("%,d", sn / 26)}원으로 고치기", fontSize = 12.sp)
+                    }
+                } else if (sn in 1..99999) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("하루 사납금이 맞나요? 보통 11~25만원입니다.", fontSize = 11.sp, color = Color(0xFFF59E0B))
+                    Text("반일 도급 등 특수 계약이면 그대로 두세요.", fontSize = 11.sp, color = muted)
+                }
             } },
             confirmButton = { Button(onClick = { dailySanap = sanapInput.toIntOrNull() ?: 0; prefs.edit().putInt("daily_sanap", dailySanap).apply(); showSanapDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("저장", color = Color.Black) } },
             dismissButton = { OutlinedButton(onClick = { showSanapDialog = false }) { Text("취소") } }, containerColor = AppTheme.card)

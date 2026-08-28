@@ -595,6 +595,47 @@ fun SimpleHomeScreen(
                     }
                 }
             }
+
+            // ══════════════════════════════════════════════════════════
+            // [2026-08-28] 설정 미완 배너 — 권한이 아니라 **계산의 재료**를 챙긴다.
+            //
+            //  왜: 활성기사 75명 실측에서 차량유형 미설정 65명(87%), 사납금 0원 59명(79%).
+            //   재료가 비면 순수익·시간당·월급예상이 전부 거짓말이 된다.
+            //   지금 배너는 권한만 챙기고 이걸 안 챙겼다.
+            //
+            //  ★ 권한 배너가 떠 있으면 이건 안 띄운다. 배너가 둘이면 둘 다 무시당한다.
+            //  ★ 근무시간(출근 버튼)은 여기 넣지 않는다. 그건 설정이 아니라 행동이고,
+            //    자동기록만 쓰는 기사에게 강요할 일이 아니다. 어제 시간당 매출의 분모를
+            //    활동시간으로 바꿔서 출근을 안 눌러도 숫자가 맞게 나온다.
+            // ══════════════════════════════════════════════════════════
+            if (missing.isEmpty()) {
+                val dType = prefs.getString("driver_type", "") ?: ""
+                val sanap = prefs.getInt("daily_sanap", 0)
+                val needSetup = buildList {
+                    if (dType.isBlank()) add("개인/법인")
+                    if (dType == "corporate" && sanap <= 0) add("사납금")
+                }
+                if (needSetup.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                            .clickable { onOpenCard("driver_settings") },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF13294B)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("📝", fontSize = 20.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("순수익 계산에 ${needSetup.joinToString(" · ")}이 필요해요",
+                                    fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF60A5FA))
+                                Text("지금은 매출만 보여요 — 한 번만 정하면 순수익·월급이 나와요",
+                                    fontSize = 11.sp, color = Color(0xFFB6C8E4))
+                            }
+                            Text("›", fontSize = 22.sp, color = Color(0xFF60A5FA))
+                        }
+                    }
+                }
+            }
         }
 
         // 히어로
