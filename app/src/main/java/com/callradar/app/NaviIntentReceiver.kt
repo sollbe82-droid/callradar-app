@@ -442,7 +442,13 @@ class NaviIntentReceiver : AccessibilityService() {
                     for (j in (labelIdx + 1) until lines.size) {
                         val m = Regex("([0-9,]{2,})").find(lines[j].replace("₩", "").trim())
                         val v = m?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
-                        if (v in 1000..500000 && v > meterFare) meterFare = v  // 최댓값 = 미터요금(통행료보다 큼)
+                        // [v99 #12559] 하한 1000 → 3000. 이 화면은 기사가 **타이핑하는 중**인 입력칸이라
+                        //  21,500을 치는 동안 2,150 같은 중간값이 그대로 잡혀 서버에 굳는다.
+                        //  실측(유저#833, 47분 서울 운행): FARE_CACHE 2150 하나만 오고 최종 프레임은 아예 안 왔다
+                        //  → "매 프레임 덮어쓰니 마지막엔 맞아진다"는 전제가 성립하지 않는다(다이얼로그가 닫히며 이벤트 끊김).
+                        //  미터요금은 기본요금(전국 3,800~4,800)보다 낮을 수 없으므로 3000 미만은 중간값으로 본다.
+                        //  덤으로, 안 쓰고 넘기면 recentFinalFare==0 이 되어 아래 '우버 홈 마지막 운행 ₩X' 복구가 살아난다.
+                        if (v in 3000..500000 && v > meterFare) meterFare = v  // 최댓값 = 미터요금(통행료보다 큼)
                     }
                 }
                 if (meterFare == 0) meterFare = extractFare(lines, pkg)  // 라벨 못 찾으면 폴백
@@ -1384,7 +1390,11 @@ class NaviIntentReceiver : AccessibilityService() {
             val matches = pattern.findAll(cleaned)
             for (m in matches) {
                 val amount = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
-                if (amount in 1000..500000 && amount > maxFare) maxFare = amount
+                // [v99 #12559] 우버만 하한 3000. 우버는 기사가 **타이핑 중인 입력칸**을 읽기 때문에
+                //  21,500을 치는 도중의 2,150 같은 중간값이 잡힌다(위 미터요금 블록과 같은 이유).
+                //  카카오·티머니는 확정된 요금 화면을 읽으므로 종전 1000 그대로 둔다(회귀 방지).
+                val floor = if (pkg == UBER) 3000 else 1000
+                if (amount in floor..500000 && amount > maxFare) maxFare = amount
             }
         }
         return maxFare
