@@ -30,3 +30,6 @@ _test/*.jpg
 _releases/
 build_out.txt 
 build_err.txt 
+
+# 지난 방 대화 보관 — 용량이 커서 git 에 안 넣는다(로컬 검색용)
+_rooms/*.md
