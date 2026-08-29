@@ -174,7 +174,7 @@ fun SimpleMenuScreen(
 
             MenuRow("👤", "내 계정 · 다른 폰 연결", "이름 변경 · 계정 ID · 2·3폰 연결 · 계정 합치기") { onFullMenu() }
             MenuRow("🚕", "예약 · 공유", "단골 예약 요청 · 명함 공유 설정") { onFullMenu() }
-            MenuRow("🌐", "정보 · 도움", "유용한 링크 · 오픈톡방 · 내 운행 지도") { onFullMenu() }
+            MenuRow("🌐", "정보 · 도움", "오픈톡방 · 내 운행 지도 · 계정 정보") { onFullMenu() }
             MenuRow("📄", "약관 · 개인정보", "서비스·위치기반·자동기록 약관 전문") {
                 try { com.callradar.app.TermsListActivity.start(context) } catch (e: Exception) {}
             }

@@ -1475,7 +1475,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     Triple("airport", "✈️", "공항"), Triple("namecard", "📇", "명함"),
                     Triple("ai", "🤖", "AI비서"), Triple("events", "📅", "이벤트"),
                     Triple("bookings", "🚕", "예약"), Triple("stats", "📊", "분석"),
-                    Triple("ranking", "🏆", "랭킹"), Triple("links", "🌐", "링크"),
+                    Triple("ranking", "🏆", "랭킹"),
                     Triple("settings", "⚙️", "기사설정"), Triple("more", "⋯", "더보기")
                 )
                 var blockCsv by remember { mutableStateOf(prefs.getString("home_blocks", "gas,elec,expense,records,import,more") ?: "gas,elec,expense,records,import,more") }
@@ -1511,7 +1511,6 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                         "bookings" -> onNavMore("bookings")
                         "stats" -> onNavMore("stats")
                         "ranking" -> onNavMore("ranking")
-                        "links" -> onNavMore("links")
                         else -> {}
                     }
                 }

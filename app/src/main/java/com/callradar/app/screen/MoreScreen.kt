@@ -87,7 +87,6 @@ private const val OPEN_CHAT_URL = "https://open.kakao.com/o/gsyuVMCi"
 private const val R_HOME = "home"
 private const val R_STATS = "stats"
 private const val R_RANKING = "ranking"
-private const val R_LINKS = "links"
 private const val R_REGISTRY = "registry"
 private const val R_SETTLEMENT = "settlement"
 private const val R_EVENTS = "events"
@@ -133,9 +132,6 @@ fun MoreScreen(userId: String, onLogout: () -> Unit, onOpenDailySettlement: () -
         )
         R_STATS -> MoreSubScreen("분석", onBack = { route = R_HOME }) { StatsScreen(userId = userId) }
         R_RANKING -> MoreSubScreen("랭킹", onBack = { route = R_HOME }) { RankingScreen(userId = userId) }
-        R_LINKS -> MoreSubScreen("유용한 링크", onBack = { route = R_HOME }) {
-            LinksView(context = context, card = card, accent = accent, muted = muted)
-        }
         R_REGISTRY -> MoreSubScreen("홈 편집", onBack = { route = R_HOME }) {
             val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -838,7 +834,6 @@ private fun MoreHome(userId: String, onLogout: () -> Unit, onOpenDailySettlement
             },
             if (!CORE_ONLY) MoreEntry("🚕", "예약 요청 (단골)", "명함 QR로 받은 예약 확인·수락", chevron = true) { onNavigate(R_BOOKINGS) } else null,
             if (!CORE_ONLY) MoreEntry("📅", "이벤트·수요 정보", "내 지역 축제·공연·수요 (온·오프)", chevron = true) { onNavigate(R_EVENTS) } else null,
-            MoreEntry("🌐", "유용한 링크", "공항·항공편·기상 사이트 모음", chevron = true) { onNavigate(R_LINKS) },
             MoreEntry("💬", "오픈톡방", "아이디어·개선·버그 제보 환영", chevron = true) {
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_CHAT_URL))) } catch (e: Exception) {}
             },
@@ -1216,7 +1211,7 @@ private fun FeatureRegistry(prefs: android.content.SharedPreferences, accent: Co
                 "gas" to "⛽ 가스", "elec" to "🔌 전기", "expense" to "🧾 지출촬영", "track" to "🗺️ 운행궤적",
                 "import" to "📥 가져오기", "records" to "📋 기록", "airport" to "✈️ 공항", "namecard" to "📇 명함",
                 "ai" to "🤖 AI비서", "events" to "📅 이벤트", "bookings" to "🚕 예약", "stats" to "📊 분석",
-                "ranking" to "🏆 랭킹", "links" to "🌐 링크", "settings" to "⚙️ 기사설정", "more" to "⋯ 더보기"
+                "ranking" to "🏆 랭킹", "settings" to "⚙️ 기사설정", "more" to "⋯ 더보기"
             )
             var blocks by remember { mutableStateOf((prefs.getString("home_blocks", "gas,elec,expense,records,import,more") ?: "").split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()) }
             actions.chunked(3).forEach { rowItems ->
@@ -1913,41 +1908,3 @@ private fun EventsView(context: Context, accent: Color, muted: Color, card: Colo
     }
 }
 
-@Composable
-private fun LinksView(context: Context, card: Color, accent: Color, muted: Color) {
-    data class LinkItem(val emoji: String, val title: String, val desc: String, val url: String)
-    data class LinkSection(val title: String, val color: Color, val links: List<LinkItem>)
-
-    val sections = listOf(
-        LinkSection("✈️ 공항 기사용", accent, listOf(
-            LinkItem("🛫", "인천국제공항", "실시간 항공편·혼잡도 확인", "https://www.airport.kr"),
-            LinkItem("🛬", "김포공항", "국내선 항공편 확인", "https://www.airport.co.kr/gimpo"),
-            LinkItem("🚄", "공항철도 시간표", "AREX 운행 정보", "https://www.arex.or.kr"),
-            LinkItem("🌍", "FlightRadar24", "실시간 항공기 추적", "https://www.flightradar24.com"),
-            LinkItem("🛣️", "서울 도시고속도로", "공항로·올림픽대로 실시간", "https://www.ex.co.kr"),
-            LinkItem("⛅", "항공기상청", "공항 기상 정보", "https://amo.kma.go.kr"),
-            LinkItem("🚢", "인천항 크루즈 일정", "입항 크루즈 하선 일정", "https://www.icpa.or.kr")
-        ))
-    )
-
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        sections.forEach { section ->
-            Text(section.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = section.color, modifier = Modifier.padding(bottom = 8.dp))
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-                Column {
-                    section.links.forEachIndexed { index, link ->
-                        Row(modifier = Modifier.fillMaxWidth().clickable { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) }.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(link.emoji, fontSize = 24.sp)
-                                Column { Text(link.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppTheme.text); Text(link.desc, fontSize = 11.sp, color = muted) }
-                            }
-                            Text("→", fontSize = 16.sp, color = muted)
-                        }
-                        if (index < section.links.size - 1) HorizontalDivider(color = AppTheme.surface2, modifier = Modifier.padding(horizontal = 16.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
