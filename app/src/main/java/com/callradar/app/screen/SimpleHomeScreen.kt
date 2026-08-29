@@ -451,8 +451,16 @@ fun SimpleHomeScreen(
     //  permCheckTick은 MainActivity.onResume이 올려주는 공용 신호다(설명은 그쪽 주석 참고).
     val permTickHome = com.callradar.app.MainActivity.permCheckTick.value
     var floatingOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("floating_on", false)) }
-    val acctAdmin = prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false))
-    val acctEntitled = prefs.getBoolean("acct_entitled", false)
+    /* [v100] 간편모드도 계정 플래그를 **서버에서 다시 받아온다.**
+     *  예전엔 홈모드에만 이 조회가 있어서, 권한이 한 번 꺼지면(서버 오류가 200+false 를 주던 그 버그)
+     *  간편모드 유저는 **앱을 껐다 켜도 영영 복구가 안 됐다** — 홈모드로 바꿔야만 풀렸는데
+     *  기사가 그걸 알 방법이 없다. 자동기록이 죽은 채로 계속 운행하게 된다. */
+    var flagTick by remember { mutableStateOf(0) }
+    LaunchedEffect(userId, permTickHome) {
+        if (userId.isNotEmpty()) { com.callradar.app.AccountFlags.refresh(context, userId); flagTick++ }
+    }
+    val acctAdmin = remember(flagTick, permTickHome) { prefs.getBoolean("acct_admin", prefs.getBoolean("is_admin", false)) }
+    val acctEntitled = remember(flagTick, permTickHome) { prefs.getBoolean("acct_entitled", false) }
     val showAuto = (
         // [구글플레이 자동화 도전 2026-08-28]
         //  · onestore: 지금까지대로 관리자·권한 부여자에게만 노출.
