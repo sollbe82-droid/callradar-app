@@ -110,6 +110,9 @@ class NaviIntentReceiver : AccessibilityService() {
     @Volatile private var screenAddrDest = ""
     @Volatile private var lastLoggedScreenAddr = ""
     @Volatile private var lastLocalTripId = -1L
+    // [v100 우버 연속배차] 미터 입력창이 떠 있는 동안은 새 트립을 만들지 않는다.
+    //  그 창은 2초 안에 여러 번 다시 그려져서, 마감 직후 같은 자리에 헛 트립이 생긴다.
+    @Volatile private var uberMeterScreenUntil = 0L
     @Volatile private var isProcessingTaxiScreen = false
     @Volatile private var isSendingTrip = false
     private var clickHandledUntil = 0L
@@ -476,8 +479,37 @@ class NaviIntentReceiver : AccessibilityService() {
                     if (lastTripId > 0 && meterFare != lastUberWrittenFare) { lastUberWrittenFare = meterFare; updateTripFare(lastTripId, meterFare) }
                     Log.d(TAG, "💰 우버 미터요금 캐싱: ${meterFare}원")
                     sendDebugLog("FARE_CACHE", "우버 미터요금 | ${meterFare}원 | " + allText.take(100))
+
+                    /* ★★ [v100] 우버 연속배차 — 미터 입력창을 **완료로 본다** (유저 592 제보).
+                     *
+                     *  대표 설명: 우버는 **도착 전에 다음 콜을 미리 배정**한다. 기사는 미리 받아두고,
+                     *  하던 운행을 종료·결제한 뒤, 미리 받은 콜의 손님을 태우러 간다.
+                     *  → **미터 입력창은 언제나 직전 운행이 끝난 뒤에만 뜬다.**
+                     *
+                     *  예전엔 여기서 `return // 아직 완료 아님` 하고 **우버 홈·평가 화면**을 기다렸다.
+                     *  그런데 연속배차에선 홈으로 안 돌아가고 바로 다음 콜로 간다 → 트립이 안 닫히고,
+                     *  다음 콜의 미터가 같은 트립에 계속 덮어썼다.
+                     *
+                     *  실측(592, 8/29 UTC): #13604 한 트립에 세 콜이 들어갔다.
+                     *    18:23 8,200원 ("다음 콜 수락 완료" 표시) → 18:43 8,400원 → 18:57 8,800원
+                     *    DB 최종: 46분 · 8,800원 한 건. **실제 25,400원 중 16,600원이 사라졌다.**
+                     *
+                     *  카카오는 '손님 탑승' 클릭이 있어 R1(새 탑승 → 이전 트립 마감)이 돌지만
+                     *  **우버엔 그 버튼이 없어 R1이 한 번도 안 돈다.** 그래서 우버만 이 증상이 난다.
+                     *
+                     *  중간값 위험은 이미 두 겹으로 막혀 있다 — 하한 3,000(#12559 대응)과
+                     *  300초 수정창(`recentFinalTripId`)이 최종 확인 금액으로 되잡는다. */
+                    if (lastTripId > 0 && screenOwnsTrip(pkg)) {
+                        sendDebugLog("UBER_METER_END", "#$lastTripId | ${meterFare}원 | 미터입력창=완료(연속배차 대응)")
+                        uberMeterScreenUntil = System.currentTimeMillis() + 90_000L   // 아래 참조
+                        finalizeCurrentTrip(meterFare)
+                    }
                 }
-                return  // 아직 완료 아님
+                /* 이 창이 2초 안에 여러 번 다시 그려진다(실측: 18:23:02·03·04 세 번).
+                 * 첫 이벤트에서 마감하면 나머지가 `lastTripId<=0` 을 보고 **그 자리에서 헛 트립**을 만든다.
+                 * 그래서 창이 떠 있는 동안은 새 트립 생성을 막는다(아래 생성 지점에서 확인). */
+                uberMeterScreenUntil = System.currentTimeMillis() + 90_000L
+                return
             }
 
             // [#4116 미터기 수정결제] 방금 마감한 트립이 있는데, 최종 확인화면 금액이 다르면 그 값으로 갱신.
@@ -621,6 +653,11 @@ class NaviIntentReceiver : AccessibilityService() {
                 return
             }
 
+            // [v100] 우버 미터 입력창 직후엔 새 트립을 만들지 않는다(창 재렌더로 헛 트립 방지).
+            //  다음 콜은 기사가 픽업하러 이동해 화면이 바뀐 뒤에 정상적으로 생성된다.
+            if (System.currentTimeMillis() < uberMeterScreenUntil && allText.contains("미터 요금만 입력")) {
+                return
+            }
             if (lastTripId <= 0 || forceNewTripOnNextScan) {
                 tripPlatform = lastPlatform
                 sendDebugLog("TRIP_START", "$lastPlatform | lat=$curLat lng=$curLng")
