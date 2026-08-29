@@ -359,7 +359,28 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
             val ia = o.optBoolean("is_admin", false); val ae = o.optBoolean("auto_entitled", false)
             val fo = o.optBoolean("free_open", false)  // [근본해결] 전원 무료 개방 스위치
             acctAdmin = ia; acctEntitled = ae || fo
-            prefs.edit().putBoolean("acct_admin", ia).putBoolean("acct_entitled", ae).putBoolean("is_admin", ia).putBoolean("auto_free_open", fo).apply()
+            /* ★★ [v100] 권한을 **끄는 방향**은 응답 하나로 바꾸지 않는다.
+             *
+             *  발견(유저 108 제보): 서버가 오류일 때 **200 + 전부 false** 를 주고 있었고, 앱이 그걸
+             *  그대로 저장했다. `NaviIntentReceiver.onAccessibilityEvent` 첫 줄이
+             *  `if (!isAdmin() || !autoOn()) return` 이라 **자동기록이 로그 한 줄 없이 죽었다.**
+             *  실측: 취소 직후 로그가 끊기고 16분 뒤 운행(15,500원)을 통째로 놓쳤다. 15명에게 흔적.
+             *
+             *  서버는 이제 503 을 주지만(=아래 catch 가 잡음), 앱도 스스로 지킨다.
+             *  세 값이 **모두 false** 로 오는 건 "권한 없음"과 "조회 실패"가 구분이 안 된다.
+             *  그럴 땐 **이미 켜져 있던 권한을 유지한다.** 켜는 건 즉시, 끄는 건 확실할 때만.
+             *  (권한을 실제로 회수해야 하면 `revoked` 를 명시해 보내면 된다.) */
+            val allFalse = !ia && !ae && !fo
+            val hadAny = prefs.getBoolean("is_admin", false) ||
+                         prefs.getBoolean("acct_entitled", false) ||
+                         prefs.getBoolean("auto_free_open", false)
+            val revoked = o.optBoolean("revoked", false)
+            if (allFalse && hadAny && !revoked) {
+                android.util.Log.w("CRFlags", "권한 전부 false 응답 — 기존 권한 유지(조회 실패로 본다)")
+            } else {
+                prefs.edit().putBoolean("acct_admin", ia).putBoolean("acct_entitled", ae)
+                    .putBoolean("is_admin", ia).putBoolean("auto_free_open", fo).apply()
+            }
         } catch (e: Exception) {}
     }
 
