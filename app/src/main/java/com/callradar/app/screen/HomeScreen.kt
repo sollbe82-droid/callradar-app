@@ -230,7 +230,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
     var dailySanap by remember { mutableStateOf(prefs.getInt("daily_sanap", 0)) }
     val driverType = prefs.getString("driver_type", "personal") ?: "personal"
     val workDaysSetting = prefs.getInt("work_days", 26)
-    val lpgDailyCost = prefs.getInt("lpg_daily_cost", 0)   // [v16] 설정에서 계산된 일 가스 실부담(원). 예전 lpg_daily(L) 오용 버그 수정.
+    // [2026-08-29] 하루 연료비는 이제 **실제 주유 지출에서 계산**된 값을 먼저 쓴다(서버 /api/today fuelDaily).
+    //  예전엔 기사설정 여섯 칸으로 추정한 lpg_daily_cost 뿐이었는데, 설정을 안 한 기사(대부분)는
+    //  연료비 0 으로 잡혀 **순수익이 부풀어** 보였다. 옛 값은 지우지 않고 폴백으로만 둔다.
+    var fuelDailyMeasured by remember { mutableStateOf(prefs.getInt("fuel_daily_measured", 0)) }
+    val lpgDailyCost = if (fuelDailyMeasured > 0) fuelDailyMeasured else prefs.getInt("lpg_daily_cost", 0)
     // [v17] daily_expense(일 고정지출) 제거 — 잡지출/영수증으로 일원화. 순수익 계산에서 뺌.
     val feePercent = prefs.getInt("fee_percent", 0)
     var profile by remember { mutableStateOf<HomeProfile?>(null) }
@@ -372,6 +376,14 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 todayTrips = todayJson.optInt("tripCount", 0)
                 todayFare = todayJson.optInt("todayFare", 0)
                 todayActiveHours = todayJson.optInt("activeHours", 0)
+                // [2026-08-29] 실측 하루 연료비. 0 이면 아직 만들 수 없다는 뜻이라 덮어쓰지 않는다
+                //  (서버가 잠깐 못 주는 것과 '기록이 없다'를 구분할 수 없어서, 있을 때만 갱신한다).
+                todayJson.optInt("fuelDaily", 0).let { fd ->
+                    if (fd > 0 && fd != fuelDailyMeasured) {
+                        fuelDailyMeasured = fd
+                        prefs.edit().putInt("fuel_daily_measured", fd).apply()
+                    }
+                }
                 noFareCount = todayJson.optInt("noFareCount", 0)
 
                 val recentArr = todayJson.optJSONArray("recentTrips") ?: JSONArray()
@@ -697,7 +709,10 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // [v24 진화②] 교대별 손익 — 일 유류비+사납금 빼고 예상 순수익 (하루 1회만 차감)
                     // [개인/법인 분리] 개인택시는 사납금이 없음 → 고정비=유류만. 법인만 사납 포함(잔존 사납값 누출 방지).
                     val effShiftSanap = if (driverType == "corporate") prefs.getInt("daily_sanap", 0) else 0
-                    sumFixedCost = prefs.getInt("lpg_daily_cost", 0) + effShiftSanap
+                    // [2026-08-29] 실측 하루 연료비 우선 — 위 lpgDailyCost 와 같은 규칙이어야 한다
+                    //  (정관: 같은 지표의 가드가 자리마다 다르면 이미 사고가 난 것).
+                    val fdm = prefs.getInt("fuel_daily_measured", 0)
+                    sumFixedCost = (if (fdm > 0) fdm else prefs.getInt("lpg_daily_cost", 0)) + effShiftSanap
                     sumNetProfit = (sFare - sumFixedCost).coerceAtLeast(0)
                     // [통행료] 오늘·이번 달 선결제액을 영수증에 실어준다. 실패해도 영수증은 그대로 뜬다.
                     if (userId.isNotEmpty()) scope.launch {

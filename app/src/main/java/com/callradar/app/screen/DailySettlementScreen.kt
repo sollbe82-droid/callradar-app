@@ -167,13 +167,13 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
     val prefs = context.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
     val isCompany = prefs.getString("driver_type", "personal") == "corporate"
     val submitLabel = if (isCompany) "회사 제출" else "저장"
-    // 회사 정산단가(lpg_price) 반영한 실부담 가스비. 단가 있고 리터 있으면 리터×단가, 없으면 영수증 원가
-    val settlePrice = prefs.getInt("lpg_price", 0)
-    val gasRealCost: Int? = when {
-        gasAmount == null -> null
-        settlePrice > 0 && gasLiters != null && gasLiters!! > 0 -> Math.round(gasLiters!! * settlePrice).toInt()
-        else -> gasAmount
-    }
+    // [2026-08-29] 예전엔 `lpg_price`(기사설정의 회사 정산단가)로 리터×단가를 다시 계산했다.
+    //  그런데 그 키는 **지출을 적을 때마다 주유소 실단가로 덮어써지고 있었다** — 같은
+    //  callradar_prefs 한 칸을 설정 화면과 지출 화면이 서로 다른 뜻으로 쓰고 있었다.
+    //  회사가 900원에 정산해줘도 오늘 1,150원에 넣으면 실부담이 1,150원/L 로 잡혔다.
+    //  기사설정의 가스 칸을 없앴으므로 이 재계산도 뺀다 — **영수증 금액이 실제로 나간 돈**이다.
+    //  (리터당 할인은 기록 탭 지출 요약표에서 `리터당 × 월 총리터` 로 한 번만 반영한다.)
+    val gasRealCost: Int? = gasAmount
 
     // 전표에서 파싱한 개별 운행들을 기록에 추가 (경우1: 새 운행 생성)
     // ⑩ 그날 금액 빈 GPS 운행 불러오기
@@ -474,13 +474,10 @@ fun DailySettlementScreen(userId: String, onClose: () -> Unit) {
                 gasAmount?.let { raw ->
                     Text("영수증 금액: ${String.format("%,d", raw)}원" + (gasLiters?.let { l -> "  ($l $gasUnit)" } ?: ""),
                         fontSize = 13.sp, color = AppTheme.text, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
-                    if (settlePrice > 0 && gasLiters != null && gasLiters!! > 0) {
-                        Text("실부담 연료비: ${String.format("%,d", gasRealCost ?: raw)}원  (정산단가 ${settlePrice}원 적용)",
-                            fontSize = 13.sp, color = green, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                        Text("지출로 자동 기록돼요", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
-                    } else {
-                        Text("지출로 자동 기록돼요 (정산단가 설정 시 실부담 계산)", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
-                    }
+                    // [2026-08-29] '정산단가 적용' 줄을 뺐다 — 그 단가(lpg_price)는 지출을 적을 때마다
+                    //  주유소 실단가로 덮어써지고 있어서, 여기 뜨던 "정산단가 N원 적용"은 사실이 아니었다.
+                    //  영수증 금액이 실제로 나간 돈이다. 리터당 할인은 기록 탭 요약표에서 월 단위로 한 번 반영한다.
+                    Text("지출로 자동 기록돼요", fontSize = 11.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }

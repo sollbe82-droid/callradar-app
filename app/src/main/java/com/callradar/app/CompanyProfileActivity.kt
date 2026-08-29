@@ -100,7 +100,8 @@ class CompanyProfileActivity : ComponentActivity() {
     private fun Screen() {
         val ctx = this
         val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-        val lpgDailyCost = prefs.getInt("lpg_daily_cost", 0)
+        // [2026-08-29] 실측 하루 연료비 우선. 기사설정 가스 칸 6개를 없애서 옛 추정값은 폴백일 뿐이다.
+        val lpgDailyCost = prefs.getInt("fuel_daily_measured", 0).takeIf { it > 0 } ?: prefs.getInt("lpg_daily_cost", 0)
         var profiles by remember(refreshTick) { mutableStateOf(CompanyProfile.all(prefs)) }
         var activeKey by remember(refreshTick) { mutableStateOf(CompanyProfile.active(prefs)?.key() ?: "") }
         var editing by remember { mutableStateOf<CompanyProfile?>(null) }

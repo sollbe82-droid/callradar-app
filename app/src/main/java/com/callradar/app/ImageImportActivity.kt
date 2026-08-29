@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -91,6 +92,60 @@ private data class RcptFields(
 private fun trimNum(d: Double): String {
     val s = String.format("%.3f", d).trimEnd('0').trimEnd('.')
     return if (s.isEmpty() || s == "-") "0" else s
+}
+
+/**
+ * [2026-08-29 대표 지시] "저 보여지는 걸 클릭하면 넣을 수 있게."
+ *
+ *  왜 필요했나 — 이 카드의 회색 글씨는 **읽은 값이 아니라 내가 박아둔 예시**였다
+ *  ("2026-08-16", "51.980", "60401"). 어떤 영수증을 넣어도 그 숫자가 떠서
+ *  기사는 다 읽힌 줄 알았는데, 실제로는 금액 칸이 비어 있어 `enabled` 에 걸려
+ *  '아래 표에 넣기' 가 죽어 있었다. 대표가 "금액 맞는데 왜 진행이 안 되냐"고 한 게 이것이다.
+ *
+ *  그래서 회색을 **진짜 계산값**으로 바꾼다. 부가세는 항등식이라 가게 양식과 무관하다.
+ *      세액 = 공급가액 / 10 · 금액 = 공급가액 + 세액 · 금액 = 수량 × 단가
+ *  하나만 읽혀도 연쇄로 풀린다. 실제 실패 사례(남서울가스, 단가·세액만 읽힘):
+ *      세액 5,491 → 공급가액 54,910 → 금액 60,401 → 수량 60,401/1,162 = 51.98L
+ *  영수증 실제 값과 전부 일치한다.
+ *
+ *  **채워 넣지 않고 제안만 한다.** 단독 복원은 오독한 숫자를 증폭시킬 수 있어서,
+ *  기사가 눈으로 보고 탭했을 때만 들어간다. 빈 칸에만 나오고 입력한 값은 건드리지 않는다.
+ */
+private fun rcptSuggest(r: RcptFields): RcptFields {
+    val amtMin = 1_000; val amtMax = 1_000_000
+    val qtyMin = 0.5; val qtyMax = 300.0
+    val priceMin = 100.0; val priceMax = 5_000.0
+
+    var q = r.qty.toDoubleOrNull() ?: 0.0
+    var p = r.price.toDoubleOrNull() ?: 0.0
+    var sup = r.supply.toIntOrNull() ?: 0
+    var tax = r.tax.toIntOrNull() ?: 0
+    var amt = r.amount.toIntOrNull() ?: 0
+    if (q !in qtyMin..qtyMax) q = 0.0
+    if (p !in priceMin..priceMax) p = 0.0
+
+    // 한 칸이 채워지면 다음 칸이 계산된다 — 연쇄를 위해 두 바퀴 돈다.
+    repeat(2) {
+        if (amt == 0 && sup > 0 && tax > 0) amt = sup + tax
+        if (amt == 0 && sup > 0) amt = sup + Math.round(sup / 10.0).toInt()
+        if (amt == 0 && tax > 0) amt = tax * 11
+        if (amt == 0 && q > 0 && p > 0) amt = Math.round(q * p).toInt()
+        if (amt !in amtMin..amtMax) { amt = 0; return@repeat }
+        if (sup == 0) sup = Math.round(amt / 1.1).toInt()
+        if (tax == 0) tax = amt - Math.round(amt / 1.1).toInt()
+        if (q == 0.0 && p > 0) { val d = amt / p; if (d in qtyMin..qtyMax) q = Math.round(d * 1000.0) / 1000.0 }
+        if (p == 0.0 && q > 0) { val d = amt / q; if (d in priceMin..priceMax) p = Math.round(d * 100.0) / 100.0 }
+    }
+
+    // 원래 비어 있던 칸에만 제안을 돌려준다. 날짜는 산수로 만들 수 없어 제안하지 않는다.
+    return RcptFields(
+        date = "",
+        qty = if (r.qty.isBlank() && q > 0) trimNum(q) else "",
+        price = if (r.price.isBlank() && p > 0) trimNum(p) else "",
+        supply = if (r.supply.isBlank() && sup > 0) sup.toString() else "",
+        tax = if (r.tax.isBlank() && tax > 0) tax.toString() else "",
+        amount = if (r.amount.isBlank() && amt in amtMin..amtMax) amt.toString() else ""
+    )
 }
 
 // [v19] 가져오기 파싱 규칙 — 서버(/api/import/rules)에서 받아 파서에 적용. 못 받으면 이 기본값 사용.
@@ -590,32 +645,64 @@ private fun ImportScreen(userId: String, initialMode: String = "both", onClose: 
 
                 @Composable
                 fun field(label: String, value: String, unit: String, hint: String,
-                          keyboard: KeyboardType, onChange: (String) -> Unit) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                        Text(label, fontSize = 13.sp, color = muted, modifier = Modifier.width(78.dp))
-                        OutlinedTextField(
-                            value = value, onValueChange = onChange,
-                            placeholder = { Text(hint, fontSize = 12.sp, color = Color(0xFF4B5563)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold),
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (unit.isNotEmpty())
-                            Text(unit, fontSize = 12.sp, color = muted, modifier = Modifier.padding(start = 6.dp).width(34.dp))
-                        else Spacer(Modifier.width(40.dp))
+                          keyboard: KeyboardType, suggest: String = "", onChange: (String) -> Unit) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text(label, fontSize = 13.sp, color = muted, modifier = Modifier.width(78.dp))
+                            OutlinedTextField(
+                                value = value, onValueChange = onChange,
+                                placeholder = { Text(hint, fontSize = 12.sp, color = Color(0xFF4B5563)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = AppTheme.text, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (unit.isNotEmpty())
+                                Text(unit, fontSize = 12.sp, color = muted, modifier = Modifier.padding(start = 6.dp).width(34.dp))
+                            else Spacer(Modifier.width(40.dp))
+                        }
+                        // [대표 지시] 계산으로 나온 값을 보여주고, **누르면 그 칸에 들어간다.**
+                        //  빈 칸에만 뜬다. 직접 적은 값은 절대 안 건드린다.
+                        if (value.isBlank() && suggest.isNotBlank()) {
+                            Row(modifier = Modifier
+                                .padding(start = 78.dp, top = 3.dp)
+                                .background(Color(0xFF1F2937), RoundedCornerShape(8.dp))
+                                .clickable { onChange(suggest) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                Text("계산 $suggest$unit  ·  눌러서 넣기",
+                                    fontSize = 12.sp, color = accent, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
 
                 val unitName = if (myFuelIsEv) "kWh" else "L"
-                field("일시", r.date, "", "2026-08-16", KeyboardType.Text) { rcpt = r.copy(date = it) }
-                field("수량", r.qty, unitName, "51.980", KeyboardType.Decimal) { rcpt = r.copy(qty = it) }
-                field("단가", r.price, "원", "1162", KeyboardType.Decimal) { rcpt = r.copy(price = it) }
-                field("공급가액", r.supply, "원", "54910", KeyboardType.Number) { rcpt = r.copy(supply = it) }
-                field("세액", r.tax, "원", "5491", KeyboardType.Number) { rcpt = r.copy(tax = it) }
-                field("금액", r.amount, "원", "60401", KeyboardType.Number) { rcpt = r.copy(amount = it) }
+                // [2026-08-29] 예전엔 여기 hint 자리에 이 영수증 숫자가 하드코딩돼 있었다
+                //  ("2026-08-16"/"51.980"/"60401"). 어떤 영수증에도 그게 떠서 다 읽은 것처럼 보였다.
+                //  이제 hint 는 형식 안내뿐이고, 값 제안은 sg(계산값)가 맡는다.
+                val sg = rcptSuggest(r)
+                field("일시", r.date, "", "YYYY-MM-DD", KeyboardType.Text) { rcpt = r.copy(date = it) }
+                field("수량", r.qty, unitName, "직접 입력", KeyboardType.Decimal, sg.qty) { rcpt = r.copy(qty = it) }
+                field("단가", r.price, "원", "직접 입력", KeyboardType.Decimal, sg.price) { rcpt = r.copy(price = it) }
+                field("공급가액", r.supply, "원", "직접 입력", KeyboardType.Number, sg.supply) { rcpt = r.copy(supply = it) }
+                field("세액", r.tax, "원", "직접 입력", KeyboardType.Number, sg.tax) { rcpt = r.copy(tax = it) }
+                field("금액", r.amount, "원", "직접 입력", KeyboardType.Number, sg.amount) { rcpt = r.copy(amount = it) }
+
+                // 계산값이 두 칸 이상이면 하나씩 누르는 게 번거롭다 — 한 번에.
+                if (listOf(sg.qty, sg.price, sg.supply, sg.tax, sg.amount).count { it.isNotBlank() } >= 2) {
+                    TextButton(onClick = {
+                        rcpt = r.copy(
+                            qty = if (r.qty.isBlank() && sg.qty.isNotBlank()) sg.qty else r.qty,
+                            price = if (r.price.isBlank() && sg.price.isNotBlank()) sg.price else r.price,
+                            supply = if (r.supply.isBlank() && sg.supply.isNotBlank()) sg.supply else r.supply,
+                            tax = if (r.tax.isBlank() && sg.tax.isNotBlank()) sg.tax else r.tax,
+                            amount = if (r.amount.isBlank() && sg.amount.isNotBlank()) sg.amount else r.amount
+                        )
+                    }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        Text("계산값 모두 넣기", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Bold)
+                    }
+                }
 
                 // 검산 — 기계가 맞았는지 기사가 눈으로 확인할 수 있게 근거를 보여준다.
                 val checks = buildList {
