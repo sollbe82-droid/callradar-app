@@ -450,7 +450,7 @@ class NaviIntentReceiver : AccessibilityService() {
                         //  실측(유저#833, 47분 서울 운행): FARE_CACHE 2150 하나만 오고 최종 프레임은 아예 안 왔다
                         //  → "매 프레임 덮어쓰니 마지막엔 맞아진다"는 전제가 성립하지 않는다(다이얼로그가 닫히며 이벤트 끊김).
                         //  미터요금은 기본요금(전국 3,800~4,800)보다 낮을 수 없으므로 3000 미만은 중간값으로 본다.
-                        //  덤으로, 안 쓰고 넘기면 recentFinalFare==0 이 되어 아래 '우버 홈 마지막 운행 ₩X' 복구가 살아난다.
+                        //  (v100: 그 복구 경로는 누적값을 긁어 요금을 덮어써서 제거했다 — 유저 592 제보.)
                         if (v in 3000..500000 && v > meterFare) meterFare = v  // 최댓값 = 미터요금(통행료보다 큼)
                     }
                 }
@@ -482,7 +482,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
             // [#4116 미터기 수정결제] 방금 마감한 트립이 있는데, 최종 확인화면 금액이 다르면 그 값으로 갱신.
             //  예: '손님이 직접결제 하셨나요? 미터기 4,800'으로 마감 → 기사가 '입력하신 요금이 맞습니까? 7,800' 수정결제 → 7,800으로 갱신.
-            if (recentFinalTripId > 0 && System.currentTimeMillis() - recentFinalAt < 300000L) {   // [우버0원] 복구창 120→300초: 홈('마지막 운행 ₩X')이 늦게 떠도 요금 복구
+            if (recentFinalTripId > 0 && System.currentTimeMillis() - recentFinalAt < 300000L) {   // [우버0원] 복구창 300초 — 이 블록은 '수정결제 재확인' 용이다(홈 긁기는 v100에서 제거)
                 val hasFinal = allText.contains("입력하신 요금이 맞습니까") || allText.contains("자동결제 완료") || allText.contains("결제요청")
                 val finFare = extractFare(lines, pkg)
                 if (hasFinal && finFare > 0 && finFare != recentFinalFare) {
@@ -491,19 +491,21 @@ class NaviIntentReceiver : AccessibilityService() {
                     sendDebugLog("FARE_FIX", "#$tid | ${finFare}원 (수정결제)")
                     updateTripFare(tid, finFare)
                 }
-                // [v53 #124] 우버 0원 복구 — 완료를 홈 복귀로 늦게 잡아 미터화면을 놓친 트립을 홈의 '마지막 운행 ₩X'로 보정.
-                if (pkg == UBER && recentFinalFare == 0) {
-                    val idx = lines.indexOfFirst { it.contains("마지막 운행") }
-                    if (idx > 0) {
-                        val cand = Regex("([0-9,]{3,})").find(lines[idx - 1].replace("₩", "").trim())
-                            ?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
-                        if (cand in 1000..500000) {
-                            val tid = recentFinalTripId; recentFinalFare = cand
-                            sendDebugLog("FARE_FIX", "#$tid | ${cand}원 (우버 마지막운행 복구)")
-                            updateTripFare(tid, cand)
-                        }
-                    }
-                }
+                /* [v100 제거] '우버 홈 마지막 운행 ₩X' 복구 경로를 없앴다.
+                 *
+                 *  유저 592 제보(2026-08-30): **8,700원짜리가 저절로 36,800원으로 바뀌었다.**
+                 *  36,800 은 그날 우버 매출 합계였다 — 개별 요금이 아니라 **누적값을 긁은 것**이다.
+                 *
+                 *  원인: "마지막 운행" 이라는 글자의 **윗줄**(lines[idx-1])을 요금으로 썼다.
+                 *  우버 홈에서 그 자리에 누적 수입이 오면 그대로 들어가고, 범위(1000~500000)
+                 *  안이라 걸러지지도 않는다. 그리고 **조용히 덮어쓴다.**
+                 *
+                 *  v99 에서 우버 하한을 3,000 으로 올리며 recentFinalFare == 0 으로 남는 경우가
+                 *  늘어 이 경로가 더 자주 돌았다. 원래 있던 버그인데 노출을 키운 게 v99 다.
+                 *
+                 *  왜 고치지 않고 없애나 — 정관 원칙: **틀린 숫자를 조용히 넣는 것보다 빈 칸이 낫다.**
+                 *  기사는 왜 바뀌었는지 모르고, 못 알아채면 매출이 틀어진 채로 남는다.
+                 *  0원 트립은 **카드 승인 알림 캡처**가 채운다(실제 결제액이라 화면 파싱보다 정확하다). */
             }
 
             // 완료/결제 신호
