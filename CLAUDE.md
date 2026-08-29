@@ -136,6 +136,25 @@ km당 매출    5km 미만  → "5km 후"     (분모가 '탭 초기화' 버튼�
 - **⑤ 빌드는 Claude가 직접**: 리눅스칸은 SDK없음·저장소차단이라 컴파일만 못함. `.bat` 만들어 **파일탐색기(computer-use)에서 실행**(주소창 타이핑 막히면 **더블클릭**), `C:\CallRadar\*.log`를 Read로 `BUILD SUCCESSFUL` 확인. 서버 배포도 `.bat`로 `git -C C:\CallRadar\server push`.
 - **⑥ 결론은 검증 후에만.** 로그·코드 확인 전 "원인 확정/다 됐다" 금지.
 
+## ★★ user_id 타입이 테이블마다 다르다 (2026-08-29 하루에 두 번 당함)
+```
+users.id            INTEGER (SERIAL)
+trips.user_id       INTEGER
+work_sessions_log   INTEGER
+driver_settings     TEXT
+expenses.user_id    TEXT
+```
+**한 쿼리에서 여러 테이블을 같은 `$1` 로 비교하면 Postgres 가 첫 사용처로 타입을 정해 버린다.**
+- 조인: `ds.user_id = u.id::text` 처럼 **양쪽을 명시**할 것.
+- 파라미터: `expenses` 는 `user_id::text=$1::text`, `trips` 는 `user_id=$1::int`.
+
+겪은 사고 두 건 — 둘 다 조용히 실패했다.
+1. `/api/today` 의 `fuelDaily`: expenses(TEXT)+trips(INT) 를 같은 `$1` 로 써서 쿼리 전체가 실패했는데
+   `catch` 가 삼켜 **그냥 0 이 내려갔다.** 값이 안 나와서 파보고서야 알았다.
+2. `/api/admin/driver-mix`: `ds.user_id = u.id` → `operator does not exist: text = integer`.
+
+**새 쿼리를 쓸 때 조인·파라미터의 타입을 먼저 확인할 것.** 특히 `catch` 로 감싼 곳은 실패가 안 보인다.
+
 ## ★ 진단 도구
 - **★ 관리자 접근 방식 변경(2026-08-27) — `?key=` 는 이제 막혔다(403).** 위치정보법 고시 제8조 대응.
   - **스크립트·진단**: 헤더 `x-admin-key: <KEY>` 로만. 예: `Invoke-RestMethod <url> -Headers @{'x-admin-key'=$k}`
