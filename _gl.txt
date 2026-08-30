@@ -1,5 +1,0 @@
-85fd941 v100 home brief card: server-composed personal lines
-158a18b v100 / 3.0.0 - uber back-to-back dispatch, permission gate, fuel entry rework
-954a72e home-brief: tighter sample gate (15 trips/8h) + merge statistically tied bands into a range
-a418d7b home-brief debug view
-959e8e2 home-brief: personal pace + best remaining band (replaces demand/events line)

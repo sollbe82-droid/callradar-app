@@ -1,2 +1,22 @@
-d14acda home-brief: debug bypasses cache
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cmd2.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gl.txt', LF will be replaced by CRLF the next time Git touches it
+[master cbabb6c] v100 release notes + charter: never use means for advisory metrics
+ 19 files changed, 107 insertions(+), 14 deletions(-)
+ create mode 100644 _build100b.log
+ create mode 100644 _cl.txt
+ create mode 100644 _gl.txt
+ create mode 100644 _glok.txt
+ create mode 100644 _out_210636411.log
+ delete mode 100644 _out_746920313.log
+ create mode 100644 _q1.json
+ create mode 100644 _q2.json
+ create mode 100644 _q3.json
+ create mode 100644 _q4.json
+ create mode 100644 _q5.json
+ create mode 100644 _rmok.txt
+ create mode 100644 _s1.txt
+ create mode 100644 _s2.txt
+ create mode 100644 _s3.txt
+cbabb6c v100 release notes + charter: never use means for advisory metrics
 RUN2_DONE 
