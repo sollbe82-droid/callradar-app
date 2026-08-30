@@ -1,7 +1,11 @@
-cd /d C:\CallRadar
-git rm -q --cached _s1.txt _s2.txt _s3.txt _cl.txt _cm.txt _glok.txt _gl.txt _rmok.txt 2>nul
-del /q C:\CallRadar\_s1.txt C:\CallRadar\_s2.txt C:\CallRadar\_s3.txt C:\CallRadar\_gl.txt 2>nul
+@echo off
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+cd /d C:\CallRadar\server
 git add -A
-git commit -m "drop stray runner artifacts"
-git log --oneline -1
-echo DONE > C:\CallRadar\_cn.txt
+git commit -m "anomalies: late_cancel shows KST deletion time"
+git push
+cd /d C:\CallRadar
+git add -A
+git commit -m "do not delete a trip as call-cancel after 10min (90.7 pct of real cancels happen within 10min, n=872)"
+call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build100c.log 2>&1
+echo BUILT > C:\CallRadar\_bstep.txt

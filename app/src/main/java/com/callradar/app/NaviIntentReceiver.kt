@@ -91,6 +91,12 @@ class NaviIntentReceiver : AccessibilityService() {
     private var lastUberWrittenFare = 0  // [우버0원수정] 요금 본 순간 서버에 쓴 값 추적(중복 PUT 방지)
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
+
+    /** 이 시간을 넘겨 달린 트립은 대기화면이 보여도 **취소로 보지 않는다**.
+     *  서버 실측(60일 872건): 진짜 콜취소의 90.7%가 10분 안에 일어난다. 뒤 꼬리는 오탐이었다. */
+    private const val LATE_CANCEL_MS = 10 * 60 * 1000L
+    /** 위 판정을 트립당 한 번만 로그로 남기기 위한 표시(프레임마다 찍히면 로그가 폭주한다). */
+    @Volatile private var cancelSkipTripId = -1
     @Volatile private var lastTollTripId = -1  // [v57] 통행료 중복기록 방지 — 트립당 1회만
     // 우버는 통행료를 '미터 요금만 입력' 화면에 띄우고, 그 화면은 종료 신호보다 먼저 지나간다.
     //  본 순간 여기 담아뒀다가 마감할 때 쓴다. 새 운행이 시작되면 0으로 되돌린다.
@@ -421,13 +427,34 @@ class NaviIntentReceiver : AccessibilityService() {
                 // 카카오T는 콜 수락 직후 대기화면이 안 뜨므로 오탐 위험 낮음
                 // 손님 탑승한 경우는 아래 passengerBoarded 분기에서 보호됨
                 val minCancelMs = if (passengerBoarded) 60000L else 5000L
-                if (isCancelledToIdle && System.currentTimeMillis() - tripStartedAt > minCancelMs) {
+                val elapsedMs = System.currentTimeMillis() - tripStartedAt
+                if (isCancelledToIdle && elapsedMs > minCancelMs) {
                     if (passengerBoarded) {
                         // 손님 탑승한 운행은 대기화면 스쳐도 취소 안함 (인천공항/지방/정체 대응)
                         Log.d(TAG, "대기화면 감지했으나 손님 탑승상태 → 취소 무시")
+                    } else if (elapsedMs > LATE_CANCEL_MS) {
+                        /* ★★ 오래 달린 트립은 **지우지 않는다** (2026-08-31 유저 108 제보)
+                         *
+                         *  제보: "의정부 카카오 자동결제였는데 콜잡고 운행중 떠 있다 어느순간 사라졌습니다."
+                         *  누락이 아니라 **잡혔다가 지워진 것**이었다. 탑승 신호는 '손님 탑승' 클릭이나
+                         *  '밀어서 운행종료' 화면글자로만 서는데, 장거리 편도에서 내비만 보고 달리면 둘 다 안 잡힌다.
+                         *  그 상태에서 **복귀콜을 찾으려고 카카오를 여는 순간** 대기화면이 보여 운행이 지워졌다.
+                         *
+                         *  서버 실측(60일 872건)이 문턱을 정해줬다 — 취소의 **90.7%가 10분 안에** 일어난다.
+                         *    1분미만 51.6% · 1-3분 18.8% · 3-5분 9.6% · 5-10분 10.7% ┃ 그 뒤 꼬리 9.3%
+                         *  그 꼬리 81건이 오탐이었다(최장 **233분**짜리도 있었다. 9명이 당했다).
+                         *
+                         *  ★ 지우는 건 확실할 때만. 애매하면 남긴다.
+                         *    남은 유령은 0원이라 서버가 다음 콜에 auto_closed 로 닫고 통계에서 빠진다(정관).
+                         *    반대로 지워버린 74,600원은 되돌릴 방법이 없다. 손해가 한쪽으로 훨씬 크다. */
+                        if (cancelSkipTripId != lastTripId) {
+                            cancelSkipTripId = lastTripId      // 프레임마다 찍히지 않게 한 번만
+                            Log.d(TAG, "대기화면 감지했으나 ${elapsedMs/60000}분 경과 → 취소 아님(운행 유지)")
+                            sendDebugLog("CANCEL_SKIP", "#$lastTripId | $lastPlatform | ${elapsedMs/60000}분 경과 → 삭제 안 함")
+                        }
                     } else {
                         Log.d(TAG, "⚠️ 운행 중 대기화면 → 취소 감지")
-                        sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀(미탑승)")
+                        sendDebugLog("CANCEL_END", "#$lastTripId | $lastPlatform | 대기화면복귀(미탑승) | ${elapsedMs/1000}초")
                         deleteCurrentTrip()
                         return
                     }
