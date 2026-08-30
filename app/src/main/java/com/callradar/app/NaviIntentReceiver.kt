@@ -59,6 +59,9 @@ class NaviIntentReceiver : AccessibilityService() {
             Regex("([0-9,]{4,})\\s*원")
         )
         private const val MAX_TRIP_DURATION = 21600000L  // 6시간 (장거리+정체+네비전환 대응)
+        /** 이 시간을 넘겨 달린 트립은 대기화면이 보여도 **취소로 보지 않는다**.
+         *  서버 실측(60일 872건): 진짜 콜취소의 90.7%가 10분 안에 일어난다. 뒤 꼬리 9.3%는 오탐이었다. */
+        private const val LATE_CANCEL_MS = 600000L       // 10분
         private const val DEST_UPDATE_INTERVAL = 30000L
 
         // [v3.1x] 택시투데이 알림 서비스가 참조하는 "현재 진행 중인 플랫폼 콜" 상태
@@ -92,9 +95,6 @@ class NaviIntentReceiver : AccessibilityService() {
     @Volatile private var tripStartedAt = 0L
     @Volatile private var passengerBoarded = false  // 손님 탑승 여부 - true면 장거리/정체여도 취소 안함
 
-    /** 이 시간을 넘겨 달린 트립은 대기화면이 보여도 **취소로 보지 않는다**.
-     *  서버 실측(60일 872건): 진짜 콜취소의 90.7%가 10분 안에 일어난다. 뒤 꼬리는 오탐이었다. */
-    private const val LATE_CANCEL_MS = 10 * 60 * 1000L
     /** 위 판정을 트립당 한 번만 로그로 남기기 위한 표시(프레임마다 찍히면 로그가 폭주한다). */
     @Volatile private var cancelSkipTripId = -1
     @Volatile private var lastTollTripId = -1  // [v57] 통행료 중복기록 방지 — 트립당 1회만

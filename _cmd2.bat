@@ -1,11 +1,11 @@
 @echo off
-set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
-cd /d C:\CallRadar\server
-git add -A
-git commit -m "anomalies: late_cancel shows KST deletion time"
-git push
+set A=C:\AndroidSdk\platform-tools\adb.exe
+del /q C:\CallRadar\_bstep.txt C:\CallRadar\_lc.txt C:\CallRadar\_lc2.txt C:\CallRadar\_an.json 2>nul
+copy /Y "C:\CallRadar\app\build\outputs\apk\onestore\release\app-onestore-release.apk" "C:\CallRadar\_releases\v100\CallRadar-v100-3.0.0-onestore.apk"
+copy /Y "C:\CallRadar\app\build\outputs\mapping\onestoreRelease\mapping.txt" "C:\CallRadar\_releases\v100\mapping-v100-3.0.0-onestore.txt"
+%A% install -r "C:\CallRadar\_releases\v100\CallRadar-v100-3.0.0-onestore.apk"
 cd /d C:\CallRadar
 git add -A
-git commit -m "do not delete a trip as call-cancel after 10min (90.7 pct of real cancels happen within 10min, n=872)"
-call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build100c.log 2>&1
-echo BUILT > C:\CallRadar\_bstep.txt
+git commit -m "v100 rebuild with late-cancel guard"
+git log --oneline -1
+certutil -hashfile "C:\CallRadar\_releases\v100\CallRadar-v100-3.0.0-onestore.apk" MD5 | findstr /v ":"
