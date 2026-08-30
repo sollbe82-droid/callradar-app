@@ -1,0 +1,17 @@
+uber: treat the meter-entry dialog as the end of the trip
+
+Uber dispatches the next call before the driver arrives, so the driver finishes
+the current trip, takes payment, then drives to the pickup he was already given.
+He never returns to the Uber home screen, which is what trip completion was
+waiting for. The trip stayed open and every following meter reading overwrote it.
+
+Driver 592: three calls collapsed into trip 13604 - 8,200 then 8,400 then 8,800,
+stored as one 46-minute trip of 8,800. 16,600 won of a 25,400 won stretch was
+gone. Kakao does not show this because its "passenger boarded" tap already
+triggers the stall-recovery path; Uber has no such button.
+
+The meter dialog only ever appears after arrival, so it is finalized there. It
+re-renders several times within a couple of seconds, so trip creation is held off
+for 90 seconds while it is on screen, otherwise the repeats would open a phantom
+trip on the spot. Mid-typing values stay guarded by the 3,000 floor and the
+300-second correction window.

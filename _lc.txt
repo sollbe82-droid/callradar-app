@@ -1,0 +1,342 @@
+--------- beginning of main
+08-28 20:08:04.932  1970  1970 I SurfaceFlinger: id=743 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{Surface(name=2257824 InputMethod#167)/@0x5065789 - animation-leash of insets_animation#743 !handle})
+08-28 20:08:04.933  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.933  1970  1970 I SurfaceFlinger: id=743 Destroyed Surface(name=2257824 InputMethod#167)/@0x5065789 - animation-leash of insets_animation#743
+08-28 20:08:04.934  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.22940814)
+08-28 20:08:04.937  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+08-28 20:08:04.937  1838  6029 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK OFF
+08-28 20:08:04.941  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.942  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.1749649)
+08-28 20:08:04.949  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.950  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.1272273)
+08-28 20:08:04.958  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.959  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.08554107)
+08-28 20:08:04.966  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.967  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.056450307)
+08-28 20:08:04.975  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.976  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.034012735)
+08-28 20:08:04.983  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.984  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.01602161)
+08-28 20:08:04.991  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:04.992  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.0060721636)
+08-28 20:08:04.999  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.000  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.0013053417)
+08-28 20:08:05.004  4638  4638 I HoneySpace.EdgePanel.EdgeContainerViewModel: isAwaitingAppTransitionAnimation: true
+08-28 20:08:05.004  4638  4638 I HoneySpace.EdgePanel.EdgeVisibilityRepository: getComputedTrayVisible : keyguardState = 1
+08-28 20:08:05.004  4638  4638 I HoneySpace.EdgePanel.EdgeVisibilityRepository: updateTrayVisible: State = 0x1, visible = true, current containerState = 0, specificMode = 0
+08-28 20:08:05.004  4638  4638 I HoneySpace.EdgePanel.EdgeVisibilityRepository: Same container state 0
+08-28 20:08:05.004  4638  4638 I HoneySpace.EdgePanel.EdgeContainerViewModel: isAwaitingAppTransitionAnimation: false
+08-28 20:08:05.007  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.009  4638  4727 I HoneySpace.TaskbarEventTracker: invokeEvent() called with: event = NavButtonsDarkIntensityChanged(darkIntensity=0.0)
+08-28 20:08:05.016  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.024  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.032  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.041  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.049  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.057  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.066  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.074  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.083  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+--------- beginning of system
+08-28 20:08:05.083  2971  3127 I WindowManager: Reparenting to original parent: Surface(name=ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#745)/@0xa3ac6a2, destroy=true, surface=Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703
+08-28 20:08:05.087  1838  5422 D vendor.qti.bluetooth@1.1-wake_lock: Release wakelock is released 
+08-28 20:08:05.091  2971  3128 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.091  2971  3127 D SurfaceComposerClient: [SEC_SF_EFFECTS] setBackgroundBlurRadius ## Dim Layer for - Task=764#764 backgroundBlurRadius=0
+08-28 20:08:05.099  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754 parentId=745} 3 children}] reparent to LayerHierarchy{RequestedLayerState{ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#745 parentId=759 z=7} 4 children}
+08-28 20:08:05.099  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763} no children}] reparent to OffscreenRoot
+08-28 20:08:05.099  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763} no children}] RelativeParent to null
+08-28 20:08:05.100  1970  1970 I SurfaceFlinger: id=763 Removed Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763 (187)
+08-28 20:08:05.107  1970  1970 I SurfaceFlinger: destroyed Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763 form LifecycleManager
+08-28 20:08:05.108  1970  1970 I SurfaceFlinger: id=763 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763 !handle})
+08-28 20:08:05.108  1970  1970 I SurfaceFlinger: id=763 Destroyed Surface(name=a6af0c1 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity#754)/@0xb990703 - animation-leash of window_animation#763
+08-28 20:08:05.147  1856 22329 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 4474556
+08-28 20:08:05.316  4139  4202 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#55) android.os.BinderProxy@1824df5@0
+08-28 20:08:05.316  4139  4202 I SurfaceControlRegistry: apply, t=FinishTransaction_SyncId<55>, caller=android.view.SurfaceControl$Transaction.apply:3581 android.view.SurfaceControl$Transaction.apply:3569 android.view.SurfaceControl$Transaction.apply:3519 com.android.wm.shell.transition.Transitions.onFinish:381 com.android.wm.shell.transition.Transitions$$ExternalSyntheticLambda8.onTransitionFinished:12 com.android.wm.shell.transition.DefaultTransitionHandler$$ExternalSyntheticLambda2.run:276 
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger: Display 4630947175568309891 HWC layers:
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           94304596918284 | 00002102 | RGBA_8888    |    0.0    0.0 2176.0 1812.0 |    0    0 2176 1812 | com.callradar.app/com.callradar.app.MainActivity$_21957#747 (1)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:   SOLID_COLOR |                        0 | 00000000 | N/A          |    0.0    0.0    0.0    0.0 |    0    0 2176 1812 | Dim Layer for - Task=764#764 (0)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           89489938579462 | 00002100 | RGBA_8888    |    0.0    0.0 1315.0 1118.0 |  743  347 2058 1465 | com.google.android.permissioncontrol[...].GrantPermissionsActivity$_20836#755 (51)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           17776869657558 | 00002100 | RGBA_8888    |    0.0    0.0   66.0  249.0 |    7  782   73 1031 | Caption of Task=755#195 (152)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           17776869657510 | 00002100 | RGBA_8888    |    0.0    0.0   80.0 1812.0 |    0    0   80 1812 | StatusBar$_4139#112 (6185)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           19920058319053 | 00002100 | RGBA_8888    |    0.0    0.0  318.0   80.0 |  345 1732  663 1812 | com.sec.android.app.
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger: launcher/com.sam[...]nel.app.CocktailBarService$_4638#657 (1)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger:        DEVICE |           19920058318917 | 00002100 | RGBA_8888    |    0.0    0.0  126.0 1812.0 | 2050    0 2176 1812 | TaskbarWindow$_4638#165 (1426)
+08-28 20:08:05.318  1970  1970 D SurfaceFlinger: 
+08-28 20:08:05.319  2971  3089 V WindowManager: Finish Transition: TransitionRecord{cfa51f id=55 type=OPEN flags=0x0 parallelCollectType=NONE recentsDisplayId=-1 c=[
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{12554e9 container=Task{2eb51f #764 type=standard A=10386:com.callradar.app} flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{1fa556e container=ActivityRecord{28504172 u0 com.callradar.app/.MainActivity t764} flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{eb2140f container=DefaultTaskDisplayArea_d0@54337906 flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{6894c9c container=WindowedMagnification:0:31@65281351 flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{a7556a5 container=Display{#0 state=ON size=1812x2176 ROTATION_0} flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{f78f0d8 container=ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764} flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{cfa5a7a container=AppZoomOut:2:14@219447605 flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager:    ChangeInfo{ef08c31 container=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764 f}} flags=0x0}
+08-28 20:08:05.319  2971  3089 V WindowManager: ]
+08-28 20:08:05.319  2971  3089 V WindowManager: }, caller=com.android.server.wm.WindowOrganizerController.finishTransitionInner:34 com.android.server.wm.WindowOrganizerController.finishAllTransitions:60 android.window.IWindowOrganizerController$Stub.onTransact:292 
+08-28 20:08:05.319  2971  3089 V WindowManager: Setting visibility of Window{767faee u0 com.callradar.app/com.callradar.app.ConsentActivity}: false, caller=com.android.server.wm.WindowContainer.sendAppVisibilityToClients:19 com.android.server.wm.WindowToken.setClientVisible:91 com.android.server.wm.ActivityRecord.commitVisibility:186 com.android.server.wm.TransitionController.finishTransition:1013 com.android.server.wm.WindowOrganizerController.finishTransitionInner:34 
+08-28 20:08:05.320  2971  3123 V WindowManager: Finish Transition (#55): created at 08-28 20:08:04.490 collect-started=0.463ms request-sent=9.342ms started=11.176ms ready=205.054ms sent=344.293ms commit=25.621ms finished=828.459ms
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController: onTransitionFinished: TransitionRecord{cfa51f id=55 type=OPEN flags=0x0 parallelCollectType=NONE recentsDisplayId=-1 c=[
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{12554e9 container=Task{2eb51f #764 type=standard A=10386:com.callradar.app} flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{1fa556e container=ActivityRecord{28504172 u0 com.callradar.app/.MainActivity t764} flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{eb2140f container=DefaultTaskDisplayArea_d0@54337906 flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{6894c9c container=WindowedMagnification:0:31@65281351 flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{a7556a5 container=Display{#0 state=ON size=1812x2176 ROTATION_0} flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{f78f0d8 container=ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764} flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{cfa5a7a container=AppZoomOut:2:14@219447605 flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController:    ChangeInfo{ef08c31 container=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764 f}} flags=0x0}
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController: ]
+08-28 20:08:05.320  2971  3089 D ChangeTransitionController: }
+08-28 20:08:05.321  4139  4202 V WindowManagerShell: Track 0 became idle
+08-28 20:08:05.321  4139  4202 V WindowManagerShell: All active transition animations finished
+08-28 20:08:05.321 21957 21957 I VRI[ConsentActivity]@64393c6: handleAppVisibility mAppVisible = true visible = false
+08-28 20:08:05.321 21957 21957 D VRI[ConsentActivity]@64393c6: visibilityChanged oldVisibility=true newVisibility=false
+08-28 20:08:05.322 21957 21957 I VRI[ConsentActivity]@64393c6: stopped(true) old = false
+08-28 20:08:05.322 21957 21957 D VRI[ConsentActivity]@64393c6: WindowStopped on com.callradar.app/com.callradar.app.ConsentActivity set to true
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: RequestedLayer [ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734] hidden!! flag  from(0) --> to(1)
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [Display 0 name="기본으로 제공되는 화면"#42] setFrameRateCategory: Default
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759 z=2} 3 children}] reparent to OffscreenRoot
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759 z=2} 3 children}] RelativeParent to null
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734 parentId=721} 3 children}] reparent to LayerHierarchy{RequestedLayerState{Task=764#721 parentId=11 z=5} 3 children}
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762 z=1} no children}] reparent to OffscreenRoot
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762 z=1} no children}] RelativeParent to null
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{ActivityRecord{28504172 u0 com.callradar.app/.MainActivity t764}#744 parentId=721 z=1} 2 children}] reparent to LayerHierarchy{RequestedLayerState{Task=764#721 parentId=11 z=5} 4 children}
+08-28 20:08:05.324  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#745 parentId=721 z=2} 3 children}] reparent to LayerHierarchy{RequestedLayerState{Task=764#721 parentId=11 z=5} 5 children}
+08-28 20:08:05.325  1970  1970 I SurfaceFlinger: id=762 Removed DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762 (186)
+08-28 20:08:05.325  1970  1970 I SurfaceFlinger: id=759 Removed Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759 (186)
+08-28 20:08:05.325  2971  3126 D LocalDisplayAdapter: updateActiveModeLocked for d=4630947175568309891, mActiveModeId=1, mActiveSfDisplayMode=DisplayMode{id=0, width=1812, height=2176, xDpi=377.252, yDpi=375.989, peakRefreshRate=120.00001, vsyncRate=120.00001, appVsyncOffsetNanos=8333333, presentationDeadlineNanos=9233333, supportedHdrTypes=[4, 2, 3], group=2176}
+08-28 20:08:05.325  2971  3126 I DisplayDeviceRepository: Display device changed render timings: "기본으로 제공되는 화면", renderFrameRate=120.00001, presentationDeadlineNanos=9233333, appVsyncOffsetNanos=100000, frameRateOverrides=[]
+08-28 20:08:05.326  2971  2971 D SGM:GameDisplayListener: onDisplayChanged. displayId: 0, state: 2
+08-28 20:08:05.326  2971  2971 D AODManagerService: requestReCalToTSP IsSingleTouchMode = falserequestedReCalToTSP = false / previousDisplayState = ON
+08-28 20:08:05.327 21957 21957 D WindowOnBackDispatcher: setTopOnBackInvokedCallback (unwrapped): null
+08-28 20:08:05.327  1956 12020 D AudioFlinger: setParameters: filtered dev setParameters keyvalue screen_state=on
+08-28 20:08:05.328  1837  3282 D AHAL: AudioDevice: SetParameters: 1799: enter
+08-28 20:08:05.328  1837  3282 D AHAL: AudioVoice: VoiceSetParameters: 171: Enter
+08-28 20:08:05.328  1837  3282 D AHAL: AudioVoice: VoiceSetParameters: 416: Exit ret: 0
+08-28 20:08:05.328  1837  3282 D AHAL: hfp: hfp_set_parameters: 447: enter
+08-28 20:08:05.328  1837  3282 D AHAL: AudioDevice: SetParameters: 1879:  - screen = on
+08-28 20:08:05.328  1837  3282 I PAL: ResourceManager: setParameter: 9250: Screen State:1
+08-28 20:08:05.328  1837  3282 D AHAL: AudioDevice: SetParameters: 2617: exit: screen_state=on
+08-28 20:08:05.328  4139  4139 D SystemUIService: SYSUI_RAM_OPTIMIZATION onTrimMemory=20
+08-28 20:08:05.328  1837  3282 I Audio_a2dpsink_hw: adev_set_parameters: kevpairs=[screen_state=on]
+08-28 20:08:05.328  4139  4139 D CentralSurfaces: SYSUI_RAM_OPTIMIZATION onTrimMemory=20
+08-28 20:08:05.328  2971  3828 D AS.DesktopUtils: isDesktopWindowing( false )
+08-28 20:08:05.328  2971  4207 D CoreBackPreview: Window{767faee u0 com.callradar.app/com.callradar.app.ConsentActivity}: Setting back callback null
+08-28 20:08:05.328  2971  3828 D AS.DesktopModeHelper: setDesktopModePath caller = onDisplayChanged #Id=0, isInDesktopWindowing=false, isAudioOutputToDisplay : false
+08-28 20:08:05.328  2971  3722 D SGM:FgCheckThread: onLooperPrepared(), msg: MSG_LCD_ON
+08-28 20:08:05.328  2971  5473 D LiftUpHandler: [LTW] Stopped already.
+08-28 20:08:05.328  4139  4520 D HWUI    : CacheManager::trimMemory(20)
+08-28 20:08:05.328  4139  4139 D DisplayLifecycle: updateDisplay id = 0
+08-28 20:08:05.329  2971  6257 D WifiDisplayAdapter: isFitToActiveDisplayLocked : false
+08-28 20:08:05.329 21957 21957 D ViewRootImpl: Skipping stats log for color mode
+08-28 20:08:05.329 21957 21957 I VRI[ConsentActivity]@64393c6: dispatchDetachedFromWindow
+08-28 20:08:05.329  4638 21354 I HoneySpace.Memory-Monitor: current state = 2, didTrim = false
+08-28 20:08:05.329  4139  4430 D StackScroller: onDisplayChanged for predraw skip to 2
+08-28 20:08:05.329  2971  6257 D InputTransport: Input channel destroyed: '767faee', fd=1371
+08-28 20:08:05.329  2971  6257 V WindowManager: Remove Window{767faee u0 com.callradar.app/com.callradar.app.ConsentActivity}: mSurfaceControl=Surface(name=com.callradar.app/com.callradar.app.ConsentActivity$_21957#738)/@0x4ecf4f mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=false animating=false app-animation=false callers=com.android.server.wm.Session.remove:15 android.view.IWindowSession$Stub.onTransact:813 com.android.server.wm.Session.onTransact:1 android.os.Binder.execTransactInternal:1509 android.os.Binder.execTransact:1454 <bottom of call stack> 
+08-28 20:08:05.329  2971  6257 D RestrictionPolicy: isScreenCaptureEnabled : ret=true userId=0
+08-28 20:08:05.330 21957 21957 D InputTransport: Input channel destroyed: '767faee', fd=113
+08-28 20:08:05.330  2971  3973 W ImageReader_JNI: Unable to acquire a buffer item, very likely client tried to acquire more than maxImages buffers
+08-28 20:08:05.331  2971  3126 D SGM:FgCheckThread: getForegroundApp(), foregroundPkgName=com.callradar.app
+08-28 20:08:05.331  2971  3126 D SGM:FgCheckThread: pkgName: com.callradar.app is in foreground
+08-28 20:08:05.332  1970  2312 I SurfaceFlinger: id=736 Removed 9a7049a ActivityRecordInputSink com.callradar.app/.ConsentActivity#736 (186)
+08-28 20:08:05.331  2971  3868 D BackgroundInstallControlService: Package event received: 0
+08-28 20:08:05.332  1970  1970 I SurfaceFlinger: RequestedLayer [com.callradar.app/com.callradar.app.ConsentActivity$_21957#738] hidden!! flag  from(0) --> to(1)
+08-28 20:08:05.332  1970  1970 I SurfaceFlinger: destroyed Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759 form LifecycleManager
+08-28 20:08:05.332  1970  1970 I SurfaceFlinger: destroyed DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762 form LifecycleManager
+08-28 20:08:05.332  1970  1970 I SurfaceFlinger: id=759 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759 !handle z=2})
+08-28 20:08:05.332  1970  1970 I SurfaceFlinger: id=762 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762 !handle z=1})
+08-28 20:08:05.332  5474  5474 I AFL#SSS:AssistHolder: onActivityEvent Snapshot Destroyed:ComponentInfo{com.callradar.app/com.callradar.app.ConsentActivity}
+08-28 20:08:05.333  1970  1970 I SurfaceFlinger: id=759 Destroyed Transition Root: ActivityRecord{157902818 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t764}#759
+08-28 20:08:05.333  1970  1970 I SurfaceFlinger: id=762 Destroyed DimTransitionLayer for Surface(name=ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734)/@0xdb91256#762
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{767faee com.callradar.app/com.callradar.app.ConsentActivity#737} 1 children}] reparent to OffscreenRoot
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{767faee com.callradar.app/com.callradar.app.ConsentActivity#737} 1 children}] RelativeParent to null
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{com.callradar.app/com.callradar.app.ConsentActivity$_21957#738} no children}] reparent to OffscreenRoot
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{com.callradar.app/com.callradar.app.ConsentActivity$_21957#738} no children}] RelativeParent to null
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734} 1 children}] reparent to OffscreenRoot
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{ActivityRecord{261463464 u0 com.callradar.app/.ConsentActivity t764}#734} 1 children}] RelativeParent to null
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: id=737 Removed 767faee com.callradar.app/com.callradar.app.ConsentActivity#737 (184)
+08-28 20:08:05.341  1970  1970 I SurfaceFlinger: id=738 Removed com.callradar.app/com.callradar.app.ConsentActivity$_21957#738 (184)
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: destroyed 767faee com.callradar.app/com.callradar.app.ConsentActivity#737 form LifecycleManager
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: destroyed com.callradar.app/com.callradar.app.ConsentActivity$_21957#738 form LifecycleManager
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: id=737 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{767faee com.callradar.app/com.callradar.app.ConsentActivity#737 !handle})
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: id=738 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{com.callradar.app/com.callradar.app.ConsentActivity$_21957#738 !handle})
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: id=737 Destroyed 767faee com.callradar.app/com.callradar.app.ConsentActivity#737
+08-28 20:08:05.349  1970  1970 I SurfaceFlinger: id=738 Destroyed com.callradar.app/com.callradar.app.ConsentActivity$_21957#738
+08-28 20:08:05.432 11149 11149 I InputMethodService: removeImeSurface
+08-28 20:08:05.432 11149 11149 I InputMethodService: cancelImeSurfaceRemoval: removeCallbacks
+08-28 20:08:05.451  1845  8031 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 271(271),ch0:5520,ch1:544,c:0,g:128,l:257,m:2,br:78,c1:100,c2:100,i:0
+08-28 20:08:05.626  4856  4856 I wpa_supplicant: nl80211: Drv Event 103 (NL80211_CMD_VENDOR) received for wlan0
+08-28 20:08:05.626  4856  4856 I wpa_supplicant: nl80211: Vendor event: wiphy=0 vendor_id=0x1374 subcmd=182
+08-28 20:08:05.626  1851  4831 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+08-28 20:08:05.627  4856  4856 I wpa_supplicant: nl80211: Ignore unsupported QCA vendor event 182
+08-28 20:08:05.627  2437  2437 I cnss-daemon: nl80211 response handler invoked
+08-28 20:08:05.627  2437  2437 I cnss-daemon: nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+08-28 20:08:05.647  1234  1234 D io_stats: !@   8,0 r 944776 29874974 w 1000984 16262416 d 138997 471466552 f 45809 148040 iot 1258620 0 th 0 0 0 pt 0 inp 0 0 64224.177
+08-28 20:08:05.756  2971  3777 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+08-28 20:08:05.761  2971  6696 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 20565, isSameBssidAndFreq true
+08-28 20:08:05.762  2971  3898 I SemWifiLinkQualityMonitor: Link stat: 731 / 4 / 1.00 (18) / 300 / -13.0 || 100.0 : 300.00 / 0.5 : 1.00 / 0.55 : 0.01 / G (G) || aa4623245240: 0.099 / 80.757 / N / V || N N / 0 0 / N 2.0 / N -1 0.000 0.000 / N / X 0 / 64224290 0 0 || 2026-08-28 20:08:04  / 0: 0 0 0 0 0 0 / 0: 0 0 0 0 0 0 / 0: 0 0 0 0 0 0
+08-28 20:08:05.763  4638  4727 I HoneySpace.StatusIconTracker: invokeEvent() called with: event = Wifi(visible=true, resId=2114459827, activityId=2114459832)
+08-28 20:08:05.793  2971  3928 D WifiConnectivityMonitor.NetworkStatsAnalyzer: Backhaul result - RSSI:-13, CE:15, PE:14, TI:19, PTI:18, TW:0, PTW:0, Tx:18, Rx:24, TxS:17, RxS:17, RESULT:true, IC:0, ICT:5, WC:0, WCT:5, R:1, RC:0, IE:0, EC:0
+08-28 20:08:05.993  1856 22286 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 15789417
+08-28 20:08:05.993  1856 22289 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 15795038
+08-28 20:08:06.145  1856 22312 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 15750098
+08-28 20:08:06.592  2971  3896 I SemWifiServiceDetector: Service det. resumed: T / T / 14082
+08-28 20:08:06.636  2971  3201 D BatteryExternalStatsWorker: update stats : procstate-change (14)
+08-28 20:08:06.636  2971  3201 D BatteryExternalStatsWorker: Fetch WiFi data
+08-28 20:08:06.636  2971  3201 D BatteryExternalStatsWorker: Update Rail Energy data
+08-28 20:08:06.671  2971  3777 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+08-28 20:08:06.672  2971  3201 D BatteryExternalStatsWorker: mStats lock released
+08-28 20:08:06.678  2971  3201 D BatteryExternalStatsWorker: Update wifi state
+08-28 20:08:06.678  2971  3201 D BatteryExternalStatsWorker: done updateExternalStatsLocked
+08-28 20:08:06.860  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+08-28 20:08:06.860  1838  6029 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK ON
+08-28 20:08:06.860  1838  6029 D vendor.qti.bluetooth@1.1-wake_lock: Acquire wakelock is acquired 
+08-28 20:08:06.860  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+08-28 20:08:06.866  4991  6076 I ScanController: onScanResult to scannerId: 3- eventType=0x1b, addressType=0, address=XX:XX:XX:XX:A7:C7, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-93, periodicAdvInt=0x0
+08-28 20:08:06.866  4991  6076 E BluetoothRemoteDevices: Remote class is UNCATEGORIZED
+08-28 20:08:06.867  1856 22335 I HYPER-HAL: [RequestManager.cpp]releaseLocked(): Released ID : 4412935
+08-28 20:08:06.903  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+08-28 20:08:06.903  1838  6029 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK OFF
+08-28 20:08:06.975  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+08-28 20:08:06.975  1838  6029 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK ON
+08-28 20:08:06.975  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+08-28 20:08:07.017  1838  6029 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+08-28 20:08:07.017  1838  6029 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK OFF
+08-28 20:08:07.168  1838  5422 D vendor.qti.bluetooth@1.1-wake_lock: Release wakelock is released 
+08-28 20:08:07.309  2971  4207 D SGM:GameManager: identifyGamePackage. com.google.android.permissioncontroller, mCurrentUserId: 0, callingMethodInfo: com.samsung.android.game.IGameManagerService$Stub.onTransact(IGameManagerService.java:247)
+08-28 20:08:07.485  2971  3237 D PowerManagerService: UserActivityStateListenerState: 0
+08-28 20:08:07.649  1234  1234 D io_stats: !@   8,0 r 944781 29875030 w 1001019 16262520 d 139013 471467520 f 45811 148049 iot 1258684 0 th 0 0 0 pt 0 inp 0 0 64226.178
+08-28 20:08:07.649  1234  1234 D io_stats: !@ Read_top(KB): kworker/u16:3(21659) 5776 kworker/u16:2(20532) 3692 kworker/u16:1(16557) 3584
+08-28 20:08:07.649  1234  1234 D io_stats: !@ Write_top(KB): f2fs_ckpt-254:6(1471) 120 kao.taxi.driver(16558) 96 m.callradar.app(21957) 88
+08-28 20:08:07.856  2971  3995 I Pageboost: Launcher App Execution
+08-28 20:08:08.012  2971  5557 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+08-28 20:08:08.111  2351  2377 I shsusrd : shsusr_check_cpu_usage(): Output of /proc/2351/stat/ : 2351 (shsusrd0) S 1 2351 0 0 -1 1077936384 33774 0 261 0 529 2104 0 0 20 0 11 0 802 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 0 0 0 17 3 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.111  2351  2377 I shsusrd : 
+08-28 20:08:08.111  2351  2377 I shsusrd : shsusr_check_cpu_usage(): utime 529 stime 2104 cpu_time_last 2633
+08-28 20:08:08.111  2351  2377 I shsusrd : shsusr_check_cpu_usage(): user time = 529 | system time = 2104 | total = 2633 | cpu_time_delta = 0, clk_tck 100
+08-28 20:08:08.111  2351  2377 I shsusrd : shsusr_check_cpu_usage(): time_cur 1787915288 time_last 1787915278
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage(): shsusrd is using 0 pct of CPU - time_delta 10
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage(): shsusrd usage 0
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): time_delta for combined : 10 time_cur 1787915288 time_last_combined 1787915278
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2351/stat: 2351 (shsusrd0) S 1 2351 0 0 -1 1077936384 1180 0 11 0 1 0 0 0 20 0 11 0 802 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 17 3 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.112  2351  2377 I shsusrd : 
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2351 utime 1 stime 0 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2373/stat: 2373 (shsusrd12) S 1 2351 0 0 -1 4194368 29671 0 91 0 85 359 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 0 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.112  2351  2377 I shsusrd : 
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2373 utime 85 stime 359 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2374/stat: 2374 (shsusrd2) S 1 2351 0 0 -1 4194368 174 0 29 0 0 1 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.112  2351  2377 I shsusrd : 
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2374 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2376/stat: 2376 (shsusrd13) S 1 2351 0 0 -1 1077936192 4 0 7 0 6 9 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 2 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.112  2351  2377 I shsusrd : 
+08-28 20:08:08.112  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2376 utime 6 stime 9 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2377/stat: 2377 (shsusrd42) R 1 2351 0 0 -1 4194368 36 0 60 0 421 1686 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 0 0 0 -1 2 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2377 utime 421 stime 1686 time_delta 10 clk_tck 100, usage 200
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2378/stat: 2378 (shsusrd4) S 1 2351 0 0 -1 4194368 0 0 0 0 0 0 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 4 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2378 utime 0 stime 0 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/2379/stat: 2379 (shsusrd14) S 1 2351 0 0 -1 4194368 33 0 10 0 0 2 0 0 20 0 11 0 806 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 1 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 2379 utime 0 stime 2 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/7315/stat: 7315 (shsusrd14) S 1 2351 0 0 -1 4194368 0 0 1 0 0 1 0 0 20 0 11 0 2192 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 0 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 7315 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/7318/stat: 7318 (shsusrd7) S 1 2351 0 0 -1 4194368 2 0 1 0 0 1 0 0 20 0 11 0 2192 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 0 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 7318 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/7339/stat: 7339 (shsusrd5) S 1 2351 0 0 -1 4194368 5 0 1 0 0 1 0 0 20 0 11 0 2234 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 4 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.113  2351  2377 I shsusrd : 
+08-28 20:08:08.113  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 7339 utime 0 stime 1 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.114  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Output of /proc/2351/task/7629/stat: 7629 (HwBinder:2351_1) S 1 2351 0 0 -1 1077936192 3 0 0 0 0 0 0 0 20 0 11 0 2289 2540601344 1007 18446744073709551615 383053479936 383053738392 548751929024 0 0 0 0 0 1073794810 1 0 0 -1 0 0 0 0 0 0 383053761472 383053762408 383943811072 548751931405 548751931448 548751931448 548751937501 0
+08-28 20:08:08.114  2351  2377 I shsusrd : 
+08-28 20:08:08.114  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): tid 7629 utime 0 stime 0 time_delta 10 clk_tck 100, usage 0
+08-28 20:08:08.114  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Combined CPU usage: total_utime 513 total_stime 2060 total_cpu_time_seconds 0.00, clk_tck 100
+08-28 20:08:08.114  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage 0
+08-28 20:08:08.114  2351  2377 I shsusrd : shsusr_check_cpu_usage_combined(): Combined shsusrd usage FINAL 0
+08-28 20:08:08.142  4856  4856 I wpa_supplicant: nl80211: Drv Event 103 (NL80211_CMD_VENDOR) received for wlan0
+08-28 20:08:08.143  4856  4856 I wpa_supplicant: nl80211: Vendor event: wiphy=0 vendor_id=0x1374 subcmd=182
+08-28 20:08:08.143  1851  4831 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+08-28 20:08:08.143  2437  2437 I cnss-daemon: nl80211 response handler invoked
+08-28 20:08:08.144  2437  2437 I cnss-daemon: nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+08-28 20:08:08.161  4856  4856 I wpa_supplicant: nl80211: Ignore unsupported QCA vendor event 182
+08-28 20:08:08.542  1845  4013 I sensors-hal: handle_sns_client_event:207, auto_rotation_debug_2 mode,255,last,255, type,2,0 main,2.986,0.675,9.270 sub,2.914,0.579,9.332, ar,0, h_ic,0, s,2, ver,15, pedo,1,e,1,i,3
+08-28 20:08:08.571  1845  8031 I sensors-hal: handle_sns_std_sensor_event:419, [SSC_LIGHT] P: 270(270),ch0:5552,ch1:544,c:0,g:128,l:257,m:2,br:78,c1:100,c2:100,i:0
+08-28 20:08:08.705  2971  3711 D SemInputMotionEventDispatcher: registerMotionEventListener: already registered: com.samsung.android.hardware.secinputdev.taas.ExternalApi$5@5062fa1
+08-28 20:08:08.781  2971  3777 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+08-28 20:08:08.786  2971  6696 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 20566, isSameBssidAndFreq true
+08-28 20:08:08.787  2971  3898 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1787915288786 lastDateWindow=1787915284000
+08-28 20:08:08.790  4638  4727 I HoneySpace.StatusIconTracker: invokeEvent() called with: event = Wifi(visible=true, resId=2114459827, activityId=2114459843)
+08-28 20:08:08.795  1970  2184 I SurfaceFlinger: Current= 120, Period= 120, Distance= 0
+08-28 20:08:08.799  1970  1970 I SurfaceFlinger: SFWD update time=64227329059506
+08-28 20:08:08.803  1970  2184 I SurfaceFlinger: Current= 120, Period= 120, Distance= 120
+08-28 20:08:09.148  2971  4207 E BatteryStatsService: Invalid uid for waking network packet: -1
+08-28 20:08:09.413  2437  2437 I cnss-daemon: nl80211 response handler invoked
+08-28 20:08:09.413  4856  4856 I wpa_supplicant: nl80211: Drv Event 103 (NL80211_CMD_VENDOR) received for wlan0
+08-28 20:08:09.413  2437  2437 I cnss-daemon: nl80211_response_handler: cmd 103, vendorID 4980, subcmd 182  received
+08-28 20:08:09.413  4856  4856 I wpa_supplicant: nl80211: Vendor event: wiphy=0 vendor_id=0x1374 subcmd=182
+08-28 20:08:09.413  4856  4856 I wpa_supplicant: nl80211: Ignore unsupported QCA vendor event 182
+08-28 20:08:09.413  1851  4831 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xb6
+08-28 20:08:09.599  2971  3896 I SemWifiServiceDetector: Service det. suspended: T / T / 14082
+08-28 20:08:09.650  1234  1234 D io_stats: !@   8,0 r 944782 29875286 w 1001072 16263580 d 139013 471467520 f 45814 148059 iot 1258764 0 th 0 0 0 pt 0 inp 0 0 64228.179
+08-28 20:08:09.667  2523  2523 I adbd    : adbd service requested 'shell,v2,raw:screencap -p /sdcard/_s.png'
+08-28 20:08:09.751 22355 22355 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+08-28 20:08:09.751 22355 22355 W libbinder.BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+08-28 20:08:09.751 22355 22355 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: edmnativehelper
+08-28 20:08:09.752  2971  4207 I EDMNativeHelperService: isScreenCaptureEnabled
+08-28 20:08:09.752  2971  4207 D RestrictionPolicy: isScreenCaptureEnabled : ret=true userId=0
+08-28 20:08:09.752 22355 22355 W libbinder.ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+08-28 20:08:09.752 22355 22355 I SurfaceComposerClient: captureDisplay:Display-4630947175568309891
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 com.callradar.app/com.callradar.app.MainActivity$_21957#747(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 Dim Layer for - Task=764#764(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity$_20836#755(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 Caption of Task=755#195(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 StatusBar$_4139#112(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 com.sec.android.app.launcher/com.samsung.app.honeyspace.edge.edgepanel.app.CocktailBarService$_4638#657(preserveDisplayColors:0)
+08-28 20:08:09.753  1970  2067 I SurfaceFlinger: Capture layer list: 	 TaskbarWindow$_4638#165(preserveDisplayColors:0)
+08-28 20:08:09.754  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer ScreenCaptureFillLayer at index 0
+08-28 20:08:09.754  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer com.callradar.app/com.callradar.app.MainActivity$_21957#747 at index 1
+08-28 20:08:09.754  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer Dim Layer for - Task=764#764 at index 2
+08-28 20:08:09.754  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity$_20836#755 at index 3
+08-28 20:08:09.754  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer Caption of Task=755#195 at index 4
+08-28 20:08:09.755  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer StatusBar$_4139#112 at index 5
+08-28 20:08:09.755  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer com.sec.android.app.launcher/com.samsung.app.honeyspace.edge.edgepanel.app.CocktailBarService$_4638#657 at index 6
+08-28 20:08:09.755  1970  2088 D SurfaceFlinger: [SEC_SF_EFFECTS] drawLayersInternal,1337, Rendering layer TaskbarWindow$_4638#165 at index 7
+08-28 20:08:09.797 22355 22358 I AdrenoUtils: <ReadGpuID:407>: Reading chip ID through GSL
+08-28 20:08:10.000  2971  4207 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+08-28 20:08:10.001  2971  4207 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+08-28 20:08:10.005  5441  5441 I MediaServiceV2: Creating work for intent Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+08-28 20:08:10.006  5441  5441 I MediaServiceV2: Work enqueued for intent: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+08-28 20:08:10.007  2971  3123 I ActivityManager: Broadcast completed: result=0
+08-28 20:08:10.013  5441  5979 W JobInfo : Requested important-while-foreground flag for job1049 is ignored and takes no effect
+08-28 20:08:10.013  5441  5979 D WM-SystemJobScheduler: Scheduling work ID 1947af33-0f4c-4b62-bbd1-1c2c9610a383Job ID 1049
+08-28 20:08:10.019  5441  5979 D WM-GreedyScheduler: Ignoring {WorkSpec: 020756c8-a9c7-4bcb-af1a-eeed831c240b}. Requires device idle.
+08-28 20:08:10.019  5441  5979 D WM-GreedyScheduler: Ignoring {WorkSpec: c8c3824f-97cc-4eec-97a2-ca01a28c23d3}. Requires device idle.
+08-28 20:08:10.019  5441  5979 D WM-GreedyScheduler: Ignoring {WorkSpec: 3ac8ff6f-0815-4f12-8605-1abbf64243ff}. Requires device idle.
+08-28 20:08:10.019  5441  5979 D WM-GreedyScheduler: Ignoring {WorkSpec: c857eab7-966b-4ae8-a2b2-91f88215ec4b}. Requires device idle.
+08-28 20:08:10.019  5441  5979 D WM-GreedyScheduler: Starting work for 1947af33-0f4c-4b62-bbd1-1c2c9610a383
+08-28 20:08:10.020  5441  5979 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=1947af33-0f4c-4b62-bbd1-1c2c9610a383, generation=0)
+08-28 20:08:10.022  5441  5441 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=1947af33-0f4c-4b62-bbd1-1c2c9610a383, generation=0)
+08-28 20:08:10.022  5441  5979 D WM-Processor: Work WorkGenerationalId(workSpecId=1947af33-0f4c-4b62-bbd1-1c2c9610a383, generation=0) is already enqueued for processing
+08-28 20:08:10.022  5441  5441 D WM-WorkerWrapper: Starting work for com.android.providers.media.MediaServiceV2
+08-28 20:08:10.023  5441 22380 I MediaServiceV2: Work initiated for action [ android.intent.action.MEDIA_SCANNER_SCAN_FILE ]
+08-28 20:08:10.027  5441 22380 I Kumiho-Kumiho: getPackageName: com.google.android.providers.media.module
+08-28 20:08:10.028  5441 22380 I Kumiho-Kumiho: getPackageName: com.google.android.providers.media.module
+08-28 20:08:10.034  5441 22380 I MediaServiceV2: Work ended for action [ android.intent.action.MEDIA_SCANNER_SCAN_FILE ]
+08-28 20:08:10.035  2971  4207 D SyncManager: userId - 0 auto - true
+08-28 20:08:10.036  8287  8488 I MediaSyncer: generation: Generation(added=3873, modified=3882)
+08-28 20:08:10.039  5441  6138 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=1947af33-0f4c-4b62-bbd1-1c2c9610a383, tags={ com.android.providers.media.MediaServiceV2 } ]
+08-28 20:08:10.042  5441  5441 D WM-Processor: Processor 1947af33-0f4c-4b62-bbd1-1c2c9610a383 executed; reschedule = false
+08-28 20:08:10.042  5441  5441 D WM-SystemJobService: 1947af33-0f4c-4b62-bbd1-1c2c9610a383 executed on JobScheduler
+08-28 20:08:10.047  5441  6113 D WM-GreedyScheduler: Cancelling work ID 1947af33-0f4c-4b62-bbd1-1c2c9610a383
+08-28 20:08:10.048  5441  6113 D WM-GreedyScheduler: Ignoring {WorkSpec: 020756c8-a9c7-4bcb-af1a-eeed831c240b}. Requires device idle.
+08-28 20:08:10.048  5441  6113 D WM-GreedyScheduler: Ignoring {WorkSpec: c8c3824f-97cc-4eec-97a2-ca01a28c23d3}. Requires device idle.
+08-28 20:08:10.048  5441  6113 D WM-GreedyScheduler: Ignoring {WorkSpec: 3ac8ff6f-0815-4f12-8605-1abbf64243ff}. Requires device idle.
+08-28 20:08:10.048  5441  6113 D WM-GreedyScheduler: Ignoring {WorkSpec: c857eab7-966b-4ae8-a2b2-91f88215ec4b}. Requires device idle.
+08-28 20:08:10.061  8287  8488 I MediaSyncer: loaded: 24ms, Success(maxMediaId=330, maxGenAdded=3873, maxGenModified=3886, count=1)
+08-28 20:08:10.061  2971  6257 D SyncManager: userId - 0 auto - true
+08-28 20:08:10.064  8287  8496 W SefInterface$Companion: This file doesn't have SEF
+08-28 20:08:10.071  2971  4207 D SyncManager: userId - 0 auto - true
+08-28 20:08:10.072  2971  4207 D SyncManager: userId - 0 auto - true
+08-28 20:08:10.126  2523  2523 I adbd    : adbd service requested 'sync:'
+08-28 20:08:10.199  2523  2523 I adbd    : adbd service requested 'shell,v2:export ANDROID_LOG_TAGS=''; exec logcat '-d' '-t' '300''

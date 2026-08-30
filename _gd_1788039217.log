@@ -1,0 +1,6 @@
+[main b40fadf] analytics: exclude zero-duration trips - a days takings typed by hand arrive as a normal platform
+ 3 files changed, 34 insertions(+), 26 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   ad2dbd0..b40fadf  main -> main
+[master 4ce6f67] charter: block a days takings by its zero duration, not by platform name
+ 1 file changed, 18 insertions(+)

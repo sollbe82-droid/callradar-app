@@ -1,0 +1,17 @@
+charter: adding a detected app is a three-file change, not a packageNames edit
+
+Owner plans to add 이즐 and 스윙택시 later, on user request, and asked whether to
+wait until after the accessibility declaration. Yes - wait.
+
+Two reasons to keep it at four for now: changing the target set mid-review
+restarts the review, and our strongest point with Google is precisely that four
+packages are hard-coded so nothing else can be read. Listing apps we do not yet
+support weakens exactly that.
+
+Recorded what has to change together when we do add them, because the tempting
+mistake is to edit packageNames alone: both flavors' accessibility_service_config,
+the disclosure screen's item 2 (which says "아래 네 개 앱만 읽습니다"), and a
+resubmitted Play Console declaration with a video showing the new list. Leaving
+the disclosure saying "four" while reading six is a false disclosure, and
+Google's own wording is explicit that non-declared use can suspend the app or
+terminate the developer account.

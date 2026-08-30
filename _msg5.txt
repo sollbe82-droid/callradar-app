@@ -1,0 +1,15 @@
+flags: keep the permission we already have when the answer looks like a failure
+
+Driver 108 reported Kakao trips going missing once or twice a day. The debug log
+stopped dead after a cancel and never resumed, so nothing was reaching the
+accessibility handler at all.
+
+The cause was not the cancel. onAccessibilityEvent returns on its first line when
+isAdmin() is false, and those flags are overwritten from /api/users/:id/flags,
+which answered 200 with everything false whenever its database read threw. One
+hiccup disabled auto-record for that driver until the next app open, which is why
+it never reproduced.
+
+The server now returns 503 so the client's catch leaves the stored flags alone,
+and the client treats an all-false answer as a failed read unless the server
+explicitly says revoked.

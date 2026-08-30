@@ -1,0 +1,32 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: compileOnestoreDebugKotlin
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig
+> Task :app:generateOnestoreDebugResources
+> Task :app:processOnestoreDebugNavigationResources
+> Task :app:packageOnestoreDebugResources
+> Task :app:parseOnestoreDebugLocalResources
+> Task :app:generateOnestoreDebugRFile
+> Task :app:compileOnestoreDebugKotlin
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DailySettlementScreen.kt:477:25 Unresolved reference 'settlePrice'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DailySettlementScreen.kt:478:94 Unresolved reference 'settlePrice'.
+
+> Task :app:compileOnestoreDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileOnestoreDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 17s
+7 actionable tasks: 7 executed
+Configuration cache entry stored.

@@ -1,0 +1,4 @@
+[main 0b02e82] today: drop the calendar-span fallback - rest days in the denominator understate fuel cost, which inflates net profit rather than being conservative
+ 1 file changed, 10 insertions(+), 14 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   0617b18..0b02e82  main -> main

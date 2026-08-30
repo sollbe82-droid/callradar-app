@@ -1,0 +1,4 @@
+[master 98ea2a6] rooms: keep past sessions searchable - the patent was discussed in an old room and lost when it closed
+ 3 files changed, 70 insertions(+), 2 deletions(-)
+ create mode 100644 _rooms/_extract.py
+98ea2a6 rooms: keep past sessions searchable - the patent was discussed in an old room and lost when it closed

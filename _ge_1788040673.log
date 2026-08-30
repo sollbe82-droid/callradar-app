@@ -1,0 +1,4 @@
+[main 2f98cff] health: break zero-duration trips down by source so we can tell the floating button from a typed daily total
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   b40fadf..2f98cff  main -> main

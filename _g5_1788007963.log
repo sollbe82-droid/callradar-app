@@ -1,0 +1,6 @@
+[main ec1dba1] analytics: use only trips CallRadar recorded itself
+ 3 files changed, 50 insertions(+), 35 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   0b02e82..ec1dba1  main -> main
+[master 944a467] charter: insights use only trips CallRadar recorded - imported ledgers store a days total as one trip
+ 1 file changed, 30 insertions(+)

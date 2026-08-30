@@ -1,0 +1,125 @@
+﻿{
+    "note":  "다운로드 수는 서버에 없습니다(스토어 콘솔에서만 확인). 탈퇴·재설치·중복계정은 보정하지 않습니다.",
+    "generated_at":  "2026-08-26T14:11:08.024Z",
+    "funnel":  {
+                   "signups":  "466",
+                   "used_once":  "124",
+                   "used_2d":  "69",
+                   "used_7d":  "40",
+                   "used_30d":  "8",
+                   "active_7d":  "67",
+                   "active_30d":  "118",
+                   "trips_total":  "9579"
+               },
+    "funnel_pct":  {
+                       "가입_대비_1회사용":  26.6,
+                       "가입_대비_7일이상":  8.6,
+                       "가입_대비_최근30일활동":  25.3,
+                       "실사용자_대비_7일이상":  32.3
+                   },
+    "days_distribution":  [
+                              {
+                                  "bucket":  "1일",
+                                  "sort_key":  "1",
+                                  "users":  "55"
+                              },
+                              {
+                                  "bucket":  "2-3일",
+                                  "sort_key":  "2",
+                                  "users":  "16"
+                              },
+                              {
+                                  "bucket":  "4-6일",
+                                  "sort_key":  "4",
+                                  "users":  "13"
+                              },
+                              {
+                                  "bucket":  "7-13일",
+                                  "sort_key":  "7",
+                                  "users":  "20"
+                              },
+                              {
+                                  "bucket":  "14-29일",
+                                  "sort_key":  "15",
+                                  "users":  "12"
+                              },
+                              {
+                                  "bucket":  "30-59일",
+                                  "sort_key":  "31",
+                                  "users":  "7"
+                              },
+                              {
+                                  "bucket":  "60일+",
+                                  "sort_key":  "63",
+                                  "users":  "1"
+                              }
+                          ],
+    "retention":  {
+                      "D7":  {
+                                 "base":  66,
+                                 "kept":  34,
+                                 "pct":  51.5
+                             },
+                      "D30":  {
+                                  "base":  4,
+                                  "kept":  4,
+                                  "pct":  100
+                              },
+                      "현재활동":  {
+                                   "base":  16,
+                                   "kept":  9,
+                                   "pct":  56.3
+                               }
+                  },
+    "weekly_new":  [
+                       {
+                           "week":  "2026-06-01",
+                           "new_users":  "1"
+                       },
+                       {
+                           "week":  "2026-06-15",
+                           "new_users":  "1"
+                       },
+                       {
+                           "week":  "2026-06-22",
+                           "new_users":  "2"
+                       },
+                       {
+                           "week":  "2026-06-29",
+                           "new_users":  "3"
+                       },
+                       {
+                           "week":  "2026-07-13",
+                           "new_users":  "1"
+                       },
+                       {
+                           "week":  "2026-07-20",
+                           "new_users":  "7"
+                       },
+                       {
+                           "week":  "2026-07-27",
+                           "new_users":  "23"
+                       },
+                       {
+                           "week":  "2026-08-03",
+                           "new_users":  "8"
+                       },
+                       {
+                           "week":  "2026-08-10",
+                           "new_users":  "39"
+                       },
+                       {
+                           "week":  "2026-08-17",
+                           "new_users":  "38"
+                       },
+                       {
+                           "week":  "2026-08-24",
+                           "new_users":  "1"
+                       }
+                   ],
+    "devices":  {
+                    "devices_total":  "564",
+                    "devices_30d":  "561",
+                    "devices_7d":  "213"
+                }
+}

@@ -1,0 +1,1 @@
+d4d1cf9 charter: business registration and LBS filing are DONE (SignalLab 677-05-03665, filing no.1449); rewrite LBS inquiry email accordingly

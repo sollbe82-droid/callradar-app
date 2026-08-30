@@ -1,0 +1,5 @@
+[main 2ea2dc0] today: fall back to work sessions then the fuel-purchase span when a driver logs expenses but no trips
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   2a1d0a4..2ea2dc0  main -> main
+2ea2dc0 today: fall back to work sessions then the fuel-purchase span when a driver logs expenses but no trips

@@ -1,0 +1,4 @@
+103 {"tripCount":0,"topDest":"","todayFare":0,"todayTip":0,"activeHours":0,"fuelDaily":0,"noFareCount":0}
+163 {"tripCount":7,"topDest":"ºÀÃµµ¿ 1629-17","todayFare":91270,"todayTip":0,"activeHours":3,"fuelDaily":0,"noFareCount":0}
+108 {"tripCount":9,"topDest":"¿µ´öµ¿ 1316","todayFare":101900,"todayTip":0,"activeHours":3,"fuelDaily":0,"noFareCount":0}
+592 {"tripCount":17,"topDest":"¹æ¹èµ¿ 1033-2","todayFare":190600,"todayTip":0,"activeHours":8,"fuelDaily":0,"noFareCount":0}

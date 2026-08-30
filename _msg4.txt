@@ -1,0 +1,15 @@
+uber: stop rewriting a fare from the home screen
+
+Driver 592 reported an 8,700 won trip turning into 36,800 by itself, which was
+that day's Uber total rather than any single fare. The recovery path read the
+line above the words "last trip" on the Uber home screen, so a running total
+sitting in that position passed the 1,000-500,000 range check and overwrote the
+trip silently.
+
+Raising the Uber floor to 3,000 in v99 left recentFinalFare at zero more often,
+which is the condition this path waits for, so a pre-existing bug started firing
+regularly.
+
+Removed rather than repaired: a wrong number written without the driver noticing
+is worse than a zero he can see and fix, and card-approval notifications now fill
+zero-fare trips from the actual charged amount.

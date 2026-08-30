@@ -1,0 +1,6 @@
+[main 834ff2a] admin driver-mix: cast the join - driver_settings keys user_id as text while users.id is an integer
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   9993937..834ff2a  main -> main
+[master 171415d] charter: user_id column types differ per table and the failures are silent
+ 1 file changed, 19 insertions(+)

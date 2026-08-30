@@ -1,0 +1,4 @@
+[main 0617b18] today: cast user_id per table - expenses is TEXT while trips is INTEGER, so one shared parameter made the whole fuel query fail silently
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   2ea2dc0..0617b18  main -> main

@@ -1,0 +1,4 @@
+[main aafd5c7] analytics: keep zero-duration trips saved by the floating button - the driver did press start and finish
+ 3 files changed, 25 insertions(+), 25 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   2f98cff..aafd5c7  main -> main

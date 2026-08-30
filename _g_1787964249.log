@@ -1,0 +1,10 @@
+[master 8a2592a] fuel entry: make manual the primary path and stop investing in receipt OCR
+ 7 files changed, 451 insertions(+), 152 deletions(-)
+ create mode 100644 app/src/main/java/com/callradar/app/FuelCalc.kt
+8a2592a fuel entry: make manual the primary path and stop investing in receipt OCR
+warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
+[main 2a1d0a4] today: measure daily fuel cost from real expenses so the app can drop six hand-entered gas settings
+ 1 file changed, 35 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   e7c1291..2a1d0a4  main -> main
+2a1d0a4 today: measure daily fuel cost from real expenses so the app can drop six hand-entered gas settings

@@ -1,0 +1,4 @@
+[main 0430998] flags: fail with 503 instead of answering no-permission - a database hiccup was silently killing auto-record
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   46e9e20..0430998  main -> main

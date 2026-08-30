@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <long name="cache_today_day" value="20694" />
+    <long name="work_paused_total" value="0" />
+    <int name="cached_net_income" value="6510740" />
+    <boolean name="home_expense_migrated" value="true" />
+    <boolean name="onboarding_done" value="true" />
+    <boolean name="acct_entitled" value="false" />
+    <int name="cached_month_fare" value="7557530" />
+    <int name="work_start_fare" value="0" />
+    <int name="work_day_start_fare" value="0" />
+    <float name="work_distance_m" value="0.0" />
+    <int name="cached_takehome_month" value="8" />
+    <boolean name="is_admin" value="true" />
+    <string name="affiliation">none</string>
+    <boolean name="setup_complete" value="true" />
+    <long name="work_pause_start" value="0" />
+    <boolean name="floating_pending" value="false" />
+    <string name="evt_notified_20694">43089,43022</string>
+    <long name="last_work_end" value="1787933934224" />
+    <long name="consent_at" value="1787915284486" />
+    <string name="company_profiles">[{&quot;company&quot;:&quot;다연상운&quot;,&quot;workType&quot;:&quot;일차&quot;,&quot;sanapDaily&quot;:110000,&quot;gasBearer&quot;:&quot;기사&quot;,&quot;overRate&quot;:1,&quot;baseSalary&quot;:0},{&quot;company&quot;:&quot;서원택시&quot;,&quot;workType&quot;:&quot;주간&quot;,&quot;sanapDaily&quot;:140000,&quot;gasBearer&quot;:&quot;회사&quot;,&quot;overRate&quot;:1,&quot;baseSalary&quot;:0}]</string>
+    <boolean name="company_seeds_cleared_v34" value="true" />
+    <string name="anon_id">f86edd84-fba1-429e-b5fd-1ae0188104fb</string>
+    <long name="track_upload_ts" value="1787933692183" />
+    <string name="user_id">1</string>
+    <int name="work_days" value="25" />
+    <string name="home_mode">simple</string>
+    <boolean name="auto_login_migrated" value="true" />
+    <int name="daily_sanap" value="110000" />
+    <int name="cache_today_fare" value="0" />
+    <long name="work_start" value="0" />
+    <string name="work_segments">[[1787933690978,1787933934224]]</string>
+    <string name="driver_type">corporate</string>
+    <int name="cached_takehome" value="6842040" />
+    <long name="work_segments_day" value="20694" />
+    <boolean name="driver_type_chosen" value="true" />
+    <long name="work_day_gross_ms" value="243246" />
+    <boolean name="auto_record_touched" value="true" />
+    <int name="annual_leave" value="0" />
+    <boolean name="meter_local" value="false" />
+    <boolean name="auto_free_open" value="true" />
+    <int name="lpg_refund_rate" value="0" />
+    <boolean name="cached_is_corporate" value="true" />
+    <string name="nickname">영진</string>
+    <int name="profit_share" value="100" />
+    <boolean name="simple_cards_v95_stats" value="true" />
+    <string name="consent_version">2026-08-15</string>
+    <string name="overlay_started">08-29 09:49:06</string>
+    <int name="lpg_disc_per_l" value="0" />
+    <int name="mwd_2026-08" value="23" />
+    <long name="work_day_key" value="1787929200000" />
+    <int name="lpg_price" value="1050" />
+    <long name="work_day_net_ms" value="243246" />
+    <boolean name="floating_on" value="true" />
+    <int name="day_start_hour" value="0" />
+    <boolean name="auto_record_on" value="false" />
+    <string name="overlay_died">08-29 01:18:54 (onDestroy)</string>
+    <boolean name="company_profiles_seeded" value="true" />
+    <boolean name="acct_admin" value="true" />
+    <boolean name="float_suppressed" value="false" />
+    <string name="auth_token">8a900e2b2060c10161b12e22071b9ca7a4ba2cc8adacec0091e5061841bef2c1</string>
+    <boolean name="auto_wizard_done" value="true" />
+</map>

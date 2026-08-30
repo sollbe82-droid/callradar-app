@@ -170,39 +170,54 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
 }
 
 // [v21] 홈 상단 오늘 브리핑 한 줄 (온/오프: card_brief). 매일 보이는 재방문 훅.
+/* 홈 브리핑 한 줄 — 2026-08-31 전면 교체
+ *
+ * ★ 예전에 뭐라고 했나
+ *     "오늘은 토요일 · 지금 강남구 콜↑ · DDP 마라톤 수요예상"
+ *   ① "오늘은 토요일" — 기사도 안다. 정보량 0
+ *   ② "강남구 콜↑" 은 /api/demand = **전체 기사 집계**라 인천에서 뛰는 기사에게도 강남이 떴다
+ *   ③ 행사는 대표 지적대로 쓸모없는 게 대부분("큰 이벤트만 있으면 되는데 수두룩하다")
+ *   그리고 결정적으로 **내 얘기가 한 조각도 없었다.** 홈 위에 매출·콜수·순수익 숫자는 있는데
+ *   그게 잘하고 있는 건지를 말해주는 문장이 없었다. 숫자만 있고 판단이 없었다.
+ *
+ * ★ 이제 내 기록만 쓴 두 줄을 서버(/api/home-brief)가 통째로 만들어 내려준다.
+ *     목요일 이 시간 평소 182,000원 · 오늘 54,000원 (128,000원 뒤)
+ *     남은 시간 중 19~21시가 최고 (시간당 32,000원)
+ *   판단(표본 게이트·영업일 축·시간대 계산)이 전부 서버에 있어야 앱을 다시 안 뽑고 고칠 수 있다.
+ *
+ * ★ 덤으로 홈이 빨라진다. 예전엔 /api/demand + /api/events 두 번을 불렀는데 이제 한 번이다.
+ *   행사는 없어지지 않는다 — 바로 아래 EventHomeCard 가 따로 보여준다.
+ */
 @Composable
-private fun HomeBriefCard(refreshKey: Int, card: Color, accent: Color, muted: Color, onBrief: (String) -> Unit = {}) {
-    var brief by remember { mutableStateOf("") }
+private fun HomeBriefCard(userId: String, refreshKey: Int, card: Color, accent: Color, muted: Color, onBrief: (String) -> Unit = {}) {
+    var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     val briefPrefs = LocalContext.current.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-    LaunchedEffect(refreshKey) {
-        val cal = java.util.Calendar.getInstance()
-        val today = listOf("일", "월", "화", "수", "목", "금", "토")[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
-        val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
-        val sb = StringBuilder("오늘은 ${today}요일")
-        val (place, ev) = withContext(Dispatchers.IO) {
-            var p = ""; var e = ""
+    LaunchedEffect(refreshKey, userId) {
+        if (userId.isBlank()) return@LaunchedEffect
+        // 영업일 시작시각(옵트인, 기본 0). 야간 기사는 자정을 넘겨 일해서 시계시각으로 자르면 하루가 두 동강 난다.
+        val sh = briefPrefs.getInt("day_start_hour", 0)
+        val got = withContext(Dispatchers.IO) {
             try {
-                val d = JSONObject((URL("$SERVER_URL/api/demand?hour=$hr").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
-                val rows = d.optJSONArray("rows"); if (rows != null && rows.length() > 0) p = rows.getJSONObject(0).optString("origin")
-            } catch (_: Exception) {}
-            try {
-                val arr = JSONArray((URL("$SERVER_URL/api/events?days=2").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 7000 }.inputStream.bufferedReader().use { it.readText() })
-                val sel = (briefPrefs.getString("event_regions", "") ?: "").split(",").filter { it.isNotBlank() }
-                var i = 0
-                while (i < arr.length()) { val o = arr.getJSONObject(i); val a = o.optString("area"); if (sel.isEmpty() || sel.any { a.contains(it) || it.contains(a) }) { val t = o.optString("title"); if (t.isNotBlank()) { e = (if (a.isNotBlank() && a != "null") "$a " else "") + t; break } }; i++ }
-            } catch (_: Exception) {}
-            Pair(p, e)
+                val o = JSONObject((URL("$SERVER_URL/api/home-brief/$userId?startHour=$sh").openConnection().apply {
+                    com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                } as HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 12000 }.inputStream.bufferedReader().use { it.readText() })
+                val arr = o.optJSONArray("lines")
+                (0 until (arr?.length() ?: 0)).mapNotNull { i -> arr?.optString(i)?.takeIf { it.isNotBlank() } }
+            } catch (_: Exception) { emptyList() }   // 실패하면 카드가 조용히 사라진다(가짜 문장 금지)
         }
-        if (place.isNotBlank()) sb.append(" · 지금 ${place} 콜↑")
-        if (ev.isNotBlank()) sb.append(" · ${ev} 수요예상")
-        brief = sb.toString()
-        onBrief(brief)
+        lines = got
+        onBrief(got.joinToString(". "))
     }
-    if (brief.isNotBlank()) {
+    if (lines.isNotEmpty()) {
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
-            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
                 Text("🔊", fontSize = 16.sp); Spacer(Modifier.width(8.dp))
-                Text(brief, fontSize = 12.sp, color = AppTheme.text, lineHeight = 17.sp)
+                Column {
+                    lines.forEachIndexed { i, t ->
+                        Text(t, fontSize = 12.sp, color = if (i == 0) AppTheme.text else muted, lineHeight = 17.sp)
+                        if (i == 0 && lines.size > 1) Spacer(Modifier.height(3.dp))
+                    }
+                }
             }
         }
     }
@@ -1425,7 +1440,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
 
             // [v21] 오늘 브리핑 한 줄 (온/오프: card_brief)
             if (prefs.getBoolean("card_brief", true)) {
-                HomeBriefCard(refreshKey = refreshKey, card = card, accent = accent, muted = muted, onBrief = { homeBrief = it })
+                HomeBriefCard(userId = userId, refreshKey = refreshKey, card = card, accent = accent, muted = muted, onBrief = { homeBrief = it })
             }
 
             // [v20] 내 지역 수요 정보 (Tier0 공식데이터 + AI 비서 게이트)

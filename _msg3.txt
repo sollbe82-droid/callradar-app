@@ -1,0 +1,8 @@
+remove the links page - 38 people opened it once and never came back
+
+Thirty days of anonymous screen counts put it at 1.2 opens per user, the lowest
+of any screen. It was a bookmark list of airport, flight, weather and highway
+sites, which drivers already have in their own browser.
+
+The open-chat invite lives in its own home banner, so the community entry point
+is untouched.

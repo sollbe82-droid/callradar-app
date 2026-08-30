@@ -1,0 +1,18 @@
+analytics: use only trips CallRadar recorded itself
+
+Importing a past ledger by photo stores a whole day's takings as a single trip
+(platform 'import-past', started_at = ended_at, stamped 21:00). One driver had
+42 such rows totalling 10.3M won, and the hourly stats screen was reporting
+250,000 won for the 21:00 hour - a figure no single trip can reach.
+
+stats2.js had no platform filter at all, so the heatmap, the percentile against
+other drivers and the long-haul/turnover profile were all reading these rows.
+index.js filtered only the call-report platform in most places.
+
+Revenue totals keep them - the driver imported that history precisely to see
+his full earnings. Counts, averages, hour-of-day, per-hour rates, occupancy,
+insights and rankings drop them, because they are not one trip.
+
+Note is_report does not mark these rows (it is false), so radar2's is_report
+check does not catch them; they only fall out there because the coordinates
+are zero.

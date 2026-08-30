@@ -1,0 +1,22 @@
+fuel entry: make manual the primary path and stop investing in receipt OCR
+
+The receipt card's grey text was hardcoded sample values, not what was read,
+so a receipt that parsed 2 of 6 fields looked fully read while the amount was
+empty and the confirm button was dead. Grey is now a real computed value you
+tap to insert, derived from the VAT and unit-price identities in one shared
+FuelCalc so the expense dialog and the receipt card cannot drift apart.
+
+Expense entry no longer overwrites the amount with liters x price: the printed
+amount wins, and a row saves with the amount alone. Previously a fuel expense
+without liters computed to zero and failed to save at all, which is the root of
+the unit-price inflation fixed on the 28th. Rows missing liters are now marked
+in red with a count banner instead of silently skewing the average.
+
+Per-liter discount moves out of each entry into one monthly line
+(per-liter x month liters), under a new key so months already stored with the
+discount baked into the amount are not deducted twice.
+
+The six gas settings all existed to estimate a daily fuel cost by hand; the
+server now measures it from actual fuel expenses over trip days. The unit-price
+field among them was being overwritten by every expense entry, so daily
+settlement was applying a station price while labelling it the company rate.

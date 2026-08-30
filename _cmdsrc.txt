@@ -1,0 +1,49 @@
+@echo off
+cd /d C:\CallRadar
+set SRC=app\src\main\java\com\callradar\app
+set RES=app\src\main\res
+
+echo ---- 1. dead app files ----
+git rm -q --ignore-unmatch "%SRC%\SetupGuideScreen.kt" 2>nul
+git rm -q --ignore-unmatch "%SRC%\screen\SetupGuideScreen.kt" 2>nul
+git rm -q --ignore-unmatch "%SRC%\TmoneyNotificationService.kt"
+git rm -q --ignore-unmatch "%SRC%\CloudinaryUploader.kt"
+git rm -q --ignore-unmatch "%SRC%\ui\theme\Color.kt"
+git rm -q --ignore-unmatch "app\src\main\AndroidManifest_accessibility_backup.xml"
+git rm -q --ignore-unmatch "%RES%\values\colors.xml"
+git rm -q --ignore-unmatch "%RES%\xml\navi_receiver_config.xml"
+
+echo ---- 2. build artifacts out of source folder ----
+del /f /q "%SRC%\callradar_v84_onestore.apk" 2>nul
+del /f /q "%SRC%\callradar_v84_play.aab" 2>nul
+del /f /q "%SRC%\lu482v9jmz.tmp" 2>nul
+git rm -q --ignore-unmatch "%SRC%\_chk.png" "%SRC%\_verify-1.jpg" "%SRC%\lu482v9jmz.tmp"
+
+echo ---- 3. documents out of source folder ----
+if not exist docs\analysis mkdir docs\analysis
+if not exist docs\business mkdir docs\business
+git mv -k "%SRC%\분석_30km장거리_귀로.md" docs\analysis\
+git mv -k "%SRC%\분석_근무시간_연료비반영.md" docs\analysis\
+git mv -k "%SRC%\분석_내운행_AB비교.md" docs\analysis\
+git mv -k "%SRC%\분석_대기자리_성향별.md" docs\analysis\
+git mv -k "%SRC%\분석_연료비정밀_대기전략.md" docs\analysis\
+git mv -k "%SRC%\분석_요일시간_매트릭스.md" docs\analysis\
+git mv -k "%SRC%\분석_장단거리_효율.md" docs\analysis\
+git mv -k "%SRC%\분석_휴식반영_AB.md" docs\analysis\
+git mv -k "%SRC%\운행분석_장거리_공항.md" docs\analysis\
+git mv -k "%SRC%\공유_데이터리포트.md" docs\analysis\
+git mv -k "%SRC%\사업_수익화와_인프라.md" docs\business\
+git mv -k "%SRC%\사업계획서_시그널랩.docx" docs\business\
+git mv -k "%SRC%\사업계획서_시그널랩.pdf" docs\business\
+git mv -k "%SRC%\신고_진행_체크리스트.md" docs\business\
+git mv -k "%SRC%\위치기반서비스사업_신고_사업내용설명자료.docx" docs\business\
+git mv -k "%SRC%\위치기반서비스사업_신고_사업내용설명자료.pdf" docs\business\
+git mv -k "%SRC%\콜레이더_입주신청서_초안.docx" docs\business\
+git mv -k "%SRC%\공지_콜레이더_안내.txt" docs\business\
+
+echo ---- 4. root temp scripts ----
+git rm -q --ignore-unmatch tmp_ap.js tmp_b.log tmp_c.log tmp_chk.js tmp_d.log tmp_ev.js tmp_find.js tmp_find2.js tmp_find3.js tmp_pax.js tmp_perf.js tmp_q.js tmp_road.js tmp_vision.js theme_refactor.js url_refactor.js
+git rm -q --ignore-unmatch "console.log('ERR"
+
+echo ---- 5. leftover in source dir ----
+dir /b "%SRC%" | findstr /v /i "\.kt$ screen shots ui"

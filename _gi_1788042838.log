@@ -1,0 +1,4 @@
+[main c3efbad] admin: SameSite Lax so a link opened from elsewhere still carries the session
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   ad0c80f..c3efbad  main -> main

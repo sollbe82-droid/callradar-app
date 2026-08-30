@@ -1,0 +1,19 @@
+@echo off
+set L=C:\CallRadar\_r97.log
+set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+echo START > %L%
+cd /d C:\CallRadar
+echo ---- ONESTORE RELEASE ---- >> %L%
+call gradlew.bat :app:assembleOnestoreRelease >> %L% 2>&1
+echo OS_RC %ERRORLEVEL% >> %L%
+echo ---- PLAY BUNDLE ---- >> %L%
+call gradlew.bat :app:bundlePlayRelease >> %L% 2>&1
+echo PLAY_RC %ERRORLEVEL% >> %L%
+echo ---- COLLECT ---- >> %L%
+mkdir C:\CallRadar\_releases\v97 2>nul
+copy /y C:\CallRadar\app\build\outputs\apk\onestore\release\*.apk C:\CallRadar\_releases\v97\ >> %L% 2>&1
+copy /y C:\CallRadar\app\build\outputs\mapping\onestoreRelease\mapping.txt C:\CallRadar\_releases\v97\mapping-v97-2.9.7-onestore.txt >> %L% 2>&1
+copy /y C:\CallRadar\app\build\outputs\bundle\playRelease\*.aab C:\CallRadar\_releases\v97\ >> %L% 2>&1
+copy /y C:\CallRadar\app\build\outputs\mapping\playRelease\mapping.txt C:\CallRadar\_releases\v97\mapping-v97-2.9.7-play.txt >> %L% 2>&1
+dir C:\CallRadar\_releases\v97 >> %L% 2>&1
+echo DONE >> %L%

@@ -1,0 +1,679 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+
+> Task :app:compileOnestoreDebugKotlin
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:359:75 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:362:13 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:362:33 Unresolved reference 'isLoading'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:363:9 Unresolved reference 'scope'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:23 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:23 Argument type mismatch: actual type is 'T (of fun <T> withContext)', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:98 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:406 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:442 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:484 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:366:517 Argument type mismatch: actual type is 'Unit', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:367:83 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:367:114 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:367:132 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:367:169 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:369:17 Unresolved reference 'todayTrips'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:370:17 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:371:17 Unresolved reference 'todayActiveHours'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:375:41 Unresolved reference 'fuelDailyMeasured'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:376:25 Unresolved reference 'fuelDailyMeasured'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:377:25 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:377:25 Argument type mismatch: actual type is 'T (of fun <T> T.apply)', but 'K (of fun <K> WHEN_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:377:72 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:380:17 Unresolved reference 'noFareCount'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:390:17 Unresolved reference 'recentTrips'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:394:28 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:395:90 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:396:97 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:397:98 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:398:95 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:405:21 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:406:53 Unresolved reference 'nickname'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:424:21 Unresolved reference 'platformStats'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:431:21 Unresolved reference 'businessExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:432:21 Unresolved reference 'personalExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:433:21 Unresolved reference 'miscExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:439:31 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:444:21 Unresolved reference 'monthWorkedDays'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:445:21 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:445:21 Argument type mismatch: actual type is 'T (of fun <T> T.apply)', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:445:58 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:449:34 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:449:64 Argument type mismatch: actual type is 'Unit', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:449:81 Unresolved reference 'monthWorkedDays'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:452:17 Unresolved reference 'errorMessage'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:453:17 Unresolved reference 'isLoading'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:453:36 Unresolved reference 'homeLoaded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:455:17 Unresolved reference 'errorMessage'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:461:17 Unresolved reference 'isLoading'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:461:36 Unresolved reference 'homeLoaded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:5 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:19 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:20 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:26 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:28 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:38 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:40 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:467:40 Function declaration must have a name.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:5 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:21 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:22 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:36 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:38 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:470:38 Function declaration must have a name.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:475:9 Unresolved reference 'onDispose'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:5 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:19 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:20 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:26 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:28 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:479:28 Function declaration must have a name.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:480:13 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:480:37 Unresolved label.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:481:43 Suspend function 'suspend fun delay(timeMillis: Long): Unit' can only be called from a coroutine or another suspend function.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:5 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:11 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:12 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:21 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:23 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:31 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:32 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:43 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:44 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:45 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:46 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:56 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:57 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:59 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:60 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:61 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:75 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:76 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:95 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:96 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:97 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:98 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:100 Syntax error: Expecting a top level declaration.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:100 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:484:100 Function declaration must have a name.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:486:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:486:59 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:489:90 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:490:57 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:491:62 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:491:70 Unresolved reference 'packageManager'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:491:100 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:491:108 Unresolved reference 'packageName'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:492:89 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:492:128 Unresolved reference 'showAdminDialog'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:494:17 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:494:17 Argument type mismatch: actual type is 'R? (of fun <T, R> T.let)', but 'K? (of fun <K> ELVIS_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:494:26 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:494:32 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:495:49 Unresolved reference 'nickname'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:495:66 Unresolved reference 'carNumber'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:495:105 Unresolved reference 'carNumber'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:495:147 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:496:22 Argument type mismatch: actual type is 'Unit', but 'K (of fun <K> ELVIS_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:496:30 Unresolved reference 'nickname'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:496:69 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:501:21 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:501:29 Unresolved reference 'getSharedPreferences'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:501:147 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:502:22 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:507:109 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:510:68 Unresolved reference 'onOpenSettings'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:517:13 Unresolved reference 'errorMessage'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:518:13 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:518:121 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:520:26 Unresolved reference 'errorMessage'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:521:44 Unresolved reference 'errorMessage'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:521:65 Unresolved reference 'isLoading'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:521:107 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:526:9 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:529:29 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:530:29 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:531:28 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:532:30 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:533:33 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:534:31 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:535:28 Unresolved reference 'workDaysSetting'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:536:31 Unresolved reference 'driverType'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:540:32 Unresolved reference 'monthWorkedDays'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:540:53 Unresolved reference 'monthWorkedDays'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:541:30 Unresolved reference 'dailySanap'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:542:30 Unresolved reference 'lpgDailyCost'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:545:106 Unresolved reference 'businessExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:548:30 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:549:44 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:550:42 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:551:41 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:552:43 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:553:43 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:554:65 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:556:48 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:556:115 Unresolved reference 'personalExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:556:133 Unresolved reference 'miscExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:559:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:565:22 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:568:104 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:569:21 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:569:22 Unresolved reference 'homeLoaded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:572:63 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:574:77 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:581:69 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:582:38 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:582:77 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:582:162 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:582:177 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:582:188 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:584:66 Unresolved reference 'dailySanap'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:585:54 Unresolved reference 'lpgDailyCost'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:586:55 Unresolved reference 'workDaysSetting'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:586:73 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:589:38 Unresolved reference 'monthWorkedDays'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:589:75 Unresolved reference 'profile'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:590:48 Unresolved reference 'calcNetIncome'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:590:62 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:591:162 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:591:174 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:595:45 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:595:67 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:596:142 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:596:153 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:52 Unresolved reference 'goalInput'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:64 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:85 Unresolved reference 'sanapInput'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:98 Unresolved reference 'dailySanap'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:121 Unresolved reference 'showGoalDialog'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:218 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:597:261 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:601:37 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:601:59 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:602:147 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:602:158 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:605:93 Unresolved reference 'todayTrips'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:605:217 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:606:100 Unresolved reference 'todayTrips'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:606:116 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:606:128 Unresolved reference 'todayTrips'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:606:295 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:95 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:108 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:153 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:164 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:193 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:206 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:276 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:289 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:299 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:335 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:348 Unresolved reference 'goalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:607:404 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:614:38 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:34 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:34 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:34 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:34 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:45 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:45 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:615:60 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:36 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:36 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:36 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:36 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:47 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:47 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:616:62 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:35 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:35 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:35 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:35 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:46 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:46 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:617:61 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:33 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:33 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:33 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:33 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:44 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:44 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:619:59 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:622:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:33 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:33 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:33 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:33 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:44 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:44 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:623:59 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:624:40 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:625:41 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:628:29 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:637:25 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:638:21 Unresolved reference 'scope'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:641:80 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:664:79 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:664:95 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:665:41 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:665:49 Unresolved reference 'stopService'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:665:68 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:668:52 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:668:60 Unresolved reference 'stopService'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:668:79 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:674:56 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:676:58 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:678:28 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:684:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:687:50 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:688:52 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:689:53 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:689:89 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:689:130 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:690:21 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:690:188 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:691:33 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:696:50 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:700:46 Unresolved reference 'todayActiveHours'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:704:45 Unresolved reference 'driverType'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:704:72 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:707:31 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:708:59 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:711:25 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:711:46 Unresolved reference 'scope'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:716:70 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:726:54 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:728:51 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:739:25 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:739:25 Argument type mismatch: actual type is 'T (of fun <T> T.apply)', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:739:88 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:740:44 Argument type mismatch: actual type is 'Unit', but 'K (of fun <K> TRY_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:745:29 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:745:50 Unresolved reference 'scope'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:753:48 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:754:84 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:764:77 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:771:21 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:771:149 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:774:21 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:774:190 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:778:62 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:779:58 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:780:72 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:781:53 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:787:25 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:787:194 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:794:54 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:794:101 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:794:121 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:794:161 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:796:98 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:808:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:809:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:810:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:815:40 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:822:25 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:825:114 Unresolved reference 'userId'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:830:43 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:836:33 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:836:140 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:839:63 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:839:141 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:840:86 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:840:152 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:854:146 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:855:157 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:865:152 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:867:29 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:867:74 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:868:82 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:901:92 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:902:89 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:903:172 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:904:172 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:905:173 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:906:173 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:906:298 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:908:37 Unresolved reference 'noFareCount'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:908:203 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:908:220 Unresolved reference 'noFareCount'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:908:320 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:909:89 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:910:219 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:910:347 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:912:182 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:912:283 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:913:226 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:913:356 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:917:93 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:918:182 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:919:200 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:920:111 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:922:95 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:925:142 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:927:35 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:927:43 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:929:42 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:934:50 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:941:96 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:954:134 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:956:154 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:968:59 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:968:67 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:969:145 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:976:144 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:977:42 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:982:39 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:985:54 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:987:25 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:987:102 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:998:39 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1017:59 Unresolved reference 'todayActiveHours'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1022:44 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1023:112 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1027:134 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1028:178 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1031:78 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1035:97 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1035:109 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1042:73 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1043:67 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1046:116 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1048:76 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1049:133 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1053:119 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1060:103 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1069:122 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1072:75 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1076:83 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1078:63 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1079:62 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1083:85 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1085:80 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1086:83 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1095:93 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1101:86 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1104:103 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1104:114 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1116:52 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1116:94 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1117:102 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1117:168 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1119:91 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1120:55 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1120:167 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1120:172 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1120:184 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:44 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:44 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:44 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:44 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:55 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:55 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1128:70 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1132:93 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1133:46 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1133:220 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1133:262 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1133:274 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1141:77 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1143:45 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1143:174 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1144:179 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1145:39 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1146:68 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1148:86 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1149:72 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1150:73 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:64 Unresolved reference 'todayFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:108 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:180 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:236 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:296 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:335 Unresolved reference 'homeBrief'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:359 Unresolved reference 'homeTts'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:374 Unresolved reference 'homeBrief'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1151:533 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1156:76 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1157:118 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1157:205 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1158:81 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1159:89 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1160:64 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1160:108 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1161:82 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1162:88 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1163:170 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1164:181 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1168:252 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1179:83 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1181:120 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1185:224 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1187:100 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1194:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1198:72 Unresolved reference 'salaryExpanded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1198:90 Unresolved reference 'salaryExpanded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1200:132 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1201:141 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1201:146 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1201:157 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1203:34 Unresolved reference 'salaryExpanded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1203:100 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1206:77 Unresolved reference 'salaryExpanded'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1210:104 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1211:81 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1211:183 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1213:59 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1215:71 Unresolved reference 'dailySanap'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1215:128 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1216:109 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1219:44 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1221:95 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1222:109 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1225:33 Unresolved reference 'businessExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1227:80 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1228:67 Unresolved reference 'businessExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1228:114 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1233:102 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1234:147 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1234:152 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1234:164 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1236:48 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1238:81 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1244:75 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1248:33 Unresolved reference 'miscExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1250:75 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1251:67 Unresolved reference 'miscExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1254:33 Unresolved reference 'personalExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1256:76 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1257:67 Unresolved reference 'personalExpense'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1263:81 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1264:77 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1270:77 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1271:106 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1276:76 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1277:105 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1282:75 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1283:107 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1288:76 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1289:107 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1293:71 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1294:145 'operator' modifier is required on 'FirNamedFunctionSymbol kotlin/compareTo' in 'compareTo'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1294:150 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1294:161 Unresolved reference 'red'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1296:107 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:35 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:35 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:35 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:35 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:44 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:68 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:68 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1308:83 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1318:27 Unresolved reference 'acctAdmin'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1318:40 Unresolved reference 'acctEntitled'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:32 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:32 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:32 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:32 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:41 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:65 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:65 Not enough information to infer type argument for 'T'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1320:80 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1323:32 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1325:82 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1325:90 Unresolved reference 'contentResolver'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1329:65 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1330:39 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1330:78 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1330:125 Unresolved reference 'isNotifAccessGranted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1333:83 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1339:84 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1342:33 Unresolved reference 'onToggleFloating'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1343:54 Unresolved reference 'isOverlayGranted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1344:65 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1367:63 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1373:98 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1375:91 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1380:37 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1380:123 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1382:48 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1382:56 Unresolved reference 'stopService'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1382:75 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1383:69 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1392:43 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1392:51 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1393:66 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1393:74 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1396:102 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1399:37 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1399:85 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1400:37 Unresolved reference 'onToggleNotifCapture'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1401:53 Unresolved reference 'isNotifAccessGranted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1402:69 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1408:83 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1410:75 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1410:83 Unresolved reference 'contentResolver'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1411:73 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1411:89 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1416:17 Unresolved reference 'noFareCount'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1417:72 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1417:207 Unresolved reference 'onNavTab'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1421:44 Unresolved reference 'noFareCount'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1422:65 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1428:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1429:44 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1429:63 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1429:78 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1429:94 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1429:113 Unresolved reference 'homeBrief'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1433:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1433:55 Unresolved reference 'refreshKey'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1433:74 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1433:89 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1433:105 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1436:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1436:61 Unresolved reference 'platformStats'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1437:108 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1439:67 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1440:53 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1441:52 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1442:54 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1443:25 Unresolved reference 'platformStats'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1443:49 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1444:55 Unresolved reference 'platform'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1444:98 Unresolved reference 'platform'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1444:139 Unresolved reference 'platform'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1445:49 Unresolved reference 'totalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1446:29 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1448:47 Unresolved reference 'platform'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1449:50 Function invocation 'count()' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1449:86 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1452:71 Unresolved reference 'totalFare'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1452:142 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1453:151 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1462:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1474:59 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1477:25 Condition type mismatch: inferred type is 'WideNavigationRailValue' but 'Boolean' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1477:26 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1478:35 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1479:49 Unresolved reference 'split'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1480:41 Unresolved reference 'split'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1480:86 Function invocation 'size(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1480:93 Argument type mismatch: actual type is 'String', but 'Int' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1481:59 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1481:101 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1483:25 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1483:25 Argument type mismatch: actual type is 'T (of fun <T> T.apply)', but 'K (of fun <K> WHEN_CALL)' was expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1483:80 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1488:91 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1488:139 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1491:78 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1492:79 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1493:82 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1494:74 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1495:81 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1496:38 Unresolved reference 'onNavTab'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1497:38 Unresolved reference 'onNavTab'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1498:35 Unresolved reference 'onNavTab'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1499:36 Unresolved reference 'onNavTab'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1500:39 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1500:47 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1500:68 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1501:39 Unresolved reference 'onOpenSettings'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1502:33 Unresolved reference 'onNavMore'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1503:37 Unresolved reference 'onNavMore'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1504:39 Unresolved reference 'onNavMore'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1505:36 Unresolved reference 'onNavMore'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1506:38 Unresolved reference 'onNavMore'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1510:108 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1513:82 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1514:196 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1518:84 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1526:85 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1539:227 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1540:252 Unresolved reference 'accent'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1545:89 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1567:112 Unresolved reference 'card'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1572:127 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1574:129 Unresolved reference 'green'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1582:17 Unresolved reference 'prefs'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1583:65 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1583:73 Unresolved reference 'startActivity'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1594:47 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1594:55 Unresolved reference 'packageManager'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1594:85 Function invocation 'context(...)' expected.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1594:93 Unresolved reference 'packageName'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1598:25 Unresolved reference 'muted'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:1604:1 Syntax error: Expecting a top level declaration.
+
+> Task :app:compileOnestoreDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileOnestoreDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 11s
+7 actionable tasks: 1 executed, 6 up-to-date
+Configuration cache entry reused.

@@ -1,0 +1,3 @@
+OK /api/health/anomalies?days=60
+OK /api/rhythm/460
+OK /api/stats2/460

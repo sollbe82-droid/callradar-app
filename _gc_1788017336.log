@@ -1,0 +1,6 @@
+[main ad2dbd0] trips: close a stalled trip when the next one starts, and stop flagging real long-distance fares
+ 1 file changed, 46 insertions(+), 5 deletions(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   800452a..ad2dbd0  main -> main
+[master b12a0d1] charter: gangwon-land bookings really are 311000 won, and the server now closes stalled trips
+ 1 file changed, 18 insertions(+)

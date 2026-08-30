@@ -1,0 +1,16 @@
+        1개 파일이 복사되었습니다.
+        1개 파일이 복사되었습니다.
+ C 드라이브의 볼륨에는 이름이 없습니다.
+ 볼륨 일련 번호: 1C66-4DAF
+
+ C:\CallRadar\_releases\v100 디렉터리
+
+2026-08-31  오전 12:08    <DIR>          .
+2026-08-31  오전 12:08    <DIR>          ..
+2026-08-31  오전 12:08        43,147,820 app-onestore-release.apk
+2026-08-31  오전 12:08        74,202,963 mapping-v100-3.0.0-onestore.txt
+               2개 파일         117,350,783 바이트
+               2개 디렉터리  13,007,663,104 바이트 남음
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+adb.exe: no devices/emulators found

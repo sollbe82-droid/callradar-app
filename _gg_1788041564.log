@@ -1,0 +1,4 @@
+[main ad0c80f] trips: move the end time with the start time - editing only the date stretched trips to exactly 24 hours
+ 1 file changed, 66 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   aafd5c7..ad0c80f  main -> main

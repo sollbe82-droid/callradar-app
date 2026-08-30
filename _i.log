@@ -1,0 +1,24 @@
+START 
+---APK--- 
+ C 드라이브의 볼륨에는 이름이 없습니다.
+ 볼륨 일련 번호: 1C66-4DAF
+
+ C:\CallRadar\app\build\outputs\apk\onestore\debug 디렉터리
+
+2026-08-27  오후 09:01        57,560,540 app-onestore-debug.apk
+               1개 파일          57,560,540 바이트
+               0개 디렉터리  17,310,294,016 바이트 남음
+---DEVICES--- 
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+List of devices attached
+R5KL10AL1ZF            device product:m3qksx model:SM_S948N device:m3q transport_id:1
+
+---INSTALL--- 
+Performing Streamed Install
+Success
+INSTALL_RC 0 
+---VERSION ON PHONE--- 
+/system/bin/sh: findstr: inaccessible or not found
+Failed to write while dumping service package: Broken pipe
+DONE 

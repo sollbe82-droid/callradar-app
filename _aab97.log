@@ -1,0 +1,73 @@
+START 
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generatePlayReleaseAssets UP-TO-DATE
+> Task :app:prePlayReleaseBuild UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:createPlayReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:generatePlayReleaseResources UP-TO-DATE
+> Task :app:extractDeepLinksPlayRelease UP-TO-DATE
+> Task :app:mapPlayReleaseSourceSetPaths UP-TO-DATE
+> Task :app:packagePlayReleaseResources UP-TO-DATE
+> Task :app:generatePlayReleaseBuildConfig UP-TO-DATE
+> Task :app:javaPreCompilePlayRelease UP-TO-DATE
+> Task :app:extractPlayReleaseVersionControlInfo
+> Task :app:mergePlayReleaseStartupProfile UP-TO-DATE
+> Task :app:mergePlayReleaseJniLibFolders UP-TO-DATE
+> Task :app:mergePlayReleaseAssets UP-TO-DATE
+> Task :app:writePlayReleaseAppMetadata UP-TO-DATE
+> Task :app:checkPlayReleaseAarMetadata UP-TO-DATE
+> Task :app:parsePlayReleaseIntegrityConfig UP-TO-DATE
+> Task :app:processPlayReleaseNavigationResources UP-TO-DATE
+> Task :app:validateSigningPlayRelease UP-TO-DATE
+> Task :app:compilePlayReleaseNavigationResources UP-TO-DATE
+> Task :app:checkPlayReleaseDuplicateClasses UP-TO-DATE
+> Task :app:parsePlayReleaseLocalResources UP-TO-DATE
+> Task :app:generatePlayReleaseRFile UP-TO-DATE
+> Task :app:mergePlayReleaseResources UP-TO-DATE
+> Task :app:mergePlayReleaseArtProfile UP-TO-DATE
+> Task :app:collectPlayReleaseDependencies UP-TO-DATE
+> Task :app:configurePlayReleaseDependencies UP-TO-DATE
+> Task :app:mergePlayReleaseNativeLibs UP-TO-DATE
+> Task :app:stripPlayReleaseDebugSymbols UP-TO-DATE
+> Task :app:extractPlayReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:processPlayReleaseMainManifest UP-TO-DATE
+> Task :app:processPlayReleaseManifest UP-TO-DATE
+> Task :app:processPlayReleaseManifestForPackage UP-TO-DATE
+> Task :app:processApplicationManifestPlayReleaseForBundle
+> Task :app:compilePlayReleaseKotlin UP-TO-DATE
+> Task :app:processPlayReleaseJavaRes UP-TO-DATE
+> Task :app:compilePlayReleaseJavaWithJavac UP-TO-DATE
+> Task :app:processPlayReleaseResources UP-TO-DATE
+> Task :app:mergePlayReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:expandPlayReleaseArtProfileWildcards UP-TO-DATE
+> Task :app:mergePlayReleaseJavaResource UP-TO-DATE
+> Task :app:minifyPlayReleaseWithR8 UP-TO-DATE
+> Task :app:compilePlayReleaseArtProfile UP-TO-DATE
+> Task :app:bundlePlayReleaseResources
+> Task :app:buildPlayReleasePreBundle
+> Task :app:packagePlayReleaseBundle
+> Task :app:signPlayReleaseBundle
+> Task :app:bundlePlayRelease
+> Task :app:producePlayReleaseBundleIdeListingFile
+> Task :app:createPlayReleaseBundleListingFileRedirect UP-TO-DATE
+
+BUILD SUCCESSFUL in 11s
+47 actionable tasks: 7 executed, 40 up-to-date
+Configuration cache entry reused.
+AAB_RC 0 
+C:\CallRadar\app\build\outputs\bundle\playRelease\app-play-release.aab
+        1개 파일이 복사되었습니다.
+        1개 파일이 복사되었습니다.
+ C 드라이브의 볼륨에는 이름이 없습니다.
+ 볼륨 일련 번호: 1C66-4DAF
+
+ C:\CallRadar\_releases\v97_play_accessibility 디렉터리
+
+2026-08-28  오전 10:50    <DIR>          .
+2026-08-28  오전 10:50    <DIR>          ..
+2026-08-28  오전 10:50        25,016,842 app-play-release.aab
+2026-08-28  오전 10:10        74,061,366 mapping-v97-play-accessibility.txt
+               2개 파일          99,078,208 바이트
+               2개 디렉터리  16,542,736,384 바이트 남음
+DONE 

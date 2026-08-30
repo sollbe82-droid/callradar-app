@@ -1,0 +1,10 @@
+@echo off
+set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+echo ---- 09:14 build (uploaded to PRODUCTION) ----
+cd /d C:\CallRadar\_releases\v97
+"%JAVA_HOME%\bin\jar.exe" tf app-play-release.aab | findstr /i accessibility
+echo RESULT_A %ERRORLEVEL%
+echo ---- 10:50 build (accessibility, NOT uploaded) ----
+cd /d C:\CallRadar\_releases\v97_play_accessibility
+"%JAVA_HOME%\bin\jar.exe" tf app-play-release.aab | findstr /i accessibility
+echo RESULT_B %ERRORLEVEL%

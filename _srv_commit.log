@@ -1,0 +1,30 @@
+SRV_COMMIT_START 2026-08-27 15:43:45.16 
+[main 43055c6] 관리자 페이지에서 ADMIN_KEY 제거 - 세션쿠키로 통일 (고시 제8조 마무리)
+ 1 file changed, 35 insertions(+), 15 deletions(-)
+COMMIT_EXITCODE 0 
+43055c6 관리자 페이지에서 ADMIN_KEY 제거 - 세션쿠키로 통일 (고시 제8조 마무리)
+798f9ab [보안·방침] 궤적 좌표 저장 암호화 + 방침 수탁자·국외이전 정비
+?? .fuse_hidden0000002400000001
+?? .fuse_hidden0000002500000002
+?? .fuse_hidden0000002600000003
+?? .fuse_hidden0000002700000004
+?? .fuse_hidden0000002800000005
+?? .fuse_hidden0000002900000006
+?? .fuse_hidden0000002a00000007
+?? .fuse_hidden0000002b00000008
+?? .fuse_hidden0000002c00000009
+?? .fuse_hidden0000002d0000000a
+?? .fuse_hidden0000002e0000000b
+?? .fuse_hidden0000002f0000000c
+?? .fuse_hidden000000300000000d
+?? .fuse_hidden000000310000000e
+?? .fuse_hidden000000320000000f
+?? .fuse_hidden0000003300000010
+?? .fuse_hidden0000003400000011
+?? .fuse_hidden0000003500000012
+?? .fuse_hidden0000003700000013
+?? .fuse_hidden0000003c00000014
+?? .fuse_hidden0000003d00000015
+?? .fuse_hidden0000003f00000016
+?? .fuse_hidden0000004a00000017
+SRV_COMMIT_DONE 2026-08-27 15:43:47.60 

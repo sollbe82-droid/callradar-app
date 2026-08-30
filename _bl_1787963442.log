@@ -1,0 +1,53 @@
+Calculating task graph as configuration cache cannot be reused because JVM has changed.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugAssets UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
+> Task :app:desugarOnestoreDebugFileDependencies
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:mapOnestoreDebugSourceSetPaths
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:compileOnestoreDebugKotlin UP-TO-DATE
+> Task :app:processOnestoreDebugJavaRes
+> Task :app:javaPreCompileOnestoreDebug
+> Task :app:compileOnestoreDebugNavigationResources
+> Task :app:createOnestoreDebugCompatibleScreenManifests
+> Task :app:checkOnestoreDebugAarMetadata
+> Task :app:extractDeepLinksOnestoreDebug
+> Task :app:checkOnestoreDebugDuplicateClasses
+> Task :app:mergeOnestoreDebugJniLibFolders
+> Task :app:mergeLibDexOnestoreDebug
+> Task :app:mergeOnestoreDebugAssets
+> Task :app:processOnestoreDebugMainManifest
+> Task :app:processOnestoreDebugManifest
+> Task :app:compressOnestoreDebugAssets
+> Task :app:processOnestoreDebugManifestForPackage
+> Task :app:validateSigningOnestoreDebug
+> Task :app:mergeOnestoreDebugNativeLibs
+> Task :app:writeOnestoreDebugAppMetadata
+> Task :app:writeOnestoreDebugSigningConfigVersions
+
+> Task :app:stripOnestoreDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libK3fAndroid.so, libandroidx.graphics.path.so. Run with --info option to learn more.
+
+> Task :app:mergeOnestoreDebugJavaResource
+> Task :app:compileOnestoreDebugJavaWithJavac
+> Task :app:generateOnestoreDebugGlobalSynthetics
+> Task :app:mergeOnestoreDebugResources
+> Task :app:mergeExtDexOnestoreDebug
+> Task :app:processOnestoreDebugResources
+> Task :app:dexBuilderOnestoreDebug
+> Task :app:mergeProjectDexOnestoreDebug
+> Task :app:packageOnestoreDebug
+> Task :app:assembleOnestoreDebug
+> Task :app:createOnestoreDebugApkListingFileRedirect
+
+BUILD SUCCESSFUL in 1m 5s
+38 actionable tasks: 31 executed, 7 up-to-date
+Configuration cache entry stored.
+Performing Streamed Install
+Success

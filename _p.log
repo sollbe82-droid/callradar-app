@@ -1,0 +1,19 @@
+START 
+C:\CallRadar\server
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+[main f1746dd] gitignore fuse_hidden shadow files
+ 1 file changed, 3 insertions(+)
+---BRANCH--- 
+main
+---REMOTE--- 
+origin	https://github.com/sollbe82-droid/callradar-server.git (fetch)
+origin	https://github.com/sollbe82-droid/callradar-server.git (push)
+---PUSH--- 
+To https://github.com/sollbe82-droid/callradar-server.git
+   798f9ab..f1746dd  main -> main
+PUSH_RC 0 
+---LOG--- 
+f1746dd gitignore fuse_hidden shadow files
+43055c6 관리자 페이지에서 ADMIN_KEY 제거 - 세션쿠키로 통일 (고시 제8조 마무리)
+798f9ab [보안·방침] 궤적 좌표 저장 암호화 + 방침 수탁자·국외이전 정비
+DONE 

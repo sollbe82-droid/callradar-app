@@ -1,0 +1,10 @@
+flags: refresh account permissions from simple mode too
+
+The permission fetch lived inside the full home screen only. Simple mode read the
+stored values and never asked the server again, so a driver in simple mode whose
+permission was cleared by the 200-with-everything-false bug stayed broken
+permanently - auto-record dead, no log, and no way to recover except switching
+modes, which no driver would think to do. 145 people use simple mode.
+
+Moved the fetch into AccountFlags and called it from both screens, so the
+self-healing works whichever mode the driver is in.

@@ -1,0 +1,302 @@
+Activity Resolver Table:
+  Schemes:
+      callradar:
+        b6145a0 com.callradar.app/.MainActivity filter 1e3e51e
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          Category: "android.intent.category.BROWSABLE"
+          Scheme: "callradar"
+          Authority: "auth": -1
+      kakaofa52bb8b78c8d184988f6ad18f42687e:
+        10be1ff com.callradar.app/com.kakao.sdk.auth.AuthCodeHandlerActivity filter b251bcc
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          Category: "android.intent.category.BROWSABLE"
+          Scheme: "kakaofa52bb8b78c8d184988f6ad18f42687e"
+          Authority: "oauth": -1
+
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        b6145a0 com.callradar.app/.MainActivity filter 5619559
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        90d2e15 com.callradar.app/androidx.profileinstaller.ProfileInstallReceiver filter b6e28b8
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        90d2e15 com.callradar.app/androidx.profileinstaller.ProfileInstallReceiver filter 7e5352a
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        90d2e15 com.callradar.app/androidx.profileinstaller.ProfileInstallReceiver filter b469f1b
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        90d2e15 com.callradar.app/androidx.profileinstaller.ProfileInstallReceiver filter 49f9691
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Service Resolver Table:
+  Non-Data Actions:
+      android.service.notification.NotificationListenerService:
+        3391864 com.callradar.app/.CallCaptureService filter 6160acd permission android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+          Action: "android.service.notification.NotificationListenerService"
+      android.accessibilityservice.AccessibilityService:
+        cf979f6 com.callradar.app/.NaviIntentReceiver filter 3a611f7 permission android.permission.BIND_ACCESSIBILITY_SERVICE
+          Action: "android.accessibilityservice.AccessibilityService"
+
+Domain verification status:
+
+Permissions:
+  Permission [com.callradar.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (e5d7ccb):
+    sourcePackage=com.callradar.app
+    uid=10386 gids=[] type=0 prot=signature
+    perm=PermissionInfo{9d62ca8 com.callradar.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  com.callradar.app/androidx.core.content.FileProvider:
+    Provider{3bc63c1 com.callradar.app/androidx.core.content.FileProvider}
+  com.callradar.app/com.google.mlkit.common.internal.MlKitInitProvider:
+    Provider{5e17766 com.callradar.app/com.google.mlkit.common.internal.MlKitInitProvider}
+  com.callradar.app/androidx.startup.InitializationProvider:
+    Provider{2451aa7 com.callradar.app/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [com.callradar.app.mlkitinitprovider]:
+    Provider{5e17766 com.callradar.app/com.google.mlkit.common.internal.MlKitInitProvider}
+      applicationInfo=ApplicationInfo{9b56b54 com.callradar.app}
+  [com.callradar.app.androidx-startup]:
+    Provider{2451aa7 com.callradar.app/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{fea7afd com.callradar.app}
+  [com.callradar.app.fileprovider]:
+    Provider{3bc63c1 com.callradar.app/androidx.core.content.FileProvider}
+      applicationInfo=ApplicationInfo{4fda3f2 com.callradar.app}
+
+Key Set Manager:
+  [com.callradar.app]
+      Signing KeySets: 91
+
+Packages:
+  Package [com.callradar.app] (71eba43):
+    appId=10386
+    pkg=Package{7a7e8c0 com.callradar.app}
+    codePath=/data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==
+    resourcePath=/data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==
+    legacyNativeLibraryDir=/data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==/lib
+    extractNativeLibs=false
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=99 minSdk=24 targetSdk=36
+    minExtensionVersions=[]
+    versionName=2.9.9
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    queriesPackages=[com.kakao.talk, com.kakao.talk.alpha, com.kakao.talk.sandbox]
+    queriesIntents=[Intent { act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https:/... }]
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalLibraries:
+      androidx.window.extensions
+      androidx.window.sidecar
+    usesLibraryFiles:
+      /system_ext/framework/androidx.window.extensions.jar
+      /system_ext/framework/androidx.window.sidecar.jar
+    timeStamp=2026-08-28 21:29:04
+    lastUpdateTime=2026-08-28 21:29:15
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    category=manifest: -1, override: -1, by user: -1
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{36858cb version:2, signatures:[26b3db43], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP KILL_AFTER_RESTORE ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    componentsDeclared=36
+    declared permissions:
+      com.callradar.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.POST_NOTIFICATIONS
+      android.permission.ACCESS_FINE_LOCATION
+      android.permission.SYSTEM_ALERT_WINDOW
+      android.permission.FOREGROUND_SERVICE
+      com.callradar.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.RECEIVE_BOOT_COMPLETED
+      android.permission.FOREGROUND_SERVICE_LOCATION
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+      android.permission.INTERNET
+      android.permission.ACCESS_COARSE_LOCATION
+      android.permission.ACCESS_NETWORK_STATE
+      android.permission.CAMERA
+      android.permission.VIBRATE
+    install permissions:
+      android.permission.FOREGROUND_SERVICE: granted=true
+      com.callradar.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.RECEIVE_BOOT_COMPLETED: granted=true
+      android.permission.FOREGROUND_SERVICE_LOCATION: granted=true
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS: granted=true
+      android.permission.INTERNET: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      android.permission.VIBRATE: granted=true
+    User 0: ceDataInode=46526 deDataInode=101852 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/com.callradar.app
+      firstInstallTime=2026-08-28 20:05:21
+      uninstallReason=0
+      gids=[3003]
+      runtime permissions:
+        android.permission.POST_NOTIFICATIONS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.ACCESS_FINE_LOCATION: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|524288]
+        android.permission.ACCESS_COARSE_LOCATION: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.CAMERA: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+    com.callradar.app:
+      com.kakao.talk
+  queries via component:
+    com.samsung.android.bixby.agent:
+      com.callradar.app
+    com.lguplus.lgugpsnwps:
+      com.callradar.app
+    com.android.settings.intelligence:
+      com.callradar.app
+    com.samsung.android.mocca:
+      com.callradar.app
+    com.google.android.apps.accessibility.voiceaccess:
+      com.callradar.app
+    com.google.android.as:
+      com.callradar.app
+    com.google.android.as.oss:
+      com.callradar.app
+    com.skt.tmap.ku:
+      com.callradar.app
+    com.thinkware.inaviair.tmoney:
+      com.callradar.app
+    com.locnall.KimGiSa:
+      com.callradar.app
+    com.kakao.talk:
+      com.callradar.app
+    com.callradar.app:
+      com.google.android.googlequicksearchbox
+      com.android.chrome
+      com.google.android.setupwizard
+      com.sec.android.app.sbrowser
+  queryable via interaction:
+    User 0:
+      [com.samsung.android.stickercenter,com.samsung.android.brightnessbackupservice,com.samsung.android.da.daagent,com.samsung.android.provider.filterprovider,com.ims.dm,com.samsung.android.fmm,com.samsung.gpuwatchapp,com.android.providers.settings,com.sec.app.RilErrorNotifier,com.samsung.aasaservice,com.samsung.android.dck.timesync,com.samsung.android.knox.zt.framework,com.android.location.fused,com.sec.android.iaft,com.sec.android.app.servicemodeapp,com.samsung.android.camerasdkservice,com.sec.automation,com.sec.android.app.wlantest,com.android.inputdevices,com.samsung.android.knox.attestation,com.samsung.SMT,com.sec.imslogger,com.samsung.android.bbc.bbcagent,com.sec.android.CcInfo,com.samsung.android.hdmapp,com.sec.android.app.hwmoduletest,com.sec.modem.settings,com.qualcomm.qti.services.systemhelper,com.sec.android.app.factorykeystring,com.android.settings,com.samsung.android.lool,com.wssyncmldm,com.sec.android.diagmonagent,com.sec.factory.camera,com.sec.facatfunction,com.samsung.android.themecenter,com.samsung.android.vtcamerasettings,com.sec.android.app.parser,com.samsung.android.wifi.ai,com.sec.android.app.uwbtest,android,com.sec.android.emergencylauncher,com.samsung.android.messageguardsync,com.sec.android.smartfpsadjuster,com.samsung.accessibility,com.samsung.android.vexfwk.service,com.android.keychain,com.samsung.android.biometrics.app.setting,com.sec.imsservice,com.sec.usbsettings,com.sec.android.sdhms,com.samsung.android.motionphoto.app,com.skms.android.agent,com.samsung.android.app.omcagent,com.samsung.android.smartswitchassistant,com.sec.android.app.quicktool,com.samsung.android.mdecservice,com.samsung.android.app.esimkeystring,com.samsung.android.svcagent,com.samsung.android.knox.pushmanager,com.samsung.android.ese,com.sem.factoryapp,com.android.dynsystem,com.android.localtransport,com.sec.android.soagent,com.samsung.oda.service,com.samsung.android.smartface,com.samsung.android.dqagent,com.samsung.android.forest,com.samsung.sait.sohservice,com.qti.snapdragon.qdcm_ff,com.sec.android.app.SecSetupWizard,com.samsung.android.aircommandmanager,com.samsung.android.providers.factory,com.samsung.euicc,com.android.server.telecom,com.sec.sve,com.samsung.android.cameraxservice,com.samsung.android.app.dressroom,com.samsung.android.emergency,com.sec.android.app.RilPhoneNumberService,com.sec.epdg,com.samsung.android.knox.mpos,com.sec.mhs.smarttethering,com.samsung.android.bixby.wakeup,com.samsung.android.photoremasterservice,com.sec.bcservice,com.samsung.android.globalpostprocmgr]:
+        com.callradar.app
+      com.samsung.android.honeyboard:
+        com.callradar.app
+      com.google.android.gms:
+        com.callradar.app
+      com.google.android.permissioncontroller:
+        com.callradar.app
+  queryable via uses-library:
+
+Dexopt state:
+  [com.callradar.app]
+    path: /data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==/base.apk
+      arm64: [status=verify] [reason=install] [primary-abi]
+        [location is /data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==/oat/arm64/base.odex]
+
+SPEG state:
+  Event #5: 28-08-2026 20:05:24.450 Success com.callradar.app took 2186 ms
+  Event #4: 02-08-2026 20:07:45.995 Success com.callradar.app took 2234 ms
+  Event #3: 25-07-2026 21:28:36.619 Success com.callradar.app took 2279 ms
+  Event #2: 09-05-2026 02:50:53.416 Success com.sec.penup took 2241 ms
+  Event #1: 09-05-2026 02:48:38.791 Success com.sec.android.app.popupcalculator took 2196 ms
+  Event #0: 09-05-2026 02:42:52.601 Success com.samsung.sree took 2276 ms
+
+Profile utilization state:
+  Current state:
+    Version: 2.1.2
+    Start reason: boot-no-update
+    Start time: not started
+    Finish time: not finished
+    PU_StatusWatcher:
+      Initial thermal status: 0
+      Thermal status: 0
+      Screen off: false
+      Low battery: true
+    PU_DexoptTrigger:
+      Dexopt concurrency: 4
+      Dexopting: false
+    PU_Storage:
+      Stored apps:
+        com.samsung.android.messaging 30
+        com.android.vending 42
+        com.google.android.googlequicksearchbox 48
+        com.samsung.android.calendar 51
+        com.sec.android.app.camera 58
+        com.callradar.app 61
+        com.google.android.apps.tachyon 63
+        com.sec.android.easyMover 70
+        com.sec.android.app.clockpackage 72
+        com.samsung.android.dialer 73
+        com.hopefactory2021.fakegpslocation 76
+        com.android.settings 79
+        com.samsung.android.bixby.agent 79
+        com.samsung.android.app.contacts 81
+        com.kakao.taxi.driver 90
+        com.thinkware.inaviair.tmoney 90
+    Stored PU state:
+      Service:
+        Version: 2.1.2
+        Start reason: boot-after-mainline-update
+        Start time: Mon Aug 10 16:31:23 GMT+09:00 2026 ts=1786347083084
+        Finish time: Mon Aug 10 17:06:55 GMT+09:00 2026 ts=1786349215661
+        Took time 2132sec
+      Watcher:
+        Initial thermal status: 2
+        Thermal status: 0
+        Screen off: true
+        Low battery: false
+      Metrics:
+        Predicted and launched apps: 5
+        Predicted apps: 11
+        Launched apps: 6
+        Best f1Score: 0.625, prefixCount: 10, precision: 0.5, recall: 0.8333333
+      Trigger:
+        Dexopt concurrency: 4
+        Dexopting: false
+        Hot apps list:
+          com.samsung.android.messaging, w=30, s=OPTIMIZED, optTimeMs=1786349103846, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+          com.android.vending, w=42, s=OPTIMIZED, optTimeMs=1786349215264, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=10604, filter=speed-profile], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify]
+          com.google.android.googlequicksearchbox, w=48, s=OPTIMIZED, optTimeMs=1786349215660, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=11117, filter=speed-profile]
+          com.samsung.android.calendar, w=51, s=OPTIMIZED, optTimeMs=1786349106075, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=2196, filter=speed-profile]
+          com.sec.android.app.camera, w=58, s=OPTIMIZED, optTimeMs=1786349103931, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+          com.callradar.app, w=61, s=OPTIMIZED, optTimeMs=1786349107755, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=3678, filter=speed-profile]
+          com.google.android.apps.tachyon, w=63, s=OPTIMIZED, optTimeMs=1786349165725, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=5974, filter=speed-profile]
+          com.sec.android.easyMover, w=70, s=OPTIMIZED, optTimeMs=1786349165182, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=3702, filter=speed-profile]
+          com.sec.android.app.clockpackage, w=72, s=OPTIMIZED, optTimeMs=1786349214853, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=2459, filter=speed-profile]
+          com.samsung.android.dialer, w=73, s=OPTIMIZED, optTimeMs=1786349165800, cancelCount=0, dexopt=SKIPPED, [primaryDex=true, reason=boot-after-mainline-update, dex2oatTimeMs=0, filter=speed-profile]
+          com.hopefactory2021.fakegpslocation, w=76, s=OPTIMIZED, optTimeMs=1786349214603, cancelCount=0, dexopt=PERFORMED, [primaryDex=true, reason=profile-utilization, dex2oatTimeMs=1690, filter=speed-profile], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify], [primaryDex=false, reason=vdex, dex2oatTimeMs=0, filter=verify]
+    Stored SCPM state:
+      packages-9a07:
+        [                                            ]
+      disable-2bb4:
+        [                                            ]
+
+HeimdAllFS state:
+  [com.callradar.app]
+    path: /data/app/~~xhG75WCVBzOk_fHWXMznhA==/com.callradar.app-QGl8iu8tjBl-V8Xl386K9Q==/base.apk
+    Compressed? False
+  [ Summary ]
+    # of packages: 1 / # of packages in DATA: 1 (1)
+    Compressed apks info - sum of orig size: 10546 / sum of compr size : 10546
+  [Lfo status]

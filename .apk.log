@@ -1,0 +1,67 @@
+﻿Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugAssets UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileOnestoreDebug UP-TO-DATE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:generateOnestoreDebugGlobalSynthetics UP-TO-DATE
+> Task :app:desugarOnestoreDebugFileDependencies UP-TO-DATE
+> Task :app:createOnestoreDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:mapOnestoreDebugSourceSetPaths UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreDebug UP-TO-DATE
+> Task :app:validateSigningOnestoreDebug UP-TO-DATE
+> Task :app:mergeOnestoreDebugJniLibFolders UP-TO-DATE
+> Task :app:writeOnestoreDebugAppMetadata UP-TO-DATE
+> Task :app:writeOnestoreDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:compileOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:mergeOnestoreDebugResources UP-TO-DATE
+> Task :app:mergeOnestoreDebugAssets UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:checkOnestoreDebugDuplicateClasses UP-TO-DATE
+> Task :app:compressOnestoreDebugAssets UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:mergeLibDexOnestoreDebug UP-TO-DATE
+> Task :app:processOnestoreDebugMainManifest UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeLibs UP-TO-DATE
+> Task :app:processOnestoreDebugManifest UP-TO-DATE
+> Task :app:processOnestoreDebugManifestForPackage UP-TO-DATE
+> Task :app:stripOnestoreDebugDebugSymbols UP-TO-DATE
+> Task :app:mergeExtDexOnestoreDebug UP-TO-DATE
+> Task :app:checkOnestoreDebugAarMetadata UP-TO-DATE
+> Task :app:processOnestoreDebugResources UP-TO-DATE
+
+> Task :app:compileOnestoreDebugKotlin FAILED
+.\gradlew.bat : e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/InsightsActivity.kt:119:43 Unresolved refer
+ence 'KeyboardOptions'.
+위치 줄:1 문자:80
++ ... tudio\jbr"; .\gradlew.bat :app:assembleOnestoreDebug --console=plain  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (e: file:///C:/C...yboardOptions'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/InsightsActivity.kt:119:74 Unresolved reference 'KeyboardTy
+pe'.
+e: file:///C:/CallRadar/app/src/main/java/com/callradar/app/InsightsActivity.kt:244:72 Unresolved reference 'clickable'
+.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileOnestoreDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCo
+mpilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 3s
+31 actionable tasks: 1 executed, 30 up-to-date
+Configuration cache entry reused.

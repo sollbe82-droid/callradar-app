@@ -1,0 +1,59 @@
+OCR_DBG_START 2026-08-27 15:29:22.81 
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateOnestoreDebugAssets UP-TO-DATE
+> Task :app:preOnestoreDebugBuild UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateOnestoreDebugResources UP-TO-DATE
+> Task :app:generateOnestoreDebugBuildConfig UP-TO-DATE
+> Task :app:generateOnestoreDebugGlobalSynthetics UP-TO-DATE
+> Task :app:javaPreCompileOnestoreDebug UP-TO-DATE
+> Task :app:mapOnestoreDebugSourceSetPaths UP-TO-DATE
+> Task :app:desugarOnestoreDebugFileDependencies UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreDebug UP-TO-DATE
+> Task :app:checkOnestoreDebugDuplicateClasses UP-TO-DATE
+> Task :app:createOnestoreDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:mergeLibDexOnestoreDebug UP-TO-DATE
+> Task :app:packageOnestoreDebugResources UP-TO-DATE
+> Task :app:mergeOnestoreDebugJniLibFolders UP-TO-DATE
+> Task :app:validateSigningOnestoreDebug UP-TO-DATE
+> Task :app:writeOnestoreDebugAppMetadata UP-TO-DATE
+> Task :app:writeOnestoreDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:mergeOnestoreDebugAssets UP-TO-DATE
+> Task :app:compileOnestoreDebugNavigationResources UP-TO-DATE
+> Task :app:compressOnestoreDebugAssets UP-TO-DATE
+> Task :app:parseOnestoreDebugLocalResources UP-TO-DATE
+> Task :app:checkOnestoreDebugAarMetadata UP-TO-DATE
+> Task :app:mergeExtDexOnestoreDebug UP-TO-DATE
+> Task :app:generateOnestoreDebugRFile UP-TO-DATE
+> Task :app:mergeOnestoreDebugNativeLibs UP-TO-DATE
+> Task :app:stripOnestoreDebugDebugSymbols UP-TO-DATE
+> Task :app:mergeOnestoreDebugResources UP-TO-DATE
+> Task :app:processOnestoreDebugMainManifest UP-TO-DATE
+> Task :app:processOnestoreDebugManifest UP-TO-DATE
+> Task :app:processOnestoreDebugManifestForPackage UP-TO-DATE
+> Task :app:processOnestoreDebugResources UP-TO-DATE
+> Task :app:compileOnestoreDebugKotlin
+> Task :app:processOnestoreDebugJavaRes UP-TO-DATE
+> Task :app:mergeOnestoreDebugJavaResource UP-TO-DATE
+> Task :app:compileOnestoreDebugJavaWithJavac UP-TO-DATE
+> Task :app:dexBuilderOnestoreDebug
+> Task :app:mergeProjectDexOnestoreDebug
+> Task :app:packageOnestoreDebug
+> Task :app:assembleOnestoreDebug
+> Task :app:createOnestoreDebugApkListingFileRedirect UP-TO-DATE
+
+BUILD SUCCESSFUL in 1m 49s
+38 actionable tasks: 4 executed, 34 up-to-date
+Configuration cache entry reused.
+BUILD_EXITCODE 0 
+ 
+---- ADB INSTALL ---- 
+List of devices attached
+R5KL10AL1ZF	device
+
+Performing Streamed Install
+Success
+INSTALL_EXITCODE 0 
+OCR_DBG_DONE 2026-08-27 15:31:27.20 

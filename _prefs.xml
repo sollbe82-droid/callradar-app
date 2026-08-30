@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <int name="daily_sanap" value="110000" />
+    <int name="cache_today_fare" value="0" />
+    <string name="driver_type">corporate</string>
+    <long name="cache_today_day" value="20693" />
+    <int name="cached_takehome" value="0" />
+    <int name="cached_net_income" value="0" />
+    <boolean name="home_expense_migrated" value="true" />
+    <boolean name="onboarding_done" value="true" />
+    <boolean name="driver_type_chosen" value="true" />
+    <boolean name="acct_entitled" value="false" />
+    <int name="cached_month_fare" value="0" />
+    <int name="annual_leave" value="0" />
+    <int name="cached_takehome_month" value="8" />
+    <boolean name="is_admin" value="true" />
+    <boolean name="auto_free_open" value="true" />
+    <int name="lpg_refund_rate" value="0" />
+    <string name="affiliation">none</string>
+    <boolean name="cached_is_corporate" value="true" />
+    <string name="nickname">영진</string>
+    <int name="profit_share" value="100" />
+    <boolean name="simple_cards_v95_stats" value="true" />
+    <boolean name="setup_complete" value="true" />
+    <boolean name="notif_capture_on" value="true" />
+    <boolean name="floating_pending" value="false" />
+    <string name="consent_version">2026-08-15</string>
+    <string name="overlay_started">08-28 09:43:12</string>
+    <boolean name="auto_login" value="true" />
+    <long name="consent_at" value="1787877667753" />
+    <int name="mwd_2026-08" value="23" />
+    <string name="company_profiles">[{&quot;company&quot;:&quot;다연상운&quot;,&quot;workType&quot;:&quot;일차&quot;,&quot;sanapDaily&quot;:110000,&quot;gasBearer&quot;:&quot;기사&quot;,&quot;overRate&quot;:1,&quot;baseSalary&quot;:0},{&quot;company&quot;:&quot;서원택시&quot;,&quot;workType&quot;:&quot;주간&quot;,&quot;sanapDaily&quot;:140000,&quot;gasBearer&quot;:&quot;회사&quot;,&quot;overRate&quot;:1,&quot;baseSalary&quot;:0}]</string>
+    <boolean name="company_seeds_cleared_v34" value="true" />
+    <string name="anon_id">71edefef-9d81-4f68-87f5-6b1af306f1ce</string>
+    <boolean name="floating_on" value="true" />
+    <int name="day_start_hour" value="0" />
+    <boolean name="company_profiles_seeded" value="true" />
+    <string name="user_id">1</string>
+    <boolean name="acct_admin" value="true" />
+    <boolean name="float_suppressed" value="false" />
+    <string name="auth_token">8ea601a757ebc8062ed40ba658ac2eed089709d794492bc2dc2225ce6cf02a57</string>
+    <boolean name="auto_wizard_done" value="true" />
+    <int name="work_days" value="25" />
+    <string name="home_mode">simple</string>
+    <boolean name="auto_login_migrated" value="true" />
+</map>
