@@ -1,3 +1,14 @@
-UI hierchary dumped to: /sdcard/e3.xml
-/sdcard/e3.xml: 1 file pulled, 0 skipped. 13.7 MB/s (31838 bytes in 0.002s)
+        1개 파일이 복사되었습니다.
+        1개 파일이 복사되었습니다.
+ C 드라이브의 볼륨에는 이름이 없습니다.
+ 볼륨 일련 번호: 1C66-4DAF
+
+ C:\CallRadar\_releases\v100\play 디렉터리
+
+2026-08-31  오전 08:36    <DIR>          .
+2026-08-31  오전 08:36    <DIR>          ..
+2026-08-31  오전 08:35        25,030,095 CallRadar-v100-3.0.0-play.aab
+2026-08-31  오전 08:35        74,137,056 mapping-v100-3.0.0-play.txt
+               2개 파일          99,167,151 바이트
+               2개 디렉터리  10,293,141,504 바이트 남음
 RUN2_DONE 
