@@ -1,14 +1,8 @@
-        1°³ ÆÄÀÏÀÌ º¹»çµÇ¾ú½À´Ï´Ù.
-        1°³ ÆÄÀÏÀÌ º¹»çµÇ¾ú½À´Ï´Ù.
- C µå¶óÀÌºêÀÇ º¼·ı¿¡´Â ÀÌ¸§ÀÌ ¾ø½À´Ï´Ù.
- º¼·ı ÀÏ·Ã ¹øÈ£: 1C66-4DAF
-
- C:\CallRadar\_releases\v100\play µğ·ºÅÍ¸®
-
-2026-08-31  ¿ÀÀü 08:36    <DIR>          .
-2026-08-31  ¿ÀÀü 08:36    <DIR>          ..
-2026-08-31  ¿ÀÀü 08:35        25,030,095 CallRadar-v100-3.0.0-play.aab
-2026-08-31  ¿ÀÀü 08:35        74,137,056 mapping-v100-3.0.0-play.txt
-               2°³ ÆÄÀÏ          99,167,151 ¹ÙÀÌÆ®
-               2°³ µğ·ºÅÍ¸®  10,293,141,504 ¹ÙÀÌÆ® ³²À½
+warning: in the working copy of 'docs/êµ¬ê¸€í”Œë ˆì´_ìŠ¤í† ì–´ì„¤ëª…_ì ‘ê·¼ì„±ê³ ì§€.md', LF will be replaced by CRLF the next time Git touches it
+[master 95406b2] google play: v100 alpha resubmitted with accessibility disclosure in listing
+ 5 files changed, 200 insertions(+), 8 deletions(-)
+ create mode 100644 _buildplay.log
+ rename _out_268010968.log => _out_2233525946.log (100%)
+ create mode 100644 "docs/\352\265\254\352\270\200\355\224\214\353\240\210\354\235\264_\354\212\244\355\206\240\354\226\264\354\204\244\353\252\205_\354\240\221\352\267\274\354\204\261\352\263\240\354\247\200.md"
+95406b2 google play: v100 alpha resubmitted with accessibility disclosure in listing
 RUN2_DONE 
