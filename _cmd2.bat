@@ -1,4 +1,4 @@
 cd /d C:\CallRadar
 git add -A
-git commit -m "handover + charter: current state as of 2026-08-31 (both stores submitted)"
+git commit -m "google approved accessibility (alpha 9/1); production v100 promoted 9/2"
 git log --oneline -1

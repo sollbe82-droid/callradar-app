@@ -1,8 +1,8 @@
-warning: in the working copy of 'docs/구글플레이_스토어설명_접근성고지.md', LF will be replaced by CRLF the next time Git touches it
-[master 95406b2] google play: v100 alpha resubmitted with accessibility disclosure in listing
- 5 files changed, 200 insertions(+), 8 deletions(-)
- create mode 100644 _buildplay.log
- rename _out_268010968.log => _out_2233525946.log (100%)
- create mode 100644 "docs/\352\265\254\352\270\200\355\224\214\353\240\210\354\235\264_\354\212\244\355\206\240\354\226\264\354\204\244\353\252\205_\354\240\221\352\267\274\354\204\261\352\263\240\354\247\200.md"
-95406b2 google play: v100 alpha resubmitted with accessibility disclosure in listing
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'HANDOVER.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cmd2.log', LF will be replaced by CRLF the next time Git touches it
+[master 19c6a60] handover + charter: current state as of 2026-08-31 (both stores submitted)
+ 5 files changed, 78 insertions(+), 51 deletions(-)
+ rename _out_2233525946.log => _out_475323307.log (100%)
+19c6a60 handover + charter: current state as of 2026-08-31 (both stores submitted)
 RUN2_DONE 
