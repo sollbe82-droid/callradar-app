@@ -62,6 +62,8 @@ class NaviIntentReceiver : AccessibilityService() {
         /** 이 시간을 넘겨 달린 트립은 대기화면이 보여도 **취소로 보지 않는다**.
          *  서버 실측(60일 872건): 진짜 콜취소의 90.7%가 10분 안에 일어난다. 뒤 꼬리 9.3%는 오탐이었다. */
         private const val LATE_CANCEL_MS = 600000L       // 10분
+        /** 생존 흔적 기록 간격. 이벤트마다 prefs 를 쓰면 I/O 가 폭주한다. */
+        private const val ALIVE_WRITE_INTERVAL = 5 * 60 * 1000L
         private const val DEST_UPDATE_INTERVAL = 30000L
 
         // [v3.1x] 택시투데이 알림 서비스가 참조하는 "현재 진행 중인 플랫폼 콜" 상태
@@ -97,6 +99,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
     /** 위 판정을 트립당 한 번만 로그로 남기기 위한 표시(프레임마다 찍히면 로그가 폭주한다). */
     @Volatile private var cancelSkipTripId = -1
+    @Volatile private var lastAliveWrite = 0L   // 생존 흔적을 마지막으로 쓴 시각(메모리 캐시)
     @Volatile private var lastTollTripId = -1  // [v57] 통행료 중복기록 방지 — 트립당 1회만
     // 우버는 통행료를 '미터 요금만 입력' 화면에 띄우고, 그 화면은 종료 신호보다 먼저 지나간다.
     //  본 순간 여기 담아뒀다가 마감할 때 쓴다. 새 운행이 시작되면 0으로 되돌린다.
@@ -202,6 +205,7 @@ class NaviIntentReceiver : AccessibilityService() {
         }
         val appVer = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
         sendDebugLog("SERVICE", "v3.1x2 연결됨 | 앱 $appVer")
+        reportPreviousOutage()   // ★ 직전 세션이 '설정 꺼짐'이었나 '프로세스 사망'이었나를 여기서 보고
         // [103-2] 업데이트·강제종료로 프로세스가 죽었다면 진행 중이던 운행을 먼저 이어받는다.
         //  이걸 아래 '재연결 복구 스캔'보다 먼저 해야 한다 — 그 스캔은 activeTripId<=0 이면
         //  운행을 '새 콜'로 보고 새로 만들어버려서, 기록이 갈리고 출발지가 도중부터 찍힌다.
@@ -259,6 +263,7 @@ class NaviIntentReceiver : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
+        touchAlive()   // ★ 게이트보다 **먼저**. 게이트에 막혀도 '서비스는 살아 있었다'는 사실은 남아야 한다.
         if (!isAdmin() || !autoOn()) return   // [게이트] 관리자 아니거나 자동기록 OFF면: 자동 파싱·트립생성 전부 스킵
         val pkg = event.packageName?.toString() ?: return
         if (pkg !in TAXI_APPS) return
@@ -1476,6 +1481,71 @@ class NaviIntentReceiver : AccessibilityService() {
         return maxFare
     }
 
-    override fun onInterrupt() { Log.d(TAG, "NaviIntentReceiver 중단") }
-    override fun onDestroy() { stopDestUpdateTimer(); super.onDestroy() }
+    /* ═══ 접근성이 왜 풀리는지 재는 장치 (2026-09-03 유저 103 제보) ══════════════════
+     *
+     *  제보: "사용 중에 접근성이 풀린다."
+     *  서버 실측(30일): 103 기사 **재연결 100회**(하루 3.3회). 그런데 20명이 같은 상태고
+     *  1번(156회)·592번(105회)이 더 잦다. 103의 자동기록 누락률은 **1%**(자동 280/수동 4)라
+     *  기록 손실로는 거의 안 이어지고 있다 — 체감은 사실이지만 원인이 뭔지 몰랐다.
+     *
+     *  ★ 못 재고 있던 이유: `onServiceConnected`(붙을 때)만 서버로 보냈다.
+     *    그래서 '몇 번 되살아났나'는 알아도 **'얼마나 죽어 있었나'**, 그리고 결정적으로
+     *    **왜 죽었나**를 몰랐다. 재연결 사이의 긴 공백은 오히려 '계속 정상'이라는 뜻이라
+     *    그걸로는 판별이 안 된다.
+     *
+     *  ★ 판별 원리 — **끊김 콜백이 오는지 여부**가 두 원인을 갈라낸다.
+     *      · 기사/OS가 접근성을 **끔** → onUnbind·onDestroy 가 호출된다 (정상 종료 경로)
+     *      · 안드로이드가 **프로세스를 죽임** → 콜백이 아예 안 온다 (SIGKILL)
+     *    그래서 끊길 때 `acc_off_at` 을 남긴다. 다음 연결에서
+     *      그 값이 있으면 → ACC_OFF  (설정이 꺼졌던 것)
+     *      없으면        → ACC_KILL  (프로세스가 죽은 것)
+     *
+     *  ★ 끊기는 순간엔 네트워크가 안 될 수 있다. 그래서 **그때 보내려 하지 않고**
+     *    prefs 에 `commit()`(즉시 디스크)로 남겨 **다음 연결 때** 보고한다.
+     *    죽은 시점을 알 수 없는 SIGKILL 은 5분 주기 생존 흔적(`acc_seen_at`)으로 하한을 잡는다. */
+
+    /** 서비스가 살아 있다는 흔적. 이벤트마다 쓰면 I/O 폭주라 5분에 한 번만 쓴다. */
+    private fun touchAlive() {
+        val now = System.currentTimeMillis()
+        if (now - lastAliveWrite < ALIVE_WRITE_INTERVAL) return
+        lastAliveWrite = now
+        try { getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).edit().putLong("acc_seen_at", now).apply() } catch (e: Exception) {}
+    }
+
+    /** 끊김을 디스크에 박아둔다. 이 흔적이 있으면 '설정이 꺼진 것', 없으면 '프로세스가 죽은 것'이다. */
+    private fun markAccOff(from: String) {
+        try {
+            val p = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            val working = p.getLong("work_start", 0L) > 0L
+            p.edit().putLong("acc_off_at", System.currentTimeMillis()).commit()   // apply 가 아니라 commit — 곧 죽을 수 있다
+            sendDebugLog("ACC_DISCONNECT", "$from | 근무중=$working | 트립=#$lastTripId")
+        } catch (e: Exception) {}
+    }
+
+    /** 직전 세션이 어떻게 끝났는지 다음 연결에서 보고한다. */
+    private fun reportPreviousOutage() {
+        try {
+            val p = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+            val offAt = p.getLong("acc_off_at", 0L)
+            val seenAt = p.getLong("acc_seen_at", 0L)
+            val working = p.getLong("work_start", 0L) > 0L
+            val now = System.currentTimeMillis()
+            when {
+                offAt > 0L ->
+                    sendDebugLog("ACC_OFF", "설정 꺼졌었음 | ${(now - offAt) / 60000L}분 | 근무중=$working")
+                // 흔적은 있는데 끊김 콜백이 없었다 = 프로세스 사망. 5분 주기 흔적이라 실제 공백은 이보다 짧을 수 있다.
+                seenAt > 0L && now - seenAt > 60_000L ->
+                    sendDebugLog("ACC_KILL", "프로세스 사망 | 마지막 흔적 ${(now - seenAt) / 60000L}분 전 | 근무중=$working")
+            }
+            p.edit().remove("acc_off_at").putLong("acc_seen_at", now).apply()
+        } catch (e: Exception) {}
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean { markAccOff("onUnbind"); return super.onUnbind(intent) }
+    override fun onInterrupt() {
+        Log.d(TAG, "NaviIntentReceiver 중단")
+        // onInterrupt 는 '해석을 멈춰라'는 신호로, 끊김과 다르다. 상관관계를 보려고 기록만 남긴다.
+        try { sendDebugLog("ACC_INTERRUPT", "트립=#$lastTripId") } catch (e: Exception) {}
+    }
+    override fun onDestroy() { markAccOff("onDestroy"); stopDestUpdateTimer(); super.onDestroy() }
 }

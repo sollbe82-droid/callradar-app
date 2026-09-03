@@ -786,6 +786,9 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     run {
                         val sStart = workStart; val sEnd = now
                         val gMin = sumGrossMin; val nMin = sumNetMin; val dKm = sumDistKm; val sF = sFare; val pH = sumPerHour
+                        /* [2026-09-03 유저 108] 여기 값이 **DB에 박제**된다. 정지 시간이 분모에 남으면 영구히 틀린다.
+                         *  근무 구간을 지금(초기화 전에) 문자열로 떠 둔다. 아래에서 구간 기준으로 다시 계산한다. */
+                        val segQ = try { com.callradar.app.WorkSegments.segments(context).joinToString(",") { (a, b) -> "$a-$b" } } catch (e: Exception) { "" }
                         if (userId.isNotEmpty()) scope.launch {
                             try { withContext(Dispatchers.IO) {
                                 /* [v94 매출 0원 수정] 세션 매출은 '오늘 매출'이 아니라 '세션 기간 매출'로 구한다.
@@ -802,6 +805,20 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                         if (rf >= 0 && rf != sF) {
                                             fF = rf
                                             fP = if (nMin > 5) (rf / (nMin / 60.0)).toInt() else 0
+                                        }
+                                    }
+                                    /* ★ 근무 구간이 있으면 그게 진실이다 — 분자·분모의 기간이 정확히 일치한다.
+                                     *  `/api/fare-range` 는 출근~퇴근을 통째로 보므로 **정지 구간의 운행까지** 분자에 넣고,
+                                     *  분모 nMin 은 정지를 뺀 값이라 둘의 기간이 어긋난다. 구간 기준이면 그 어긋남이 없다. */
+                                    if (segQ.isNotBlank()) {
+                                        val sc = (URL("$SERVER_URL/api/fare-segments/$userId?seg=$segQ").openConnection().apply {
+                                            com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") }
+                                        } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }
+                                        val so = JSONObject(sc.inputStream.bufferedReader().readText())
+                                        val sFareSeg = so.optInt("fare", -1); val wMs = so.optLong("workedMs", 0L)
+                                        if (sFareSeg >= 0 && wMs > 0L) {
+                                            fF = sFareSeg
+                                            fP = if (wMs >= 3600000L) (sFareSeg / (wMs / 3600000.0)).toInt() else 0
                                         }
                                     }
                                 } catch (e: Exception) {}
@@ -1040,6 +1057,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     // [시간당매출 정정] 이전엔 '출근 후 매출'(총매출-출근시점매출)만 나눠서, 출근 전 자동기록분이 빠져 낮게 나왔음.
                     //  → 오늘 총매출 ÷ 하루 근무시간으로 통일(오늘 매출 카드와 일치). '짧은 세션 수백만원' 버그는 하루 누적시간(workedHours)으로 이미 방지됨.
                     val sessionFare = todayFare.coerceAtLeast(0)
+                    // 근무 구간 기준 시간당(정지 제외). 구간이 없거나 실패하면 null → 아래에서 예전 방식 폴백.
+                    var segRate by remember(refreshKey) { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
+                    LaunchedEffect(refreshKey, userId, workedMs) {
+                        segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
+                    }
                     // ══════════════════════════════════════════════════════
                     // [2026-08-28 유저제보 103] "시매 오류가 있는 것 같아요"
                     //   근무 38분·1콜인데 시간당 매출 33,199원이 찍혔다. 산술은 맞지만 의미가 없다.
@@ -1058,8 +1080,13 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     //   1시간 미만이면 숫자를 만들지 않고 "1시간 후"로 둔다 —
                     //     "—"나 "집계 중"은 고장으로 의심받는다(왜 없는지·언제 나오는지를 못 준다).
                     // ══════════════════════════════════════════════════════
-                    val hoursForRate = maxOf(workedHours, todayActiveHours.toDouble())
-                    val perHour = if (hoursForRate >= 1.0) (sessionFare / hoursForRate).toInt() else -1
+                    /* [2026-09-03 유저 108 제보] 일시정지한 시간이 분모에 남아 있었다.
+                     *  `maxOf(근무시간, 활동시간)` 에서 활동시간은 정지를 모르므로, 정지로 근무시간이 줄면
+                     *  활동시간이 이겨 정지 구간이 그대로 분모에 남았다(실측 -56%).
+                     *  이제 근무 구간(정지 제외)과 **그 구간 안의 매출**로 기간을 맞춘다 → WorkRate. */
+                    val hoursForRate = segRate?.hours ?: maxOf(workedHours, todayActiveHours.toDouble())
+                    val perHour = segRate?.perHour
+                        ?: (if (hoursForRate >= 1.0) (sessionFare / hoursForRate).toInt() else -1)
                     val distKm = workDist / 1000f
                     // km당 매출도 같은 이유. 분모가 '이동 거리·탭 초기화' 버튼으로 언제든 0이 되므로
                     //  0.3km 하한은 사실상 없는 것과 같았다(리셋 직후 310m 이동 시 645,161원/km).

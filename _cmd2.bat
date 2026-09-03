@@ -1,7 +1,10 @@
 @echo off
-del /q C:\CallRadar\_uu*.xml C:\CallRadar\_cr.txt C:\CallRadar\_cr2.txt C:\CallRadar\_u_*.xml C:\CallRadar\_va.json C:\CallRadar\_ua.json 2>nul
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+cd /d C:\CallRadar\server
+git add -A
+git commit -m "fare-segments: hourly rate must exclude paused time (user 108)"
+git push
 cd /d C:\CallRadar
 git add -A
-git commit -m "v101 release notes + store text"
-git log --oneline -1
-dir "C:\CallRadar\_releases\v101"
+git commit -m "v102: hourly rate from work segments (pause excluded) + accessibility disconnect telemetry"
+call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build102.log 2>&1

@@ -1,3 +1,7 @@
-UI hierchary dumped to: /sdcard/f9.xml
-/sdcard/f9.xml: 1 file pulled, 0 skipped. 10.9 MB/s (29536 bytes in 0.003s)
+warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
+[main 467b9c8] anomalies: accessibility_rebind - is the service being killed, or is the driver re-enabling it
+ 1 file changed, 28 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   9b8d057..467b9c8  main -> main
+467b9c8 anomalies: accessibility_rebind - is the service being killed, or is the driver re-enabling it
 RUN2_DONE 

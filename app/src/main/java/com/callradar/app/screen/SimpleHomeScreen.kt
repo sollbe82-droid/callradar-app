@@ -283,8 +283,12 @@ fun SimpleHomeScreen(
             val dayStartFare = if (sameDay) prefs.getInt("work_day_start_fare", prefs.getInt("work_start_fare", 0)) else prefs.getInt("work_start_fare", 0)
             prefs.edit().putLong("work_day_key", dayKey).putLong("work_day_net_ms", dayNetMs).putLong("work_day_gross_ms", dayGrossMs).putInt("work_day_start_fare", dayStartFare).apply()
             val sFare = todayFare.coerceAtLeast(0)   // [시간당매출 정정] 오늘 총매출 기준(라이브 카드와 일치)
-            // [2026-08-28] 활동시간과 근무시간 중 긴 쪽. 1시간 미만이면 0(표시하지 않음).
-            val hrsPH = maxOf(dayNetMs / 3600000.0, todayActiveHours.toDouble())
+            /* [2026-09-03 유저 108] 정지 시간이 분모에 남던 것 — 근무 구간(정지 제외)이 있으면 그게 진실이다.
+             *  구간이 없는 기사(출근 버튼 미사용)만 예전 방식으로 폴백한다. */
+            val segMs0 = try { com.callradar.app.WorkSegments.segments(context).sumOf { (a, b) -> b - a } } catch (e: Exception) { 0L }
+            val hrsPH = if (segMs0 > 0L) segMs0 / 3600000.0 else maxOf(dayNetMs / 3600000.0, todayActiveHours.toDouble())
+            // 퇴근 시 DB 에 박제되는 값이라 여기서 구간 문자열도 떠 둔다(아래 서버 보정에서 씀).
+            val segQ = try { com.callradar.app.WorkSegments.segments(context).joinToString(",") { (a, b) -> "$a-$b" } } catch (e: Exception) { "" }
             val pH = if (hrsPH >= 1.0) (sFare / hrsPH).toInt() else 0
             val dKm = if (realSession) prefs.getFloat("work_distance_m", 0f) / 1000f else 0f   // [km폭주②] 비현실(>16h) 세션 거리 신뢰불가→0
             workStart = 0L; pausedTotal = 0L; pauseStart = 0L
@@ -323,6 +327,20 @@ fun SimpleHomeScreen(
                             fixedPerHour = if (hrsFix >= 1.0) (rangeFare / hrsFix).toInt() else 0
                         }
                     }
+                    /* ★ 구간 기준이 있으면 그걸로 덮어쓴다 — 분자·분모의 기간이 정확히 일치한다.
+                     *  `fare-range` 는 출근~퇴근을 통째로 보므로 정지 구간의 운행까지 분자에 넣는데,
+                     *  분모는 정지를 뺀 값이라 둘이 어긋난다. 이 값이 DB 에 박제되므로 여기가 특히 중요하다. */
+                    if (segQ.isNotBlank()) {
+                        val sc = (URL("$SERVER_URL/api/fare-segments/$userId?seg=$segQ").openConnection().apply {
+                            com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
+                        } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 15000 }
+                        val so = JSONObject(sc.inputStream.bufferedReader().readText())
+                        val fSeg = so.optInt("fare", -1); val wMs = so.optLong("workedMs", 0L)
+                        if (fSeg >= 0 && wMs > 0L) {
+                            fixedFare = fSeg
+                            fixedPerHour = if (wMs >= 3600000L) (fSeg / (wMs / 3600000.0)).toInt() else 0
+                        }
+                    }
                 } catch (e: Exception) {}
                 val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", fixedFare); put("per_hour", fixedPerHour) }
                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
@@ -342,8 +360,15 @@ fun SimpleHomeScreen(
     val workedHours = (dayNetPrev + curNet).toDouble() / 3600000.0
     // [2026-08-28 유저제보] 가드가 3분이라 38분·1콜에 시간당 33,199원이 찍혔다(실측 27,615원).
     //  분모를 활동시간(운행이 있던 시의 개수)과 근무시간 중 긴 쪽으로 바꾸고, 1시간 미만은 숫자를 만들지 않는다.
-    val hoursForRate = maxOf(workedHours, todayActiveHours.toDouble())
-    val perHour = if (hoursForRate >= 1.0) (todayFare / hoursForRate).toInt() else -1
+    /* [2026-09-03 유저 108 제보] 홈모드와 같은 문제 — 일시정지 시간이 분모에 남았다.
+     *  같은 계산기를 쓴다(정관: 같은 지표의 가드가 파일마다 다르면 이미 사고가 난 것). */
+    var segRate by remember { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
+    LaunchedEffect(permTickHome, userId, dayNetMs) {
+        segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
+    }
+    val hoursForRate = segRate?.hours ?: maxOf(workedHours, todayActiveHours.toDouble())
+    val perHour = segRate?.perHour
+        ?: (if (hoursForRate >= 1.0) (todayFare / hoursForRate).toInt() else -1)
     val distKm = workDist / 1000f
 
     if (showEndConfirm) {
