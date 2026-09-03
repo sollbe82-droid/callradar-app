@@ -1,1 +1,29 @@
+warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
+[main 5d03630] usage/audit: per_user + return rate (stop hand-computing come-once-never-again)
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+To https://github.com/sollbe82-droid/callradar-server.git
+   6d81dac..5d03630  main -> main
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CompanyProfileActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ConsentActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/EventsActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ImageImportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/InsightsActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/KnowhowActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MeterActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NameCardActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/PayslipScanActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptReconcileActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptScanActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TaxReportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TermsListActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TrackActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_107333249.log', LF will be replaced by CRLF the next time Git touches it
+[master 5058ba6] telemetry on 14 activities (insights had zero rows for 60 days - not unused, unmeasured) + home brief shown
+ 22 files changed, 122 insertions(+), 21 deletions(-)
+ create mode 100644 _out_107333249.log
+ delete mode 100644 _out_41622598.log
+ create mode 100644 _va.json
+5058ba6 telemetry on 14 activities (insights had zero rows for 60 days - not unused, unmeasured) + home brief shown
 RUN2_DONE 
