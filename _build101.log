@@ -1,0 +1,64 @@
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateOnestoreReleaseAssets UP-TO-DATE
+> Task :app:preOnestoreReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileOnestoreRelease UP-TO-DATE
+> Task :app:generateOnestoreReleaseBuildConfig UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJniLibFolders UP-TO-DATE
+> Task :app:generateOnestoreReleaseResources UP-TO-DATE
+> Task :app:createOnestoreReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:mapOnestoreReleaseSourceSetPaths UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:mergeOnestoreReleaseStartupProfile UP-TO-DATE
+> Task :app:mergeOnestoreReleaseArtProfile UP-TO-DATE
+> Task :app:checkOnestoreReleaseAarMetadata UP-TO-DATE
+> Task :app:extractOnestoreReleaseVersionControlInfo UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeLibs UP-TO-DATE
+> Task :app:stripOnestoreReleaseDebugSymbols UP-TO-DATE
+> Task :app:mergeOnestoreReleaseAssets UP-TO-DATE
+> Task :app:compressOnestoreReleaseAssets UP-TO-DATE
+> Task :app:extractOnestoreReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:validateSigningOnestoreRelease UP-TO-DATE
+> Task :app:mergeOnestoreReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:writeOnestoreReleaseAppMetadata UP-TO-DATE
+> Task :app:collectOnestoreReleaseDependencies UP-TO-DATE
+> Task :app:writeOnestoreReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:sdkOnestoreReleaseDependencyData UP-TO-DATE
+> Task :app:mergeOnestoreReleaseResources UP-TO-DATE
+> Task :app:extractDeepLinksOnestoreRelease UP-TO-DATE
+> Task :app:checkOnestoreReleaseDuplicateClasses UP-TO-DATE
+> Task :app:processOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:compileOnestoreReleaseNavigationResources UP-TO-DATE
+> Task :app:packageOnestoreReleaseResources UP-TO-DATE
+> Task :app:parseOnestoreReleaseLocalResources UP-TO-DATE
+> Task :app:generateOnestoreReleaseRFile UP-TO-DATE
+> Task :app:processOnestoreReleaseMainManifest UP-TO-DATE
+> Task :app:processOnestoreReleaseManifest UP-TO-DATE
+> Task :app:processOnestoreReleaseManifestForPackage UP-TO-DATE
+> Task :app:processOnestoreReleaseResources UP-TO-DATE
+> Task :app:optimizeOnestoreReleaseResources UP-TO-DATE
+> Task :app:compileOnestoreReleaseKotlin
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/LocationTrackingService.kt:92:13 'fun stopForeground(p0: Boolean): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/ScreenCaptureService.kt:103:36 'fun <T : Parcelable!> getParcelableExtra(p0: String!): T?' is deprecated. Deprecated in Java.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt:62:59 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/HomeScreen.kt:403:55 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/RecordsScreen.kt:299:58 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:96:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt:512:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt:527:51 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///C:/CallRadar/app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt:575:63 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+
+> Task :app:processOnestoreReleaseJavaRes UP-TO-DATE
+> Task :app:mergeOnestoreReleaseJavaResource UP-TO-DATE
+> Task :app:compileOnestoreReleaseJavaWithJavac
+> Task :app:mergeOnestoreReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:expandOnestoreReleaseArtProfileWildcards
+> Task :app:minifyOnestoreReleaseWithR8
+> Task :app:compileOnestoreReleaseArtProfile
+> Task :app:packageOnestoreRelease
+> Task :app:assembleOnestoreRelease
+> Task :app:createOnestoreReleaseApkListingFileRedirect
+
+BUILD SUCCESSFUL in 6m 12s
+44 actionable tasks: 7 executed, 37 up-to-date
+Configuration cache entry reused.

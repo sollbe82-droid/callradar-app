@@ -1,10 +1,11 @@
 @echo off
-set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
-cd /d C:\CallRadar\server
-git add -A
-git commit -m "day-start-hint: recommend the quiet hour from the driver's own 8-week history"
-git push
+set A=C:\AndroidSdk\platform-tools\adb.exe
+mkdir "C:\CallRadar\_releases\v101" 2>nul
+copy /Y "C:\CallRadar\app\build\outputs\apk\onestore\release\app-onestore-release.apk" "C:\CallRadar\_releases\v101\CallRadar-v101-3.0.1-onestore.apk"
+copy /Y "C:\CallRadar\app\build\outputs\mapping\onestoreRelease\mapping.txt" "C:\CallRadar\_releases\v101\mapping-v101-3.0.1-onestore.txt"
+%A% devices
+%A% install -r "C:\CallRadar\_releases\v101\CallRadar-v101-3.0.1-onestore.apk"
+certutil -hashfile "C:\CallRadar\_releases\v101\CallRadar-v101-3.0.1-onestore.apk" MD5 | findstr /v ":"
 cd /d C:\CallRadar
 git add -A
-git commit -m "v101: rest-checkbox fix, day-start guidance rewrite + data-driven hint, insights telemetry, brief tap-through"
-call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build101.log 2>&1
+git commit -m "v101 build"

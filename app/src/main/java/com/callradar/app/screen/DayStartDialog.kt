@@ -35,7 +35,7 @@ fun DayStartDialog(onDismiss: () -> Unit, onSaved: (Int) -> Unit = {}) {
         if (uid.isBlank()) return@LaunchedEffect
         try {
             val body = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                (java.net.URL("$SERVER_URL/api/day-start-hint/$uid").openConnection().apply {
+                (java.net.URL("${Config.SERVER_URL}/api/day-start-hint/$uid").openConnection().apply {
                     com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
                 } as java.net.HttpURLConnection).apply { connectTimeout = 7000; readTimeout = 12000 }
                     .inputStream.bufferedReader().use { it.readText() }

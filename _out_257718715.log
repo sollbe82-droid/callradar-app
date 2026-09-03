@@ -1,3 +1,13 @@
 warning: in the working copy of 'stats2.js', LF will be replaced by CRLF the next time Git touches it
 [main e9a2947] day-start-hint: recommend the quiet hour from the driver's own 8-week history
  1 file changed, 42 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   5d03630..e9a2947  main -> main
+warning: in the working copy of '_cmd2.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DayStartDialog.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_257718715.log', LF will be replaced by CRLF the next time Git touches it
+[master b57c106] v101: rest-checkbox fix, day-start guidance rewrite + data-driven hint, insights telemetry, brief tap-through
+ 7 files changed, 93 insertions(+), 13 deletions(-)
+ delete mode 100644 _out_107333249.log
+ create mode 100644 _out_257718715.log
