@@ -363,7 +363,8 @@ fun SimpleHomeScreen(
     /* [2026-09-03 유저 108 제보] 홈모드와 같은 문제 — 일시정지 시간이 분모에 남았다.
      *  같은 계산기를 쓴다(정관: 같은 지표의 가드가 파일마다 다르면 이미 사고가 난 것). */
     var segRate by remember { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
-    LaunchedEffect(permTickHome, userId, dayNetMs) {
+    // 근무시간이 바뀔 때마다 다시 물어본다(분 단위). permTickHome·dayNetMs 는 아래에서 선언되므로 쓸 수 없다.
+    LaunchedEffect(userId, workedMin) {
         segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
     }
     val hoursForRate = segRate?.hours ?: maxOf(workedHours, todayActiveHours.toDouble())
@@ -514,6 +515,11 @@ fun SimpleHomeScreen(
         else (acctAdmin || acctEntitled)
     )
     var autoRec by remember(permTickHome) { mutableStateOf(prefs.getBoolean("auto_record_on", false)) }
+    /* [2026-09-03 유저 103] 기본홈에는 이 감지가 있었는데 **간편홈에는 없었다**(간편모드 154명).
+     *  그래서 간편모드 기사는 접근성이 꺼져도 앱이 알려주지 않았다. 같은 감지를 넣는다. */
+    LaunchedEffect(permTickHome) {
+        if (com.callradar.app.AccessibilityState.isBroken(context)) showAutoSetup = true
+    }
     val showNotif = Config.NOTIF_CAPTURE_ENABLED && prefs.getBoolean("card_notif", true)
     var capOn by remember(permTickHome) { mutableStateOf(prefs.getBoolean("notif_capture_on", false) && isNotifAccessGranted()) }
     var showRecordSettings by remember { mutableStateOf(false) }
@@ -864,11 +870,17 @@ fun SimpleHomeScreen(
                                 //  접근성 권한을 요구하나"로 읽혀 반려 사유가 된다.
                                 //  또 부제에 접근성을 쓴다는 사실을 먼저 밝혀, 심사자가 이 줄에서
                                 //  바로 고지 화면으로 이어지는 흐름을 알아보게 한다.
+                                /* [2026-09-03 유저 103] 예전엔 prefs 만 보고 "켜짐"이라 했다. OS 에서 접근성이 꺼져도
+                                 *  화면은 계속 "켜짐"이라 말해서, 기사가 켜져 있다고 믿고 운행했다.
+                                 *  이제 **OS 실제 상태**가 아니면 켜졌다고 하지 않는다. */
+                                val accBroken = com.callradar.app.AccessibilityState.isBroken(context)
                                 Text(
-                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                    if (accBroken) "⚠️ 자동 기록이 꺼져 있어요 · 눌러서 켜기"
+                                    else if (com.callradar.app.BuildConfig.FLAVOR == "play")
                                         (if (autoRec) "🤖 자동 기록 켜짐" else "🤖 자동 기록")
                                     else (if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)"),
-                                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                                    color = if (accBroken) Color(0xFFEF4444) else AppTheme.text)
                                 Text(
                                     if (com.callradar.app.BuildConfig.FLAVOR == "play")
                                         "택시앱 화면을 읽어 운행·요금을 자동 기록합니다 (접근성 서비스 · 켤 때 안내와 동의)"

@@ -79,6 +79,9 @@ class WorkSessionService : Service() {
     }
 
     private fun onNewLocation(loc: Location) {
+        // [2026-09-03 유저 103] 근무 중 접근성이 꺼졌는지 여기서 함께 확인한다.
+        //  별도 타이머를 안 돌리려고 위치 콜백에 얹었다(배터리 부담 0). 상태가 바뀔 때만 알림이 간다.
+        checkAccessibility()
         // [모의 위치 차단] Fake GPS 앱으로 만든 좌표는 기록하지 않는다.
         //  ① 거리·궤적이 오염되면 본인 통계가 망가지고 ② 집단 데이터(레이더·귀로 전망)까지 왜곡되며
         //  ③ 랭킹이 무의미해진다. 콜레이더의 모든 분석은 '실제로 뛴 기록'이라는 전제 위에 서 있다.
@@ -268,6 +271,48 @@ class WorkSessionService : Service() {
                     .setAutoCancel(true).build()
                 nm.notify(90112, n)
             }
+        } catch (e: Exception) {}
+    }
+
+    /* ═══ 근무 중 접근성 감시 (2026-09-03 유저 103 제보) ══════════════════════════
+     *
+     *  제보: "사용 중에 접근성이 풀린다."
+     *  조사 결과 **막을 방법이 없는 게 핵심 문제가 아니었다.** 안드로이드가 프로세스를 죽이면
+     *  시스템이 곧 되살리고(재연결 최소 간격 0분), 103 기사 누락률은 1%에 그쳤다.
+     *  진짜 구멍은 **꺼졌는데 기사가 모른다**는 것이었다 —
+     *  홈 화면은 prefs 만 보고 "자동 기록 켜짐"이라 말했고, 간편홈엔 감지조차 없었다.
+     *
+     *  ★ 그런데 화면을 고쳐도 **운행 중엔 폰을 안 본다.** 그래서 도달 경로가 알림뿐이다.
+     *    이 서비스는 근무 중에만 포그라운드로 떠 있으니(v93, 위치기반서비스 신고 범위) 감시 위치로 맞다.
+     *    위치 콜백이 올 때 같이 확인한다 — 별도 타이머를 돌리지 않아 배터리 부담이 없다.
+     *
+     *  ★ 알림은 **상태가 바뀔 때 한 번만** 띄운다. 10초마다 오는 콜백에서 매번 띄우면
+     *    알림이 폭주해 기사가 앱 알림 자체를 끄게 된다 — 그러면 진짜 알려야 할 때 못 알린다. */
+    private var accWarned = false
+    private fun checkAccessibility() {
+        try {
+            val broken = com.callradar.app.AccessibilityState.isBroken(this)
+            if (!broken) { accWarned = false; return }
+            if (accWarned) return
+            accWarned = true
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(NotificationChannel("callradar_acc", "자동기록 중단 알림",
+                    NotificationManager.IMPORTANCE_HIGH))
+            }
+            val pi = android.app.PendingIntent.getActivity(this, 4102,
+                Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+            val n = Notification.Builder(this, "callradar_acc")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("자동 기록이 꺼졌어요")
+                .setContentText("지금부터 운행이 자동으로 안 남습니다. 눌러서 다시 켜 주세요.")
+                .setStyle(Notification.BigTextStyle().bigText(
+                    "접근성이 꺼져서 자동 기록이 멈췄습니다. 눌러 설정에서 콜레이더를 다시 켜 주세요.\n" +
+                    "그때까지 운행은 플로팅 버튼으로 기록할 수 있어요."))
+                .setContentIntent(pi).setAutoCancel(true).build()
+            nm.notify(4102, n)
+            com.callradar.app.Telemetry.log(this, "acc_off_notified", "work_session")
         } catch (e: Exception) {}
     }
 

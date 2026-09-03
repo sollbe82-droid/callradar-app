@@ -1,3 +1,17 @@
 warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
 [main 5abf86c] fare-segments: hourly rate must exclude paused time (user 108)
  1 file changed, 51 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   467b9c8..5abf86c  main -> main
+warning: in the working copy of '_cmd2.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_1821627502.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkRate.kt', LF will be replaced by CRLF the next time Git touches it
+[master 0162df4] v102: hourly rate from work segments (pause excluded) + accessibility disconnect telemetry
+ 10 files changed, 218 insertions(+), 17 deletions(-)
+ create mode 100644 _out_1821627502.log
+ delete mode 100644 _out_806021216.log
+ create mode 100644 app/src/main/java/com/callradar/app/WorkRate.kt

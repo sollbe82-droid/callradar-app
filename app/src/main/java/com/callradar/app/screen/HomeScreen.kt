@@ -1426,11 +1426,17 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 //  접근성 권한을 요구하나"로 읽혀 반려 사유가 된다.
                                 //  또 부제에 접근성을 쓴다는 사실을 먼저 밝혀, 심사자가 이 줄에서
                                 //  바로 고지 화면으로 이어지는 흐름을 알아보게 한다.
+                                /* [2026-09-03 유저 103] 예전엔 prefs 만 보고 "켜짐"이라 했다. OS 에서 접근성이 꺼져도
+                                 *  화면은 계속 "켜짐"이라 말해서, 기사가 켜져 있다고 믿고 운행했다.
+                                 *  이제 **OS 실제 상태**가 아니면 켜졌다고 하지 않는다. */
+                                val accBroken = com.callradar.app.AccessibilityState.isBroken(context)
                                 Text(
-                                    if (com.callradar.app.BuildConfig.FLAVOR == "play")
+                                    if (accBroken) "⚠️ 자동 기록이 꺼져 있어요 · 눌러서 켜기"
+                                    else if (com.callradar.app.BuildConfig.FLAVOR == "play")
                                         (if (autoRec) "🤖 자동 기록 켜짐" else "🤖 자동 기록")
                                     else (if (autoRec) "🤖 자동 기록 켜짐 (관리자)" else "🤖 자동 기록 (관리자)"),
-                                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
+                                    fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                                    color = if (accBroken) Color(0xFFEF4444) else AppTheme.text)
                                     Text(
                                     if (com.callradar.app.BuildConfig.FLAVOR == "play")
                                         "택시앱 화면을 읽어 운행·요금을 자동 기록합니다 (접근성 서비스 · 켤 때 안내와 동의)"
