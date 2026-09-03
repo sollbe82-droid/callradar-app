@@ -1,6 +1,6 @@
 @echo off
-set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+del /q C:\CallRadar\_h1.xml C:\CallRadar\_h3.xml C:\CallRadar\_h4.xml C:\CallRadar\_g1.xml C:\CallRadar\_g2.xml C:\CallRadar\_g3.xml C:\CallRadar\_g4.xml C:\CallRadar\_g5.xml C:\CallRadar\_g6.xml C:\CallRadar\_cr3.txt 2>nul
 cd /d C:\CallRadar
 git add -A
-git commit -m "v103: tell the driver when accessibility is off - honest label, simple-mode detection, in-shift notification"
-call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build103.log 2>&1
+git commit -m "v103 both stores: release notes + store text"
+git log --oneline -1
