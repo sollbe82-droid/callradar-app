@@ -1,12 +1,7 @@
 @echo off
-set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+del /q C:\CallRadar\_uu*.xml C:\CallRadar\_cr.txt C:\CallRadar\_cr2.txt C:\CallRadar\_u_*.xml C:\CallRadar\_va.json C:\CallRadar\_ua.json 2>nul
 cd /d C:\CallRadar
-git checkout 5058ba6 -- app/src/main/java/com/callradar/app/screen/DayStartDialog.kt
 git add -A
-git commit -m "revert day-start guidance change - keep the rule as is (owner decision)"
-cd /d C:\CallRadar\server
-git add -A
-git commit -m "revert day-start-hint endpoint"
-git push
-cd /d C:\CallRadar
+git commit -m "v101 release notes + store text"
 git log --oneline -1
+dir "C:\CallRadar\_releases\v101"
