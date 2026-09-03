@@ -58,6 +58,10 @@ class TrackActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [2026-09-02] 사용 계측. 이게 없어서 **인사이트가 60일 통계에 한 줄도 없었다** —
+        //  안 쓰는 게 아니라 재고 있지 않았다. Activity 로 뜨는 화면은 MoreScreen 의
+        //  open_feature 로그를 안 타므로 여기서 직접 찍어야 한다.
+        try { com.callradar.app.Telemetry.log(this, "open_screen", "track") } catch (e: Exception) {}
         // [테마버그] 앱 전역 테마 동기화 — 라이트 모드인데 궤적 화면만 다크로 뜨던 문제 수정
         dark = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getBoolean("dark_mode", true)
         AppTheme.isDark = dark

@@ -97,7 +97,18 @@ fun SimpleHomeScreen(
     // [v93 휴식 확인] 퇴근 시 '운행 없던 긴 구간'을 기사에게 확인받는다. 자동으로 빼지 않는다.
     var showRestCheck by remember { mutableStateOf(false) }
     var restGaps by remember { mutableStateOf<List<com.callradar.app.RestGaps.Gap>>(emptyList()) }
-    var restChecked = remember { androidx.compose.runtime.mutableStateListOf<Boolean>() }
+    /* ★★ `var` + 재할당이면 체크박스가 **영원히 안 눌린다** (2026-09-02 유저 제보)
+     *
+     *  원래 코드: `var restChecked = remember { mutableStateListOf<Boolean>() }`
+     *  `remember { }` 는 매 재구성마다 **같은(처음 만든 빈) 리스트**를 돌려준다. 그런데 아래에서
+     *  `restChecked = g.map{false}.toMutableStateList()` 로 **지역변수만** 바꿨다.
+     *  그 다음 줄의 `showRestCheck = true` 가 재구성을 일으키고, 재구성되는 순간
+     *  `restChecked` 는 다시 **빈 리스트**를 가리킨다(할당은 기억되지 않는다).
+     *  → 다이얼로그가 그려질 때 size==0 이라 `if (i < restChecked.size)` 가 전부 걸러내고
+     *    클릭이 **조용히 무시**된다. 총합도 0이라 버튼이 늘 '그대로 퇴근'으로 남는다(제보 캡처와 일치).
+     *
+     *  그래서 `val` 로 두고 **내용만 갈아끼운다**. SnapshotStateList 는 내용 변경으로 재구성을 일으킨다. */
+    val restChecked = remember { androidx.compose.runtime.mutableStateListOf<Boolean>() }
     val distEnabled = prefs.getBoolean("work_dist_enabled", true)
     val active = workStart > 0L
     val paused = pauseStart > 0L
@@ -348,7 +359,12 @@ fun SimpleHomeScreen(
             confirmButton = { Button(onClick = {
                 showEndConfirm = false
                 val g = try { com.callradar.app.RestGaps.find(context, workStart, System.currentTimeMillis()) } catch (e: Exception) { emptyList() }
-                if (g.isEmpty()) doEnd() else { restGaps = g; restChecked = g.map { false }.toMutableStateList(); showRestCheck = true }
+                if (g.isEmpty()) doEnd() else {
+                    restGaps = g
+                    // 재할당이 아니라 **내용 교체**. 재할당하면 재구성 때 빈 리스트로 되돌아간다(위 주석).
+                    restChecked.clear(); restChecked.addAll(List(g.size) { false })
+                    showRestCheck = true
+                }
             }, colors = ButtonDefaults.buttonColors(containerColor = red)) { Text("퇴근", color = Color.White, fontWeight = FontWeight.Bold) } },
             dismissButton = { OutlinedButton(onClick = { showEndConfirm = false }) { Text("계속 근무") } },
             containerColor = AppTheme.card

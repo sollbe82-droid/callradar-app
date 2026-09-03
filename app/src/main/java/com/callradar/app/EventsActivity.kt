@@ -68,6 +68,10 @@ class EventsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [2026-09-02] 사용 계측. 이게 없어서 **인사이트가 60일 통계에 한 줄도 없었다** —
+        //  안 쓰는 게 아니라 재고 있지 않았다. Activity 로 뜨는 화면은 MoreScreen 의
+        //  open_feature 로그를 안 타므로 여기서 직접 찍어야 한다.
+        try { com.callradar.app.Telemetry.log(this, "open_screen", "events_screen") } catch (e: Exception) {}
         AppTheme.isDark = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE).getBoolean("dark_mode", true)
         detectGpsRegion()   // [GPS 지역] 현재 위치 기준 기본 필터
         setContent { CallRadarTheme { Screen() } }

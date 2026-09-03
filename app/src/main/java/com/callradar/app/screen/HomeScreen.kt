@@ -191,7 +191,9 @@ private fun EventHomeCard(prefs: android.content.SharedPreferences, refreshKey: 
 @Composable
 private fun HomeBriefCard(userId: String, refreshKey: Int, card: Color, accent: Color, muted: Color, onBrief: (String) -> Unit = {}) {
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
-    val briefPrefs = LocalContext.current.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
+    var kindShown by remember { mutableStateOf("") }   // 탭 로그에 어떤 줄이 떠 있었는지 같이 보낸다
+    val briefCtx = LocalContext.current
+    val briefPrefs = briefCtx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
     LaunchedEffect(refreshKey, userId) {
         if (userId.isBlank()) return@LaunchedEffect
         // 영업일 시작시각(옵트인, 기본 0). 야간 기사는 자정을 넘겨 일해서 시계시각으로 자르면 하루가 두 동강 난다.
@@ -207,16 +209,44 @@ private fun HomeBriefCard(userId: String, refreshKey: Int, card: Color, accent: 
         }
         lines = got
         onBrief(got.joinToString(". "))
+        /* [2026-09-02] 브리핑이 **실제로 떴는지**를 잰다.
+         *  60일 사용현황에서 인사이트가 한 줄도 안 나왔던 건 안 쓴 게 아니라 안 재고 있었기 때문이다.
+         *  같은 실수를 이 카드에서 반복하지 않는다 — 홈은 615명이 하루 26.6번 보는 유일한 화면이라
+         *  여기 뜨는지 여부가 이번 개편의 성패 그 자체다.
+         *  meta 로 어떤 줄이 떴는지 구분한다: pace(평소 페이스) / band(최고 시간대) / wait(아직 표본 부족) */
+        val kind = when {
+            got.isEmpty() -> "none"
+            got.any { it.contains("쌓이면") } -> "wait"
+            got.size >= 2 -> "pace+band"
+            got[0].contains("평소") -> "pace"
+            else -> "band"
+        }
+        kindShown = kind
+        com.callradar.app.Telemetry.log(briefCtx, "home_brief_shown", "home", ok = got.isNotEmpty(), meta = kind)
     }
     if (lines.isNotEmpty()) {
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
+        /* [2026-09-02] 카드를 눌러 인사이트로 들어간다.
+         *
+         *  왜: 60일 사용현황에서 홈은 615명이 1인당 26.6회로 압도적 1위인데, 분석 2.0회·랭킹 2.2회처럼
+         *  메뉴 안쪽은 전부 '한 번 열고 끝'이다. 인사이트는 계측조차 없어 한 줄도 안 찍혔다.
+         *  기능이 부족해서가 아니라 **가는 길이 없어서**다. 홈에서 이 카드가 유일하게 매일 읽히는
+         *  '내 얘기'이므로, 여기가 인사이트로 가는 자연스러운 입구다.
+         *  탭 로그(`home_brief_tap`)로 노출 대비 진입률을 잰다 — 노출만 재면 효과를 못 가른다. */
+        Card(modifier = Modifier.fillMaxWidth()
+                .clickable {
+                    com.callradar.app.Telemetry.log(briefCtx, "home_brief_tap", "home", meta = kindShown)
+                    try { com.callradar.app.InsightsActivity.start(briefCtx) } catch (e: Exception) {}
+                },
+            colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(12.dp)) {
             Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
                 Text("🔊", fontSize = 16.sp); Spacer(Modifier.width(8.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     lines.forEachIndexed { i, t ->
                         Text(t, fontSize = 12.sp, color = if (i == 0) AppTheme.text else muted, lineHeight = 17.sp)
                         if (i == 0 && lines.size > 1) Spacer(Modifier.height(3.dp))
                     }
+                    Spacer(Modifier.height(5.dp))
+                    Text("자세히 보기 ›", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
                 }
             }
         }
