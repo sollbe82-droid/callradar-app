@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>콜레이더 쇼츠 — 우버 16,600원</title>
+<style>
+  /* 세로 9:16 (1080x1920) 무대를 창 크기에 맞춰 축소한다.
+     화면 녹화하면 그대로 쇼츠·릴스 규격이 된다. */
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;}
+  #wrap{position:fixed;inset:0;display:grid;place-items:center;}
+  #stage{width:1080px;height:1920px;position:relative;background:#0B0F14;
+    transform-origin:center;overflow:hidden;}
+  .scene{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;opacity:0;padding:0 90px;box-sizing:border-box;}
+  .c{color:#fff;text-align:center;line-height:1.25}
+  .amber{color:#F59E0B}
+  .red{color:#EF4444}
+  .green{color:#10B981}
+  .muted{color:#8A94A6}
+  .xl{font-size:118px;font-weight:900;letter-spacing:-3px}
+  .lg{font-size:86px;font-weight:900;letter-spacing:-2px}
+  .md{font-size:58px;font-weight:800}
+  .sm{font-size:42px;font-weight:600}
+  .tiny{font-size:34px;font-weight:600}
+
+  /* 콜 카드 — 앱 기록탭 느낌 */
+  .card{width:840px;background:#151B23;border-radius:26px;padding:34px 40px;
+    display:flex;align-items:center;justify-content:space-between;margin:14px 0;
+    border:2px solid #1F2833;opacity:0;transform:translateY(40px)}
+  .card .t{font-size:40px;color:#8A94A6;font-weight:600}
+  .card .v{font-size:56px;color:#fff;font-weight:900}
+
+  @keyframes fadeIn{to{opacity:1}}
+  @keyframes cardIn{to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeOut{to{opacity:0}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-16px)}40%{transform:translateX(14px)}60%{transform:translateX(-10px)}80%{transform:translateX(6px)}}
+  @keyframes squash{to{transform:translateY(var(--to)) scale(.94);opacity:.25}}
+  @keyframes barGrow{to{width:var(--w)}}
+
+  .bar{height:56px;border-radius:14px;width:0;animation:barGrow .9s ease-out forwards}
+  #replay{position:fixed;right:18px;bottom:18px;z-index:9;background:#F59E0B;color:#000;
+    border:0;border-radius:12px;padding:12px 18px;font-size:16px;font-weight:800;cursor:pointer}
+  .hint{position:fixed;left:18px;bottom:18px;z-index:9;color:#5A6474;font-size:13px}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"></div></div>
+<button id="replay">다시 재생</button>
+<div class="hint">전체화면(F11) 후 화면 녹화 · 약 26초</div>
+
+<script>
+/* 무대를 창에 맞춰 축소 — 녹화 시 9:16 비율이 유지된다 */
+function fit(){
+  const s=document.getElementById('stage');
+  const k=Math.min(innerWidth/1080, innerHeight/1920);
+  s.style.transform='scale('+k+')';
+}
+addEventListener('resize',fit); fit();
+
+const stage=document.getElementById('stage');
+
+/* 장면 정의 — [시작(ms), 지속(ms), HTML] */
+const SCENES=[
+ // ① 훅 (0~3.2초) : 첫 3초에 질문 하나. 소리 없이 읽힌다.
+ [0,3200,`
+   <div class="c lg">우버 콜 <span class="amber">3개</span>가</div>
+   <div class="c lg" style="margin-top:18px">1개로 합쳐진 거</div>
+   <div class="c xl amber" style="margin-top:34px">아세요?</div>`],
+
+ // ② 증거 — 실제 로그 그대로 (18:23 / 18:43 / 18:57)
+ [3200,6200,`
+   <div class="c md muted" style="margin-bottom:44px">어느 기사님의 실제 기록</div>
+   <div class="card" style="animation:cardIn .5s ease-out .2s forwards">
+     <div><div class="t">18:23</div></div><div class="v">8,200원</div></div>
+   <div class="card" style="animation:cardIn .5s ease-out 1.3s forwards">
+     <div><div class="t">18:43</div></div><div class="v">8,400원</div></div>
+   <div class="card" style="animation:cardIn .5s ease-out 2.4s forwards">
+     <div><div class="t">18:57</div></div><div class="v">8,800원</div></div>
+   <div class="c md amber" style="margin-top:44px;opacity:0;animation:fadeIn .5s ease-out 3.6s forwards">
+     세 콜을 뛰었습니다</div>`],
+
+ // ③ 합쳐짐 — 세 장이 한 장으로 눌린다
+ [9400,4200,`
+   <div class="c md muted" style="margin-bottom:44px">그런데 앱에 남은 건</div>
+   <div class="card" style="--to:118px;opacity:1;animation:squash .9s ease-in .3s forwards">
+     <div class="t">18:23</div><div class="v">8,200원</div></div>
+   <div class="card" style="--to:59px;opacity:1;animation:squash .9s ease-in .3s forwards">
+     <div class="t">18:43</div><div class="v">8,400원</div></div>
+   <div class="card" style="opacity:1;animation:shake .6s ease-in-out 1.2s">
+     <div class="t">18:57</div><div class="v">8,800원</div></div>
+   <div class="c lg red" style="margin-top:52px;opacity:0;animation:pop .6s ease-out 1.7s forwards">
+     1건 · 8,800원</div>`],
+
+ // ④ 숫자 — 이 영상의 핵심. 막대로 크기 차이를 보여준다.
+ [13600,5600,`
+   <div class="c md muted" style="margin-bottom:56px">실제로 번 돈과 기록된 돈</div>
+   <div style="width:840px">
+     <div class="c sm" style="text-align:left;margin-bottom:12px">실제 <span class="green">25,400원</span></div>
+     <div class="bar green" style="--w:840px;background:#10B981;animation-delay:.3s"></div>
+     <div class="c sm" style="text-align:left;margin:34px 0 12px">기록 <span class="red">8,800원</span></div>
+     <div class="bar" style="--w:291px;background:#EF4444;animation-delay:1.1s"></div>
+   </div>
+   <div class="c xl red" style="margin-top:70px;opacity:0;animation:pop .7s ease-out 2.1s forwards">
+     16,600원</div>
+   <div class="c md" style="margin-top:16px;opacity:0;animation:fadeIn .5s ease-out 2.8s forwards">
+     이 그냥 사라졌습니다</div>`],
+
+ // ⑤ 왜 — 원인을 한 문장으로. 기사들이 아는 상황이라 여기서 공감이 온다.
+ [19200,4400,`
+   <div class="c md muted" style="margin-bottom:40px">왜 이런 일이</div>
+   <div class="c lg">우버는 <span class="amber">도착하기 전에</span></div>
+   <div class="c lg" style="margin-top:16px">다음 콜을 줍니다</div>
+   <div class="c sm muted" style="margin-top:46px;line-height:1.5">
+     앞 운행이 안 닫힌 채<br>뒤 요금이 앞 요금을 덮어씁니다</div>`],
+
+ // ⑥ 마무리 — 앱 자랑을 길게 하지 않는다. 한 줄.
+ [23600,3400,`
+   <div class="c xl green" style="animation:pop .6s ease-out both">고쳤습니다</div>
+   <div class="c md muted" style="margin-top:40px">현직 택시기사가 만드는 앱</div>
+   <div class="c lg amber" style="margin-top:26px;letter-spacing:-1px">콜레이더</div>`],
+];
+
+let timers=[];
+function play(){
+  timers.forEach(clearTimeout); timers=[]; stage.innerHTML='';
+  SCENES.forEach(([at,dur,html])=>{
+    timers.push(setTimeout(()=>{
+      const d=document.createElement('div');
+      d.className='scene'; d.innerHTML=html;
+      d.style.animation='fadeIn .45s ease-out forwards';
+      stage.appendChild(d);
+      timers.push(setTimeout(()=>{
+        d.style.animation='fadeOut .35s ease-in forwards';
+        timers.push(setTimeout(()=>d.remove(),400));
+      }, dur-350));
+    }, at));
+  });
+}
+document.getElementById('replay').onclick=play;
+play();
+</script>
+</body>
+</html>

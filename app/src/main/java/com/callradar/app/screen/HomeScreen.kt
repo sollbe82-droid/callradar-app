@@ -1104,6 +1104,28 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Text(if (perHour >= 0) "${String.format("%,d", perHour)}원" else "1시간 후",
                                         fontSize = if (perHour >= 0) 20.sp else 15.sp,
                                         fontWeight = FontWeight.Bold, color = if (perHour >= 0) accent else muted)
+                                    /* ★ [2026-09-06 유저 108] "영업 시작하고 멈춤 누르지도 않았는데 시간당 매출이 맞지 않습니다.
+                                     *   단순히 화면에 보이는 근무중 시간을 현재 매출로 계산하면 파악하기 쉬울 것 같습니다."
+                                     *
+                                     *  계산은 의도대로 돌고 있었다(근무구간 매출 ÷ 정지 뺀 근무시간).
+                                     *  진짜 문제는 **기사가 검산할 수 없다**는 것이었다 —
+                                     *  화면엔 '오늘 매출'과 '근무 N시간'만 보이는데, 시간당의 분자는 그 '오늘 매출'이 아니다.
+                                     *  (퇴근 후 운행·일시정지 중 운행은 근무구간 밖이라 분자에서 빠진다)
+                                     *  기사가 암산하면 절대 안 맞으니 "틀렸다"고 느끼는 게 당연하다.
+                                     *
+                                     *  숫자를 바꾸는 대신 **근거를 보여준다.** 맞고 틀리고를 떠나
+                                     *  검산이 안 되는 지표는 신뢰를 못 얻는다. */
+                                    segRate?.let { r ->
+                                        if (r.perHour >= 0) {
+                                            val m = (r.workedMs / 60000L)
+                                            Text("${String.format("%,d", r.fare)}원 ÷ ${m / 60}시간 ${m % 60}분",
+                                                fontSize = 10.sp, color = muted)
+                                            // 근무 밖 운행이 있으면 왜 상단 매출과 다른지 한 줄로 밝힌다.
+                                            val outside = todayFare - r.fare
+                                            if (outside > 0) Text("근무 밖 ${String.format("%,d", outside)}원 제외",
+                                                fontSize = 10.sp, color = muted)
+                                        }
+                                    }
                                 }
                             }
                             // [근무 구간] 일시정지로 나뉜 실제 근무 구간 — "06:00~11:00 · 15:00~23:00"

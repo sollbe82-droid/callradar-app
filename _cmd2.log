@@ -1,14 +1,6 @@
-        1개 파일이 복사되었습니다.
-        1개 파일이 복사되었습니다.
- C 드라이브의 볼륨에는 이름이 없습니다.
- 볼륨 일련 번호: 1C66-4DAF
-
- C:\CallRadar\_releases\v103\play 디렉터리
-
-2026-09-04  오전 12:11    <DIR>          .
-2026-09-04  오전 12:11    <DIR>          ..
-2026-09-04  오전 12:10        25,042,129 CallRadar-v103-3.0.3-play.aab
-2026-09-04  오전 12:10        74,235,162 mapping-v103-3.0.3-play.txt
-               2개 파일          99,277,291 바이트
-               2개 디렉터리  11,250,552,832 바이트 남음
+warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
+[main dfa4908] event_area_mismatch: scope to kbo - haeundae-GU contains DAEGU (false positive)
+ 1 file changed, 7 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   aacfda7..dfa4908  main -> main
 RUN2_DONE 

@@ -1,6 +1,6 @@
 @echo off
-del /q C:\CallRadar\_h1.xml C:\CallRadar\_h3.xml C:\CallRadar\_h4.xml C:\CallRadar\_g1.xml C:\CallRadar\_g2.xml C:\CallRadar\_g3.xml C:\CallRadar\_g4.xml C:\CallRadar\_g5.xml C:\CallRadar\_g6.xml C:\CallRadar\_cr3.txt 2>nul
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
 cd /d C:\CallRadar
 git add -A
-git commit -m "v103 both stores: release notes + store text"
-git log --oneline -1
+git commit -m "v104: show the basis under hourly rate so the driver can check it (user 108)"
+call gradlew.bat assembleOnestoreRelease > C:\CallRadar\_build104.log 2>&1

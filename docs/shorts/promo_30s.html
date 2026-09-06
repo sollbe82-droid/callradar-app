@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>콜레이더 홍보 30초</title>
+<style>
+  /* ★ 안 짤리게 — 무대를 픽셀로 고정하지 않고 화면에 맞춘다.
+     세로 9:16 을 유지하되, 폭이 좁으면 폭에, 높으면 높이에 맞춘다.
+     폰에서 열면 화면을 꽉 채워 그대로 9:16 로 녹화된다. */
+  :root{
+    --w: min(100vw, calc(100vh * 9 / 16));
+    --h: calc(var(--w) * 16 / 9);
+    --u: calc(var(--w) / 100);          /* 반응형 단위 — 모든 글자가 이걸로 커진다 */
+    --amber:#F59E0B; --green:#10B981; --bg:#0B0F14; --card:#151B23; --muted:#8A94A6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  #wrap{position:fixed;inset:0;display:grid;place-items:center}
+  #stage{width:var(--w);height:var(--h);position:relative;background:var(--bg);overflow:hidden}
+
+  .scene{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:0 calc(var(--u)*8);opacity:0}
+  .c{color:#fff;text-align:center;line-height:1.22;letter-spacing:-.02em}
+  .amber{color:var(--amber)} .green{color:var(--green)} .muted{color:var(--muted)}
+  .xxl{font-size:calc(var(--u)*13);font-weight:900}
+  .xl {font-size:calc(var(--u)*10);font-weight:900}
+  .lg {font-size:calc(var(--u)*7.4);font-weight:800}
+  .md {font-size:calc(var(--u)*5.4);font-weight:700}
+  .sm {font-size:calc(var(--u)*4.2);font-weight:600}
+
+  .card{width:100%;background:var(--card);border-radius:calc(var(--u)*3);
+    padding:calc(var(--u)*4) calc(var(--u)*5);margin:calc(var(--u)*1.6) 0;
+    display:flex;align-items:center;justify-content:space-between;
+    border:1px solid #1F2833;opacity:0;transform:translateY(calc(var(--u)*4))}
+  .k{font-size:calc(var(--u)*4);color:var(--muted);font-weight:600}
+  .v{font-size:calc(var(--u)*6);color:#fff;font-weight:900}
+
+  @keyframes in{to{opacity:1}}
+  @keyframes up{to{opacity:1;transform:translateY(0)}}
+  @keyframes out{to{opacity:0}}
+  @keyframes pop{0%{transform:scale(.7);opacity:0}62%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+  @keyframes count{to{--n:var(--to)}}
+  @keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 calc(var(--u)*6) 0 rgba(245,158,11,.35)}}
+
+  #ui{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;
+    padding:10px;background:rgba(0,0,0,.6);z-index:9}
+  #ui button{background:var(--amber);color:#000;border:0;border-radius:10px;
+    padding:10px 16px;font-size:14px;font-weight:800;cursor:pointer}
+  #ui span{color:#66707E;font-size:12px;align-self:center}
+  body.rec #ui{display:none}     /* 녹화 모드: 버튼 숨김 */
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"></div></div>
+<div id="ui">
+  <button id="play">재생</button>
+  <button id="rec">녹화 모드 (버튼 숨김)</button>
+  <span>30초 · 9:16 · 폰에서 열면 꽉 참</span>
+</div>
+
+<script>
+/* ═══ 120 BPM 에 맞춘 타이밍 ═══════════════════════════════════
+   0.5초 = 1박, 2초 = 1마디. 장면 전환을 마디 경계에 두면
+   아무 120BPM 곡을 깔아도 컷이 박자에 맞는다. 총 30초 = 15마디. */
+const BAR = 2000;
+const S = (bar) => bar * BAR;
+
+const SCENES = [
+ // ① 훅 (0~4초) — 기사가 매일 하는 생각을 그대로 묻는다
+ [S(0), S(2), `
+   <div class="c lg muted">오늘 하루 끝났는데</div>
+   <div class="c xxl" style="margin-top:calc(var(--u)*3)">얼마 벌었지?</div>`],
+
+ // ② 문제 (4~10초) — 흩어져 있다
+ [S(2), S(3), `
+   <div class="c md muted" style="margin-bottom:calc(var(--u)*5)">카카오 따로, 우버 따로</div>
+   <div class="card" style="animation:up .45s ease-out .1s forwards"><div class="k">수첩</div><div class="v">기억나는 것만</div></div>
+   <div class="card" style="animation:up .45s ease-out .7s forwards"><div class="k">플랫폼 정산</div><div class="v">앱마다 따로</div></div>
+   <div class="card" style="animation:up .45s ease-out 1.3s forwards"><div class="k">가스·사납금</div><div class="v">계산은 나중에</div></div>
+   <div class="c md amber" style="margin-top:calc(var(--u)*5);opacity:0;animation:in .5s ease-out 2s forwards">
+     결국 정확히 모른 채 하루가 끝납니다</div>`],
+
+ // ③ 해결 (10~18초) — 손 안 대고 쌓인다
+ [S(5), S(4), `
+   <div class="c lg">콜레이더는</div>
+   <div class="c xl amber" style="margin-top:calc(var(--u)*2)">저절로 쌓입니다</div>
+   <div style="width:100%;margin-top:calc(var(--u)*7)">
+     <div class="card" style="animation:up .45s ease-out .8s forwards"><div class="k">오늘 매출</div><div class="v green">314,500원</div></div>
+     <div class="card" style="animation:up .45s ease-out 1.5s forwards"><div class="k">사납·가스 빼고</div><div class="v">181,347원</div></div>
+     <div class="card" style="animation:up .45s ease-out 2.2s forwards"><div class="k">시간당</div><div class="v">27,615원</div></div>
+   </div>
+   <div class="c sm muted" style="margin-top:calc(var(--u)*5);opacity:0;animation:in .5s ease-out 3s forwards">
+     운행이 끝나면 알아서 기록됩니다</div>`],
+
+ // ④ 인사이트 (18~24초) — 이게 다른 가계부와 갈리는 지점
+ [S(9), S(3), `
+   <div class="c md muted" style="margin-bottom:calc(var(--u)*5)">그리고 내 기록으로</div>
+   <div class="c lg">언제 나가야</div>
+   <div class="c lg" style="margin-top:calc(var(--u)*1.5)">잘 버는지</div>
+   <div class="card" style="margin-top:calc(var(--u)*6);opacity:0;animation:up .5s ease-out 1.2s forwards, glow 2s ease-in-out 1.6s infinite">
+     <div class="k">남은 시간 중 최고</div><div class="v amber">20~0시</div></div>
+   <div class="c sm muted" style="margin-top:calc(var(--u)*3);opacity:0;animation:in .5s ease-out 2s forwards">
+     시간당 25,081원</div>`],
+
+ // ⑤ 마무리 (24~30초) — 신뢰의 한 줄
+ [S(12), S(3), `
+   <div class="c md muted">현직 택시기사가</div>
+   <div class="c lg" style="margin-top:calc(var(--u)*1.5)">자기 쓰려고 만든 앱</div>
+   <div class="c xxl amber" style="margin-top:calc(var(--u)*8);animation:pop .6s ease-out .5s both">콜레이더</div>
+   <div class="c sm muted" style="margin-top:calc(var(--u)*4);opacity:0;animation:in .5s ease-out 1.2s forwards">
+     원스토어 · 구글플레이</div>`],
+];
+
+let timers=[];
+const stage=document.getElementById('stage');
+function play(){
+  timers.forEach(clearTimeout); timers=[]; stage.innerHTML='';
+  SCENES.forEach(([at,dur,html])=>{
+    timers.push(setTimeout(()=>{
+      const d=document.createElement('div');
+      d.className='scene'; d.innerHTML=html;
+      d.style.animation='in .4s ease-out forwards';
+      stage.appendChild(d);
+      timers.push(setTimeout(()=>{
+        d.style.animation='out .3s ease-in forwards';
+        timers.push(setTimeout(()=>d.remove(),320));
+      }, dur-320));
+    }, at));
+  });
+}
+document.getElementById('play').onclick=play;
+document.getElementById('rec').onclick=()=>{ document.body.classList.add('rec'); play(); };
+play();
+</script>
+</body>
+</html>
