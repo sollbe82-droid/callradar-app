@@ -1,2 +1,791 @@
-TABS_DONE
+warning: in the working copy of '.commitmsg.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.idea/inspectionProfiles/Project_Default.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'CALLRADAR_기술결정_기록.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'HANDOVER.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'SPEC_NEXT_UPDATE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ad/카페_홍보글.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ad/카페_홍보글_v2.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_b.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_build_dbg.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cleanup_backup.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cleanup_fuse.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cmd2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cmdsrc.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_docs.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_dump.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_e.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_f.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_freeopen.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g2_1787964675.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g3_1787965167.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g4_1787965423.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g5_1788007963.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g6_1788009030.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g7_1788010218.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g8_1788011956.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g9_1788013554.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_g_1787964249.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ga_1788013941.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gb_1788016217.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gc_1788017336.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gd_1788039217.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ge_1788040673.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gf_1788041008.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gg_1788041564.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gh_1788042653.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gi_1788042838.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gitcheck.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gj_1788043780.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gk_1788044386.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gl_1788044485.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gm_1788044815.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gn_1788047230.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_gp_1788101909.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_grant198.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_grant303.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_grant65.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_i.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_manual/build_manual.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_manual/package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_manual/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg1.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg2.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg3.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg4.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg5.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg6.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_msg7.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ocr_dbg.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_122222488.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_1821627502.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_257718715.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_out_398624242.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_p.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_q.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_r.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_r95.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_r96.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_r_1788102195.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_rel.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_rooms/_extract.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_runner.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_adb.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_back.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_build_r1.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_build_v53.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c10.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c11.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c12.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c13.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c14.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c15.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c16.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c17.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c18.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c19.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c20.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c21.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c22.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c23.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c24.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c25.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c3.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c4.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c49git.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c49git2.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c49git3.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c5.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c50git.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c6.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c7.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c8.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_c9.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_cdoc.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_deploysrv.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_deploysrv2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_dev.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_gitchk.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_gitcommit.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_home.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_installtest.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_shot.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_shotnow.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_smoke.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_srv.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_srv2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_srv3.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_tap.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_tapf.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_test51.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v55.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v56.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v56b.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v57.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v57install.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v58all.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v58install.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v59.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v59install.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_v59shot.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/_wake.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/cdoc.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_scratch/docs.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_seed.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_srv_commit.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_srv_msg.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_srv_push.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_srv_push.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/handover_0731.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/handover_src.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/make_banner.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/make_icon.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/make_icon.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/make_shots.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_store/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/H.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/adb_check.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/adb_install.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/add.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/app_import_test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/app_import_test2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/autobatch.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/autobatch2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/back.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/batch_result.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/blast.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build_aab.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build_app.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build_install22.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build_release.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/build_v23.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/buildrel.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/cap.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/cap1.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/check2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/check_events_shape.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/check_live.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/checktrips.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/checkval.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/cleanrun.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/cleanup.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/cleanup.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/crashcheck.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/daystart_hide.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/daystart_test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/del.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/del2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/delrun.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/deltrip.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/devices.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/dscroll.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/entertest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/expense_test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/fields.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/gorok.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/idor_1b.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/idor_app_commit.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/idor_server.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/install_check.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/kakao2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/kakao_diag.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/launch.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/loopA.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/make_month.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/mapchk.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/monkey.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/month.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/nav_add.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/navdialog.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/overnight_test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/printnodes.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/run2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/run_fast.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/savetest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/savetest2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/scr2.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/scroll.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/secfix_app.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/secfix_server.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/seed.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/seedrun.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/seedval.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/server_deploy.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/settle_test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/step.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/t_work_theme.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/tap.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/tap.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/tour.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/tripsrun.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/typename.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/typetest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_book2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_booking.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_congestion.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_demand.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_events.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_geocode.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_home.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_kopis.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_passengers.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_passgr.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_precision.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_rawocr2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_rawocr3.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_report.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_rhythm.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_telemetry.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_today.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_tour.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_tour2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/verify_tour3.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/ws.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/ws_end.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/ws_get.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/ws_start.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_test/콜레이더_v22_테스트결과.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_v.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_v2.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_v_1788102168.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'adb_check.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/proguard-rules.pro', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/androidTest/java/com/callradar/app/ExampleInstrumentedTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/AccessibilityState.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/AccountFlags.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/Auth.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/AutoRecordConsentActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/BackupSync.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CallCaptureService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CompanyProfile.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/CompanyProfileActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ConsentActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/EventsActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/Feedback.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FloatingTripService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FuelCalc.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/FuelReceipt.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ImageImportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/InsightsActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/KnowhowActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/LedgerGrid.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/LocalTrackDatabase.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/LocalTripDatabase.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MainActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MeterActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/MeterFloatingService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NameCardActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/NaviIntentReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/OcrLayout.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/OcrPrep.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/PayslipOcr.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/PayslipScanActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/QuickEntryActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptOcr.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptReconcileActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ReceiptScanActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/RestGaps.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ScreenCapturePermissionActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ScreenCaptureService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/SettingsSync.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TaxReportActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/Telemetry.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TermsListActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TimingLog.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TrackActivity.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/TrackSync.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkAutoEnd.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkAutoEndReceiver.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkRate.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkResume.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkSegments.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkSessionService.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/AirportScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/AppTheme.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/CaptureButton.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/Config.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DailySettlementScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/DriverMapScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/KnowHowScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/MoreScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RadarScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RankingScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/RecordsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/SetupGuideScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/SimpleHomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/SimpleMenuScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/Stats2Screen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/StatsScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ui/theme/Theme.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/ui/theme/Type.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/keepRules/rules.keep', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/drawable/ic_launcher_foreground.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/values/strings.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/values/themes.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/xml/accessibility_service_config.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/xml/backup_rules.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/xml/data_extraction_rules.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/res/xml/file_paths.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/onestore/AndroidManifest.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/onestore/res/values/strings.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/onestore/res/xml/accessibility_service_config.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/play/AndroidManifest.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/play/res/values/strings.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/play/res/xml/accessibility_service_config.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/test/java/com/callradar/app/ExampleUnitTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'assemble_v19.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build_both.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build_v16.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build_v17.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build_v18.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'build_v19.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'corpus/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/00_통합마스터_현황과로드맵.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/01_설계헌장.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/02_멀티소스기록_뼈대.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/03_데이터_자가복구_v2.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/04_법인개인축_driver_type.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/05_계약콜정산_상세스펙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/06_AI_스며든설계.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/07_데이터권리_약관.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/08_아이디어_뼈대흡수_절차.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/09_진단리포트_설계vs코드.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/10_v10준비_4-1전표매칭_빌드스펙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/11_오늘결정_테마_온보딩_튜닝모드_유형.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/12_과거기록_유니버설임포트.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/13_계정_기기_신원모델.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/14_통합TODO_0723.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/15_로드맵_심사쪼개기_최종.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/16_화면등록소v2_튜닝모드.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/17_자동화_감지노트.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/18_유료화_무료유료경계.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/19_유저개선_운행세션미터_토글원칙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/20_인수인계_v16빌드배포.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/21_전표OCR_그날적용_설계.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/22_v17_통합작업목록.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/23_인수인계_v17착수.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/24_스샷자동화_단계설계.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/25_v18_심사제출_MediaProjection.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/26_v19_테스터피드백.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/27_payslip_ocr.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/28_digital_namecard.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/29_namecard_invention_note.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/30_taximeter.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/CHANGELOG_v18_v19.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/INDEX.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/OVERNIGHT_TEST_REPORT.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/_START_HERE_핵심앵커.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/공유_데이터리포트.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_30km장거리_귀로.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_근무시간_연료비반영.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_내운행_AB비교.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_대기자리_성향별.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_연료비정밀_대기전략.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_요일시간_매트릭스.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_장단거리_효율.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/분석_휴식반영_AB.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/analysis/운행분석_장거리_공항.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/business/공지_콜레이더_안내.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/business/사업_수익화와_인프라.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/business/신고_진행_체크리스트.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/promo_30s.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/uber_16600.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/녹화방법.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/카페_홍보글.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/구글플레이_스토어설명_접근성고지.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/구글플레이_접근성_신고자료.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/세션정리_2026-07-28.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보보호/01_위치정보관리책임자_지정서.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보보호/02_위치정보처리지침.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보보호/03_자체검사_체크리스트.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보보호/04_침해사고_기록부.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보지원센터_문의목록.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보지원센터_질의메일.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/위치정보지원센터_회신정리.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_AI비서_로드맵_제안.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_FTO_선행기술_스크리닝.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_개발플랜_오늘정리.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_공공데이터API_링크모음.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_사업정관_개발헌장.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_이벤트API_신청가이드.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_인수인계_이어가기.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/콜레이더_특허_지원사업_중간정리.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/홍보전략.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gradle.properties', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gradle/gradle-daemon-jvm.properties', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gradle/libs.versions.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gradlew', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'install_v18.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'rec_start.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'rec_stop.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'selfevolve_sdk/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'selfevolve_sdk/clients/SelfEvolveClient.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'selfevolve_sdk/clients/selfevolve-web.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'selfevolve_sdk/server/selfevolve.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'settings.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_b.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp_d.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/check-outbound.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/check-secrets.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/outbound-allowlist.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/selfcheck-location.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_30km장거리_귀로.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_근무시간_연료비반영.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_내운행_AB비교.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_대기자리_성향별.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_연료비정밀_대기전략.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_요일시간_매트릭스.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_장단거리_효율.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '분석_휴식반영_AB.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '심플홈_리디자인_스펙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '예비창업패키지_사업계획서_초안.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '운행분석_장거리_공항.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '원스토어_위치정보_문의메일.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '인계_2026-08-25.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '인계_2026-08-26.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '인수인계_2026-07-31.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '인수인계_2026-08-01_v30.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '점검_2026-08-25.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '콜레이더_냉정평가_진화안_2026-07-31.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '콜레이더_로드맵_v20.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '콜레이더_명세서_급여계산기_스펙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '콜레이더_세무기능_스펙.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '콜레이더_홍보글.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '헬스체크_받기.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ak1.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ak2.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ak3.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ak4.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ar1.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ar2.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_ntc.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt2.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt3.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt4.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt5.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_pt6.sh', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_usecase_form.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/bgm/mkbgm.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/brand/mk.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/make_short.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/make_video.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/pick.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/pipeline/brief.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/pipeline/build_video.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/pipeline/run_daily.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/pipeline/slides.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/serve.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/serve.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/tts_neural.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/tts_test.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/voice_sample.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/vtest.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/yt_auth.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/yt_check.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/yt_list.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/yt_privacy_test.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/yt_upload.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_video/메타데이터_템플릿.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_계정현황_조회.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_업데이트팝업_테스트.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_업데이트팝업_해제.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_진단_자동기록.bat', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/BusinessDay.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/UpdateNotice.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/WorkMetrics.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/공공데이터_운영계정_신청준비.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/공공데이터_활용사례_등록안.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/유튜브_자동업로드_설정.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/유튜브_채널운영안.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/유튜브_편성표와_대본틀.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/자가검증_구조와사용빈도_2026-09-07.md', LF will be replaced by CRLF the next time Git touches it
+[master 7e779db] v111 3.1.1: single BusinessDay for business-day boundary (was 5 copies), shared numerator for hourly/km rates, app self-checks its own numbers
+ 293 files changed, 21007 insertions(+), 99 deletions(-)
+ create mode 100644 _a8.json
+ create mode 100644 _a8.txt
+ create mode 100644 _a8chk.log
+ create mode 100644 _acc.txt
+ create mode 100644 _acc2.log
+ create mode 100644 _air.json
+ create mode 100644 _airchk.log
+ create mode 100644 _ak1.html
+ create mode 100644 _ak2.html
+ create mode 100644 _ak2chk.log
+ create mode 100644 _ak3.html
+ create mode 100644 _ak4.html
+ create mode 100644 _akchk.log
+ create mode 100644 _akw.txt
+ create mode 100644 _an.json
+ create mode 100644 _anchk.log
+ create mode 100644 _ap.txt
+ create mode 100644 _apchk.log
+ create mode 100644 _ar1.html
+ create mode 100644 _ar2.html
+ create mode 100644 _ar3.txt
+ create mode 100644 _ar3chk.log
+ create mode 100644 _archk.log
+ create mode 100644 _arr.json
+ create mode 100644 _arr.txt
+ create mode 100644 _arr2.json
+ create mode 100644 _arr2.txt
+ create mode 100644 _arr2chk.log
+ create mode 100644 _arrchk.log
+ create mode 100644 _arrp.txt
+ create mode 100644 _arrpchk.log
+ create mode 100644 _arw.txt
+ create mode 100644 _b111.log
+ create mode 100644 _bp110.log
+ create mode 100644 _build104.log
+ create mode 100644 _build105.log
+ create mode 100644 _build105b.log
+ create mode 100644 _build106.log
+ create mode 100644 _build107.log
+ create mode 100644 _build108.log
+ create mode 100644 _build109.log
+ create mode 100644 _build110.log
+ create mode 100644 _build111.log
+ create mode 100644 _buildplay109.log
+ create mode 100644 _c10.log
+ create mode 100644 _c11.log
+ create mode 100644 _c12.log
+ create mode 100644 _c13.log
+ create mode 100644 _c14.log
+ create mode 100644 _c8.log
+ create mode 100644 _c9.log
+ create mode 100644 _cach.json
+ create mode 100644 _cap.log
+ create mode 100644 _cap1.png
+ create mode 100644 _cap2.log
+ create mode 100644 _cap2.png
+ create mode 100644 _cap3.log
+ create mode 100644 _cap3.png
+ create mode 100644 _cap4.log
+ create mode 100644 _cj.js
+ create mode 100644 _cjchk.log
+ create mode 100644 _ck.txt
+ create mode 100644 _ckchk.log
+ create mode 100644 _cmd2b.bat
+ create mode 100644 _cmp2.txt
+ create mode 100644 _cmp2chk.log
+ create mode 100644 _cmpchk.log
+ create mode 100644 _crash.log
+ create mode 100644 _crash1.log
+ create mode 100644 _crash2.log
+ create mode 100644 _crash3.log
+ create mode 100644 _crash5.log
+ create mode 100644 _crash6.log
+ create mode 100644 _curl.txt
+ create mode 100644 _curlchk.log
+ create mode 100644 _diag.json
+ create mode 100644 _diagchk.log
+ create mode 100644 _ep.txt
+ create mode 100644 _epchk.log
+ create mode 100644 _ev3.json
+ create mode 100644 _evchk.log
+ create mode 100644 _fb.txt
+ create mode 100644 _fbchk.log
+ create mode 100644 _fl.txt
+ create mode 100644 _flchk.log
+ create mode 100644 _fun.json
+ create mode 100644 _funchk.log
+ create mode 100644 _g14.json
+ create mode 100644 _g30.json
+ create mode 100644 _g7.json
+ create mode 100644 _gchk.log
+ create mode 100644 _hc.txt
+ create mode 100644 _i7.log
+ create mode 100644 _inst.log
+ create mode 100644 _inst5.log
+ create mode 100644 _inst6.log
+ create mode 100644 _inst7.log
+ create mode 100644 _kr.txt
+ create mode 100644 _krchk.log
+ create mode 100644 _lat.txt
+ create mode 100644 _lat2.txt
+ create mode 100644 _lat2chk.log
+ create mode 100644 _latchk.log
+ create mode 100644 _lock.log
+ create mode 100644 _n_air.xml
+ create mode 100644 _n_home.xml
+ create mode 100644 _n_more.xml
+ create mode 100644 _n_radar.xml
+ create mode 100644 _n_rec.xml
+ create mode 100644 _net.txt
+ create mode 100644 _netchk.log
+ create mode 100644 _ntc.txt
+ create mode 100644 _ntc2chk.log
+ create mode 100644 _open.log
+ create mode 100644 _out_1067310828.log
+ create mode 100644 _out_1089715320.log
+ create mode 100644 _out_1263913726.log
+ create mode 100644 _out_1311931440.log
+ create mode 100644 _out_141853738.log
+ create mode 100644 _out_1492711343.log
+ create mode 100644 _out_200181507.log
+ create mode 100644 _out_211886850.log
+ create mode 100644 _out_2518827704.log
+ create mode 100644 _out_278703158.log
+ create mode 100644 _out_2829925227.log
+ create mode 100644 _out_2916521467.log
+ create mode 100644 _out_667719050.log
+ create mode 100644 _out_852220427.log
+ create mode 100644 _pax.json
+ create mode 100644 _paxchk.log
+ create mode 100644 _ph2chk.log
+ create mode 100644 _phchk.log
+ create mode 100644 _phone.txt
+ create mode 100644 _pkg10.txt
+ create mode 100644 _pkg2.txt
+ create mode 100644 _pkg8.txt
+ create mode 100644 _probe.json
+ create mode 100644 _probechk.log
+ create mode 100644 _pt.sh
+ create mode 100644 _pt2.sh
+ create mode 100644 _pt3.sh
+ create mode 100644 _pt4.sh
+ create mode 100644 _pt5.sh
+ create mode 100644 _pt6.sh
+ create mode 100644 _r0.log
+ create mode 100644 _raw.json
+ create mode 100644 _rawchk.log
+ create mode 100644 _rel9.log
+ create mode 100644 _relp.log
+ create mode 100644 _s1.png
+ create mode 100644 _sc10.png
+ create mode 100644 _sc104.png
+ create mode 100644 _sc105.png
+ create mode 100644 _sc105b.png
+ create mode 100644 _sc105c.png
+ create mode 100644 _sc11.png
+ create mode 100644 _sc9.png
+ create mode 100644 _sec.txt
+ create mode 100644 _secchk.log
+ create mode 100644 _shot1.png
+ create mode 100644 _shot2.png
+ create mode 100644 _sw.log
+ create mode 100644 _sw10.log
+ create mode 100644 _sw11.log
+ create mode 100644 _sweep.log
+ create mode 100644 _syn.log
+ create mode 100644 _t1.log
+ create mode 100644 _t10.log
+ create mode 100644 _t11.log
+ create mode 100644 _t2.log
+ create mode 100644 _t3.log
+ create mode 100644 _t4.log
+ create mode 100644 _t5.log
+ create mode 100644 _t7.log
+ create mode 100644 _t8.log
+ create mode 100644 _t9.log
+ create mode 100644 _t_air.png
+ create mode 100644 _t_more.png
+ create mode 100644 _t_radar.png
+ create mode 100644 _t_rec.png
+ create mode 100644 _taxijs.txt
+ create mode 100644 _tjschk.log
+ create mode 100644 _u1.xml
+ create mode 100644 _u2.xml
+ create mode 100644 _u3.xml
+ create mode 100644 _u5.xml
+ create mode 100644 _u6.xml
+ create mode 100644 _u7.xml
+ create mode 100644 _u8.xml
+ create mode 100644 _u9.xml
+ create mode 100644 _uc1.png
+ create mode 100644 _uc2.png
+ create mode 100644 _uc2b.png
+ create mode 100644 _uc3.png
+ create mode 100644 _up.txt
+ create mode 100644 _upchk.log
+ create mode 100644 _use.json
+ create mode 100644 _use2chk.log
+ create mode 100644 _use3chk.log
+ create mode 100644 _usecase_form.txt
+ create mode 100644 _v46.txt
+ create mode 100644 _v46chk.log
+ create mode 100644 _v8_air.png
+ create mode 100644 _v8_air.xml
+ create mode 100644 _v8b.png
+ create mode 100644 _v9.png
+ create mode 100644 _video/airport_history.json
+ create mode 100644 _video/auth_url.txt
+ create mode 100644 _video/bgm/bgm_brief.mp3
+ create mode 100644 _video/bgm/bgm_brief.wav
+ create mode 100644 _video/bgm/mkbgm.py
+ create mode 100644 _video/brand/banner.png
+ create mode 100644 _video/brand/mk.py
+ create mode 100644 _video/brand/profile.png
+ create mode 100644 _video/daily_report.txt
+ create mode 100644 _video/daily_runner.log
+ create mode 100644 _video/daily_state.json
+ create mode 100644 _video/make_short.ps1
+ create mode 100644 _video/make_video.ps1
+ create mode 100644 _video/pick.html
+ create mode 100644 _video/pipeline/brief.py
+ create mode 100644 _video/pipeline/build_video.py
+ create mode 100644 _video/pipeline/run_daily.bat
+ create mode 100644 _video/pipeline/run_daily.py
+ create mode 100644 _video/pipeline/slides.py
+ create mode 100644 _video/probe.txt
+ create mode 100644 _video/serve.js
+ create mode 100644 _video/serve.log
+ create mode 100644 _video/tts_neural.py
+ create mode 100644 _video/tts_test.log
+ create mode 100644 _video/tts_test.ps1
+ create mode 100644 _video/voice_HyunsuMultilingualNeural.mp3
+ create mode 100644 _video/voice_InJoonNeural.mp3
+ create mode 100644 _video/voice_SunHiNeural.mp3
+ create mode 100644 _video/voice_sample.py
+ create mode 100644 _video/vtest.py
+ create mode 100644 _video/yt_auth.py
+ create mode 100644 _video/yt_check.py
+ create mode 100644 _video/yt_list.py
+ create mode 100644 _video/yt_privacy_test.py
+ create mode 100644 _video/yt_upload.py
+ create mode 100644 _video/ytauth.log
+ create mode 100644 "_video/\353\251\224\355\203\200\353\215\260\354\235\264\355\204\260_\355\205\234\355\224\214\353\246\277.md"
+ create mode 100644 _w_home.xml
+ create mode 100644 _w_more.xml
+ create mode 100644 _w_radar.xml
+ create mode 100644 _w_rec.xml
+ create mode 100644 _x_air.xml
+ create mode 100644 _x_home.xml
+ create mode 100644 _x_more.xml
+ create mode 100644 _x_radar.xml
+ create mode 100644 _x_rec.xml
+ create mode 100644 _y0.xml
+ create mode 100644 _z_air.xml
+ create mode 100644 _z_home.xml
+ create mode 100644 _z_more.xml
+ create mode 100644 _z_radar.xml
+ create mode 100644 _z_rec.xml
+ create mode 100644 "_\352\263\204\354\240\225\355\230\204\355\231\251_\354\241\260\355\232\214.bat"
+ create mode 100644 "_\354\227\205\353\215\260\354\235\264\355\212\270\355\214\235\354\227\205_\355\205\214\354\212\244\355\212\270.bat"
+ create mode 100644 "_\354\227\205\353\215\260\354\235\264\355\212\270\355\214\235\354\227\205_\355\225\264\354\240\234.bat"
+ create mode 100644 "_\354\247\204\353\213\250_\354\236\220\353\217\231\352\270\260\353\241\235.bat"
+ create mode 100644 app/src/main/java/com/callradar/app/BusinessDay.kt
+ create mode 100644 app/src/main/java/com/callradar/app/UpdateNotice.kt
+ create mode 100644 app/src/main/java/com/callradar/app/WorkMetrics.kt
+ create mode 100644 "docs/\352\263\265\352\263\265\353\215\260\354\235\264\355\204\260_\354\232\264\354\230\201\352\263\204\354\240\225_\354\213\240\354\262\255\354\244\200\353\271\204.md"
+ create mode 100644 "docs/\352\263\265\352\263\265\353\215\260\354\235\264\355\204\260_\355\231\234\354\232\251\354\202\254\353\241\200_\353\223\261\353\241\235\354\225\210.md"
+ create mode 100644 "docs/\354\234\240\355\212\234\353\270\214_\354\236\220\353\217\231\354\227\205\353\241\234\353\223\234_\354\204\244\354\240\225.md"
+ create mode 100644 "docs/\354\234\240\355\212\234\353\270\214_\354\261\204\353\204\220\354\232\264\354\230\201\354\225\210.md"
+ create mode 100644 "docs/\354\234\240\355\212\234\353\270\214_\355\216\270\354\204\261\355\221\234\354\231\200_\353\214\200\353\263\270\355\213\200.md"
+ create mode 100644 "docs/\354\236\220\352\260\200\352\262\200\354\246\235_\352\265\254\354\241\260\354\231\200\354\202\254\354\232\251\353\271\210\353\217\204_2026-09-07.md"
+ create mode 100644 "\354\240\234\353\263\264/\354\212\244\355\201\254\353\246\260\354\203\267 2026-09-10 012351.png"
+COMMIT_OK
+BUILD SUCCESSFUL in 4m 19s
+ONESTORE_DONE
+BUILD SUCCESSFUL in 4m 29s
+PLAY_DONE
 RUN2_DONE 
