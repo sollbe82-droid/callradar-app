@@ -628,6 +628,28 @@ bash 가 전부 실패한다(2026-09-10 에 7회 연속). **재시도는 의미�
   **★ `Access-Control-Allow-Private-Network: true` 헤더가 없으면 조용히 멈춘다**
   (Chrome Private Network Access. 에러도 안 나고 프리플라이트에서 걸려 타임아웃만 난다.)
 
+### ★★ 스토어 업로드는 확장 + 로컬 서버로 된다 — 단, 크롬 152 는 **로컬 네트워크 권한**을 묻는다 (2026-09-10 실측)
+v111 두 스토어 업로드를 이 방식으로 끝냈다. 순서와 함정:
+- **Claude in Chrome 확장**이 붙어야 한다(`list_connected_browsers` 가 빈 배열이면 대표가 크롬에서 확장을 켜야 함).
+  컴퓨터제어의 크롬은 **읽기 전용**, Control Chrome 은 **맥 전용**, 내장 브라우저는 구글 로그인이 없다 — 셋 다 대안이 아니다.
+- 확장의 `file_upload` 는 **10MB 제한**이라 APK(43MB)·AAB(25MB)는 못 넣는다. 확장이 파일선택창도 가로채므로
+  PowerShell SendKeys 로 파일창을 채우는 것도 **안 된다**(창이 안 뜬다).
+- 되는 길: `node _video/serve.js <폴더> 8899` 로 로컬 서버 → 페이지 JS 에서 `fetch(url, {targetAddressSpace:'loopback'})`
+  → `File` → `DataTransfer` → `input[type=file]` 에 꽂고 `change` 발화.
+- **★ 크롬 152 부터 `local-network-access` 권한이 "prompt" 상태면 요청이 조용히 영원히 대기한다**
+  (503/pending 으로 보인다). `navigator.permissions.query({name:'local-network-access'})` 로 상태를 본다.
+  **사이트마다** 대표가 크롬 팝업에서 **허용**을 눌러야 한다(play.google.com · dev.onestore.net 각각 한 번).
+  이걸 모르고 "서버가 죽었나" 헤맸다. 먼저 권한 상태부터 본다.
+- **플레이 콘솔**: AAB 넣으면 자동 처리 → 출시명·출시노트(`<ko-KR>`) → 저장 → 게시 개요 → "검토를 위해 변경사항 제출".
+  변경 항목이 **Alpha 1개뿐**인지 게시 개요에서 확인하고 누른다.
+- **원스토어(ONEconsole)**: 화면은 **iframe**(`/icmsapp/...`) 안에 있다. 업로드 POST(`saveBinary`)는
+  **`X-CSRF-TOKEN` 헤더(meta[name=csrf-token])** 없으면 로그인 페이지 HTML 을 200 으로 돌려준다.
+  `fileId`(=`#scid-hidden`) 를 **기존 바이너리 scid 로 넣어야 '교체'**이고, 비우면 **바이너리가 하나 더 생긴다**
+  (실제로 3개 생겨 `deleteBinary/<scid>` 로 지웠다). `selectBinaryMeta` 로 목록을 확인하고 끝낸다.
+  검증요청 페이지에서 배포옵션(즉시 적용) + 업데이트 내용(`<ko>…</ko>`, 이전 히스토리와 같은 말투) → `#save-a`.
+  `submit()` 이 `confirm()` 을 띄우므로 iframe 의 `confirm` 을 먼저 `()=>true` 로 바꾼다(다이얼로그는 확장을 멈춘다).
+- 로그인은 대표가 직접 누른다(비밀번호 입력·자동완성 로그인은 내가 안 한다).
+
 ## ★★ 유튜브 채널 콜레이더 — 매일 자동 브리핑 (2026-09-08 구축)
 
 ```
