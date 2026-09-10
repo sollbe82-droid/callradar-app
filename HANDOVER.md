@@ -56,21 +56,27 @@ d48bbc1  work_rate_mismatch — per_hour × net_min/60 ≠ fare 인 행을 잡�
 
 ## 3. 다음 할 일 (순서대로)
 
-### ① 릴리스 빌드 2종 — **여기서 멈춰 있다**
-```
-call gradlew.bat --no-daemon assembleOnestoreRelease
-call gradlew.bat --no-daemon bundlePlayRelease
-```
+### ① 릴리스 빌드 2종 — **뽑았고 검사 4/5 통과. 남은 건 업로드뿐**
 대표 지시: **"둘 다 뽑고 둘 다 문제가 없어야 올린다."**
 
-**올리기 전 통과 기준**
 ```
-1) 두 빌드 다 BUILD SUCCESSFUL
-2) play AAB 매니페스트 실측 — BIND_ACCESSIBILITY 있고 isAccessibilityTool 없어야 함
-   (있으면 개발자 계정 해지 사유. 정관 참조)
-3) 원스토어 APK 설치 → 홈·레이더·기록·공항·더보기 클릭 → 크래시 0
-4) ★ 근무카드 검산 — 큰 글씨 근무시간 == 시간당 분모        ← 아래 '미검증' 참조
-5) mapping.txt 를 _releases/v111/ 에 보관 (R8 난독화라 필수)
+1) 빌드          ✅ onestore APK 4m19s · play AAB 4m29s 둘 다 BUILD SUCCESSFUL
+2) AAB 매니페스트 ✅ BIND_ACCESSIBILITY=True · isAccessibilityTool=False
+                    (대조군 com.callradar.app·NaviIntentReceiver 도 True → 검사법 자체가 살아 있음)
+3) 클릭 검사      ✅ 홈·레이더·기록·공항·더보기 크래시 0 (v111 **디버그** 빌드로 확인)
+4) 근무카드 검산  ⏳ 미검증 — 아래 4번 절 참조
+5) 산출물 보관    ✅ _releases/v111/  APK · AAB · mapping 2종
+                    R8 이후에도 BusinessDay·WorkMetrics 가 mapping 에 살아 있는 것 확인
+```
+
+**★ 릴리스 APK 를 대표 폰에 덮어씌우지 말 것.** 지금 폰에 깔린 건 **디버그 서명**이라
+릴리스로 바꾸려면 **삭제 후 재설치**가 되고 로컬 prefs 가 날아간다. 스토어 업데이트로 받는 게 맞다.
+
+**업로드**
+```
+원스토어  _releases/v111/app-onestore-release.apk   ← 대표가 업로드
+구글      _releases/v111/app-play-release.aab       ← Alpha 트랙까지만.
+                                                      프로덕션 승격은 대표 확인 1회
 ```
 
 ### ② 유튜브 첫 영상 공개 판단
@@ -121,8 +127,11 @@ call gradlew.bat --no-daemon bundlePlayRelease
 폰               R5KL10AL1ZF · adb 연결됨
 ```
 
-**리눅스칸이 죽으면 못 하는 것**: AAB 매니페스트 `unzip`+`strings` 검사, `_rooms` 대화 보관,
-dex 한글 바이트 검색. → PowerShell 로 대체하거나 리눅스칸이 살아난 뒤에 한다.
+**리눅스칸이 죽으면 못 하는 것**: `_rooms` 대화 보관, dex 한글 바이트 검색.
+AAB 매니페스트 검사는 **PowerShell 로 대체했다** → `_aabchk.ps1` (대조군 2개를 같이 찍는다).
+
+**★ 이번 방은 `_rooms` 보관을 못 했다.** `_rooms/_extract.py` 가 bash 를 쓴다.
+리눅스칸이 살아나면 이 방의 `.jsonl` 을 뽑아 `_rooms/2026-09-10_<세션id8>.md` 로 남길 것.
 
 ---
 
