@@ -1,0 +1,12 @@
+==== git 프로세스 확인 
+INFO: No tasks are running which match the specified criteria.
+==== lock 파일 
+ Volume in drive C has no label.
+ Volume Serial Number is 1C66-4DAF
+
+ Directory of C:\CallRadar\server\.git
+
+2026-09-07  오전 08:00                 0 index.lock
+               1 File(s)              0 bytes
+               0 Dir(s)  13,068,877,824 bytes free
+LOCK_DONE 

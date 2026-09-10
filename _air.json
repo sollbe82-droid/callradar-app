@@ -1,0 +1,8 @@
+﻿=== health
+{"status":"ok","time":"2026-09-06T11:43:09.881Z","hasAirportKey":true,"keyLength":64}
+=== cached
+{"t1":{"taxi":{"seoul":0,"incheon":0,"gyeonggi":0,"intercity":0,"best":0,"van":0,"updateTime":"","stand":{"seoul":"","incheon":"","gyeonggi":"","intercity":"","bestVan":""}},"flights":[],"immigrationTotal":0,"hourly":[],"upcomingCount":0,"upcomingPax":0,"nextFlight":null},"t2":{"taxi":{"seoul":0,"incheon":0,"gyeonggi":0,"intercity":0,"best":0,"van":0,"updateTime":"","stand":{"seoul":"","incheon":"","gyeonggi":"","intercity":"","bestVan":""}},"flights":[],"immigrationTotal":0,"hourly":[],"upcomingCount":0,"upcomingPax":0,"nextFlight":null},"lastUpdate":1788690698111,"paxSrc":"warming"}
+=== status
+{"t1SeoulTaxi":0,"t1GyeonggiTaxi":0,"t1IncheonTaxi":0,"t1VanTaxi":0,"t2SeoulTaxi":0,"t2GyeonggiTaxi":0,"t2IncheonTaxi":0,"t2VanTaxi":0,"t1ImmigrationTotal":0,"t1ImmigrationIn5min":0,"t1ImmigrationIn10min":0}
+=== passengers
+=== passengers ERROR: You cannot call a method on a null-valued expression.

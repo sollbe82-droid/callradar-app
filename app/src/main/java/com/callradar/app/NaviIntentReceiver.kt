@@ -1277,9 +1277,10 @@ class NaviIntentReceiver : AccessibilityService() {
                     // [v57] 자정 날짜귀속: day_start_hour를 설정한 유저면 완료시각 기준 영업일을 business_date로 보냄(서버가 출근일 대신 이 값 사용).
                     //  미설정 유저는 안 보냄 → 기존 '출근일 귀속' 유지(야간기사 회귀 방지).
                     if (prefs.getBoolean("day_start_set", false)) {
-                        val dsh = prefs.getInt("day_start_hour", 0)
+                        // ★ [2026-09-10] 영업일 경계는 BusinessDay 가 정한다(앱에 같은 계산이 5벌 있었다).
                         val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-                        if (cal.get(java.util.Calendar.HOUR_OF_DAY) < dsh) cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                        // ★ apply{} 안이라 this 는 JSONObject 다. 서비스 컨텍스트를 명시한다.
+                        cal.timeInMillis = com.callradar.app.BusinessDay.startOf(this@NaviIntentReceiver)
                         put("business_date", String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH)))
                     }
                     // [v53] 화면주소 파싱 제거 — 완료 순간 GPS(하차점)만. 이동>300m일 때 지오코딩.

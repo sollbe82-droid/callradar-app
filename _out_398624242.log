@@ -1,0 +1,27 @@
+warning: in the working copy of 'CLAUDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '_cmd2.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/callradar/app/screen/HomeScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/promo_30s.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/uber_16600.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/녹화방법.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/shorts/카페_홍보글.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/홍보전략.md', LF will be replaced by CRLF the next time Git touches it
+[master 51c76a6] v104: show the basis under hourly rate so the driver can check it (user 108)
+ 22 files changed, 740 insertions(+), 19 deletions(-)
+ create mode 100644 _ai.json
+ create mode 100644 _an2.json
+ create mode 100644 _an3.json
+ create mode 100644 _ev.json
+ create mode 100644 _ev2.json
+ create mode 100644 _exp.csv
+ create mode 100644 _hb.json
+ create mode 100644 _kbo.json
+ rename _out_1648125526.log => _out_398624242.log (100%)
+ create mode 100644 _preview1.png
+ create mode 100644 _preview2.png
+ create mode 100644 docs/shorts/promo_30s.html
+ create mode 100644 docs/shorts/uber_16600.html
+ create mode 100644 "docs/shorts/\353\205\271\355\231\224\353\260\251\353\262\225.md"
+ create mode 100644 "docs/shorts/\354\271\264\355\216\230_\355\231\215\353\263\264\352\270\200.md"
+ create mode 100644 "docs/\355\231\215\353\263\264\354\240\204\353\236\265.md"

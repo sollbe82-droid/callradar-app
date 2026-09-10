@@ -117,13 +117,8 @@ fun SimpleHomeScreen(
     fun startMeter() { try { ContextCompat.startForegroundService(context, Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
     fun stopMeter() { try { context.stopService(Intent(context, WorkSessionService::class.java)) } catch (e: Exception) {} }
 
-    fun workDayKey(): Long {
-        val h = prefs.getInt("day_start_hour", 0)
-        val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-        if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
-        c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
-        return c.timeInMillis
-    }
+    // ★ [2026-09-10] 영업일 판정은 BusinessDay 한 곳에서만 한다(유저 103 제보 · 공식이 셋이었다).
+    fun workDayKey(): Long = com.callradar.app.BusinessDay.key(context)
     fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
         lastLocalChange = System.currentTimeMillis()
         if (userId.isEmpty()) return

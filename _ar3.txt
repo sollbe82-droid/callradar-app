@@ -1,0 +1,4 @@
+﻿taxiOk=True flightsOk=True paxOk=False dataOk=False
+taxiSrc=airport.kr  flightsSrc=airport.kr
+T1 택시=123  T1 도착편=17  T2 도착편=30
+첫편: CA709 베이징/서우두 예정22:00 도착21:38 입국장B

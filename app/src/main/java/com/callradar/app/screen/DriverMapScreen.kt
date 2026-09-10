@@ -307,14 +307,9 @@ private fun parseUtcLoose(s: String): java.util.Date? {
 }
 
 // [궤적on지도] 오늘 영업일 시작(야간·일차 기사 dayStart 반영)
-private fun trackDayStart(ctx: android.content.Context): Long {
-    val prefs = ctx.getSharedPreferences("callradar_prefs", android.content.Context.MODE_PRIVATE)
-    val h = prefs.getInt("day_start_hour", 0)
-    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
-    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
-    return c.timeInMillis
-}
+// ★ [2026-09-10] 영업일 판정은 BusinessDay 한 곳에서만 한다(같은 계산이 앱에 5벌 있었다).
+private fun trackDayStart(ctx: android.content.Context): Long =
+    com.callradar.app.BusinessDay.startOf(ctx)
 
 // [궤적on지도] 오늘 근무 궤적(로컬 GPS 브레드크럼)을 레이더 지도 위에 폴리라인으로.
 //  실차=파랑 실선, 공차=회색. 10분 이상 끊긴 구간·실차/공차 전환은 세그먼트 분리. 시작(초록)·현재(주황) 마커.

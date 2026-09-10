@@ -1,0 +1,15 @@
+총 26편  immigrationTotal=818
+06:30 06:14 7C2516 CNX  kor=0 for=0 gate=E
+07:05 06:17 QV923 VTE  kor=0 for=0 gate=E
+06:30 06:19 7C2108 CRK  kor=0 for=0 gate=D
+06:45 06:24 TW162 SIN  kor=0 for=0 gate=B
+06:00 06:25 VJ878 DAD  kor=0 for=0 gate=C
+06:45 06:27 TW034 CXR  kor=0 for=0 gate=B
+06:50 06:30 7C3212 SPN  kor=0 for=0 gate=C
+06:40 06:36 WE272 HAN  kor=0 for=0 gate=C
+06:50 06:40 7C2604 BKI  kor=0 for=0 gate=D
+07:15 06:46 7C5304 DPS  kor=0 for=0 gate=B
+06:35 06:47 TG658 BKK  kor=0 for=0 gate=E
+06:55 06:53 ZE594 DAD  kor=0 for=0 gate=B
+07:10 07:02 ZE518 CNX  kor=0 for=12 gate=D
+07:25 07:09 KC209 NQZ  kor=0 for=0 gate=B

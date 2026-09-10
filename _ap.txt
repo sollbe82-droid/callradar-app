@@ -1,0 +1,10 @@
+==== upstream 직접 (KST, 키없이) 
+apis.data.go.kr  http=401 tls=0.054173s total=0.076270s
+www.data.go.kr   http=200 total=0.268628s
+==== 우리 서버 진단 
+1_https_airport : ok=True status=200 ms=909 
+2_http_airport : ok=True status=200 ms=452 
+3_https_tour : ok=True status=200 ms=233 
+==== 현재 표시값 
+taxiOk=True flightsOk=True paxOk=True  taxiSrc=data.go.kr flightsSrc=data.go.kr
+T1 택시=67 도착편=26 입국심사=818

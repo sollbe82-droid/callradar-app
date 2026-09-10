@@ -1,0 +1,20 @@
+콜레이더 유튜브 · 2026-09-09 19:40
+[19:40:01] RUN brief
+[19:40:03]   FORMAT airport_stop
+[19:40:03]   LINES 7
+[19:40:03]   T1 210 T2 136 MEDIAN None SAMPLES 1
+[19:40:03]   DIR C:\CallRadar\_video\short_20260909
+[19:40:03] RUN slides
+[19:40:04]   SLIDES 7
+[19:40:04] RUN video
+[19:40:28]   TOTAL 45.41
+[19:40:28]   DONE C:\CallRadar\_video\short_20260909\final.mp4
+[19:40:28] JITTER 12분 14초 대기
+[19:52:42] RUN upload
+[19:52:51]   UPLOAD 59%
+[19:52:51]   VIDEO_ID yN9FDUYmHDI
+[19:52:51]   URL https://www.youtube.com/watch?v=yN9FDUYmHDI
+[19:52:51]   STUDIO https://studio.youtube.com/video/yN9FDUYmHDI/edit
+[19:52:51]   PRIVACY private UPLOAD_STATUS uploaded REJECT None FAILURE None
+[19:52:51] 업로드 완료(비공개). 대표 확인 후 공개로 바꾸시면 됩니다.
+[19:52:51] STATE {"date": "2026-09-09", "ok": true, "video_id": "yN9FDUYmHDI", "url": "https://www.youtube.com/watch?v=yN9FDUYmHDI", "dir": "C:\\CallRadar\\_video\\short_20260909"}

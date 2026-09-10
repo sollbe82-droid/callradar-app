@@ -1,0 +1,6 @@
+C:\CallRadar\_pt2.sh: 1 file pushed, 0 skipped. 0.0 MB/s (372 bytes in 0.007s)
+https://apis.data.go.kr/B551177/StatusOfTaxi               http=000 tls=0.000000 t=12.001207 ip=
+https://apis.data.go.kr/B551177/StatusOfTaxi/getTaxiStatus http=000 tls=0.000000 t=12.001374 ip=
+https://apis.data.go.kr/                                   http=000 tls=0.000000 t=12.001736 ip=
+https://api.data.go.kr/                                    http=000 tls=0.000000 t=12.002044 ip=
+https://www.data.go.kr/                                    http=200 tls=0.063822 t=0.245588 ip=27.101.236.55

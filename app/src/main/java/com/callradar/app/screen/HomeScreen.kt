@@ -668,13 +668,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                 val active = workStart > 0L
                 val paused = pauseStart > 0L
                 // [v41] 영업일(day_start_hour 기준) 키 — 하루 안 여러 출퇴근을 하나로 누적하기 위한 기준.
-                fun workDayKey(): Long {
-                    val h = prefs.getInt("day_start_hour", 0)
-                    val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-                    if (c.get(java.util.Calendar.HOUR_OF_DAY) < h) c.add(java.util.Calendar.DAY_OF_YEAR, -1)
-                    c.set(java.util.Calendar.HOUR_OF_DAY, h); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
-                    return c.timeInMillis
-                }
+                // ★ [2026-09-10] 영업일 판정은 BusinessDay 한 곳에서만 한다.
+                //   예전엔 이 함수가 **컴포저블 안의 지역 함수**라 다른 파일이 못 썼고,
+                //   그래서 WorkSegments·SimpleHomeScreen 이 각자 다시 구현했다.
+                //   공식이 셋이 되자 근무시간이 서로 어긋났다(유저 103 제보).
+                fun workDayKey(): Long = com.callradar.app.BusinessDay.key(context)
                 // [v2] 투폰 근무세션 동기화 — 로컬 변경을 서버로 push (출근/일시정지/재개/퇴근 때 호출)
                 fun pushWorkSession(ws: Long, pt: Long, ps: Long, sf: Int) {
                     lastLocalWorkChange = System.currentTimeMillis()   // [v59] 로컬 변경 표시 → 30초간 pull이 서버로 덮지 않음
@@ -796,6 +794,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                  * sFare 는 todayFare(=/api/today) 라 그 순간 이미 새 영업일을 보고 있었다.
                                  * 여기는 백그라운드라 한 번 더 물어도 퇴근이 느려지지 않는다. 실패하면 기존 값 유지. */
                                 var fF = sF; var fP = pH
+                                /* ★★ [2026-09-10] 분자를 바꾸면 **분모도 같이 보내야 한다.**
+                                 *  예전엔 fare·per_hour 만 근무구간 값으로 바꾸고 net_min 은 prefs 값을 그대로 보냈다.
+                                 *  그래서 서버에 `per_hour × net_min/60 ≠ fare` 인 행이 계속 쌓였다
+                                 *  (30일 실측 10건 · 여러 기사). 검산이 안 되는 기록은 나중에 아무것도 증명하지 못한다. */
+                                var fN = nMin
                                 try {
                                     if (sStart > 0 && sEnd > sStart) {
                                         val fc = (URL("$SERVER_URL/api/fare-range/$userId?from=$sStart&to=$sEnd").openConnection().apply {
@@ -819,10 +822,11 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                         if (sFareSeg >= 0 && wMs > 0L) {
                                             fF = sFareSeg
                                             fP = if (wMs >= 3600000L) (sFareSeg / (wMs / 3600000.0)).toInt() else 0
+                                            fN = wMs / 60000L      // ← 분자를 바꿨으니 분모도 같은 것으로
                                         }
                                     }
                                 } catch (e: Exception) {}
-                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", nMin); put("dist_km", dKm.toDouble()); put("fare", fF); put("per_hour", fP) }
+                                val j = JSONObject().apply { put("user_id", userId); put("started_at", sStart); put("ended_at", sEnd); put("gross_min", gMin); put("net_min", fN); put("dist_km", dKm.toDouble()); put("fare", fF); put("per_hour", fP) }
                                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
                             } } catch (e: Exception) {}
@@ -1084,13 +1088,31 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                      *  `maxOf(근무시간, 활동시간)` 에서 활동시간은 정지를 모르므로, 정지로 근무시간이 줄면
                      *  활동시간이 이겨 정지 구간이 그대로 분모에 남았다(실측 -56%).
                      *  이제 근무 구간(정지 제외)과 **그 구간 안의 매출**로 기간을 맞춘다 → WorkRate. */
-                    val hoursForRate = segRate?.hours ?: maxOf(workedHours, todayActiveHours.toDouble())
-                    val perHour = segRate?.perHour
-                        ?: (if (hoursForRate >= 1.0) (sessionFare / hoursForRate).toInt() else -1)
+                    /* ★★ [2026-09-10 유저 103] 시간당과 km당이 **서로 다른 분자**를 쓰고 있었다.
+                     *   perHour 는 근무구간 매출(35,300), perKm 은 오늘 총매출(52,600).
+                     *   같은 카드에 "근무 밖 17,300원 제외"라 써 놓고 아래 칸은 포함했다 → km당 49% 과대.
+                     *   경위: 09-03 에 perHour 의 분자를 바꾸면서 두 줄 아래 perKm(08-10 그대로)을 안 봤다.
+                     *   → 이제 분자를 **WorkMetrics 가 한 번만 정하고 둘 다 그걸로 만든다.**
+                     *     한쪽만 바꾸는 것이 구조적으로 불가능해진다. */
                     val distKm = workDist / 1000f
+                    val metricSnap = segRate?.let {
+                        com.callradar.app.WorkMetrics.Snap(it.fare, it.workedMs, distKm, false)
+                    } ?: com.callradar.app.WorkMetrics.Snap(
+                        sessionFare,
+                        (maxOf(workedHours, todayActiveHours.toDouble()) * 3_600_000.0).toLong(),
+                        distKm, true
+                    )
+                    /* ★ 앱이 자기 숫자를 검산한다. 이번 사고에서 제일 아픈 건 한 카드 안에
+                     *   '1시간 41분' 과 '÷ 10시간 53분' 이 붙어 있었는데 앱이 모순인 줄 몰랐다는 것이다.
+                     *   알아챈 건 기사였다. 어긋나면 숫자를 감추고 서버에 남긴다. */
+                    val metricBad = com.callradar.app.WorkMetrics.mismatch(metricSnap, workedMs)
+                    LaunchedEffect(metricBad) {
+                        metricBad?.let { com.callradar.app.WorkMetrics.report(context, it) }
+                    }
+                    val perHour = if (metricBad != null) -2 else (metricSnap.perHour ?: -1)
                     // km당 매출도 같은 이유. 분모가 '이동 거리·탭 초기화' 버튼으로 언제든 0이 되므로
                     //  0.3km 하한은 사실상 없는 것과 같았다(리셋 직후 310m 이동 시 645,161원/km).
-                    val perKm = if (distKm >= 5f) (sessionFare / distKm).toInt() else -1
+                    val perKm = if (metricBad != null) -2 else (metricSnap.perKm ?: -1)
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(16.dp)) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -1101,9 +1123,13 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 if (active) Column(horizontalAlignment = Alignment.End) {
                                     Text("시간당 매출", fontSize = 11.sp, color = muted)
                                     // 1시간 미만이면 숫자 대신 언제 나오는지를 준다.
-                                    Text(if (perHour >= 0) "${String.format("%,d", perHour)}원" else "1시간 후",
+                                    Text(if (perHour >= 0) "${String.format("%,d", perHour)}원"
+                                         else if (perHour == -2) "확인 필요" else "1시간 후",
                                         fontSize = if (perHour >= 0) 20.sp else 15.sp,
                                         fontWeight = FontWeight.Bold, color = if (perHour >= 0) accent else muted)
+                                    // 왜 숫자가 없는지를 밝힌다("—"나 "집계 중"은 고장으로 의심받는다 · 정관)
+                                    if (perHour == -2) Text("근무 구간이 어긋나 잠시 숨겼어요",
+                                        fontSize = 10.sp, color = muted)
                                     /* ★ [2026-09-06 유저 108] "영업 시작하고 멈춤 누르지도 않았는데 시간당 매출이 맞지 않습니다.
                                      *   단순히 화면에 보이는 근무중 시간을 현재 매출로 계산하면 파악하기 쉬울 것 같습니다."
                                      *
@@ -1115,16 +1141,16 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                      *
                                      *  숫자를 바꾸는 대신 **근거를 보여준다.** 맞고 틀리고를 떠나
                                      *  검산이 안 되는 지표는 신뢰를 못 얻는다. */
-                                    segRate?.let { r ->
-                                        if (r.perHour >= 0) {
-                                            val m = (r.workedMs / 60000L)
-                                            Text("${String.format("%,d", r.fare)}원 ÷ ${m / 60}시간 ${m % 60}분",
-                                                fontSize = 10.sp, color = muted)
-                                            // 근무 밖 운행이 있으면 왜 상단 매출과 다른지 한 줄로 밝힌다.
-                                            val outside = todayFare - r.fare
-                                            if (outside > 0) Text("근무 밖 ${String.format("%,d", outside)}원 제외",
-                                                fontSize = 10.sp, color = muted)
-                                        }
+                                    // ★ 근거도 화면에 뜬 숫자와 **같은 값**에서 뽑는다(metricSnap).
+                                    //   근거와 결과가 다른 출처면 검산이 또 안 맞는다 — 이번 사고의 뿌리다.
+                                    if (!metricSnap.fallback && metricBad == null && perHour >= 0) {
+                                        val m = (metricSnap.workedMs / 60000L)
+                                        Text("${String.format("%,d", metricSnap.fare)}원 ÷ ${m / 60}시간 ${m % 60}분",
+                                            fontSize = 10.sp, color = muted)
+                                        // 근무 밖 운행이 있으면 왜 상단 매출과 다른지 한 줄로 밝힌다.
+                                        val outside = todayFare - metricSnap.fare
+                                        if (outside > 0) Text("근무 밖 ${String.format("%,d", outside)}원 제외",
+                                            fontSize = 10.sp, color = muted)
                                     }
                                 }
                             }
@@ -1192,7 +1218,8 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                     Box(modifier = Modifier.weight(1f).background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(vertical = 8.dp, horizontal = 10.dp)) {
                                         Column {
                                             Text("km당 매출", fontSize = 10.sp, color = muted)
-                                            Text(if (perKm >= 0) "${String.format("%,d", perKm)}원" else "5km 후",
+                                            Text(if (perKm >= 0) "${String.format("%,d", perKm)}원"
+                                                 else if (perKm == -2) "확인 필요" else "5km 후",
                                                 fontSize = if (perKm >= 0) 16.sp else 13.sp,
                                                 fontWeight = FontWeight.Bold, color = if (perKm >= 0) green else muted)
                                         }

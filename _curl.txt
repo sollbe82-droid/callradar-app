@@ -1,0 +1,10 @@
+==== curl v (no key, HTTPS) 
+curl: (28) Connection timed out after 25005 milliseconds
+http=000 tls=0.000000s total=25.006369s ip=
+==== curl http1.1 + UA 
+curl: (28) Connection timed out after 25013 milliseconds
+http=000 total=25.014742s
+==== curl portal www.data.go.kr 
+http=200 total=0.436272s ip=27.101.236.55
+==== curl airport site (dae-jo) 
+http=200 total=0.306750s

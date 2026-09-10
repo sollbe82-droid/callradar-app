@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "C:\CallRadar\_video\yt_auth.py", line 50, in <module>
+    flow.fetch_token(authorization_response=f"http://localhost:{PORT}{captured['path']}")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\류이\AppData\Local\Programs\Python\Python313\Lib\site-packages\google_auth_oauthlib\flow.py", line 287, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\류이\AppData\Local\Programs\Python\Python313\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        authorization_response, state=self._state
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\류이\AppData\Local\Programs\Python\Python313\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+  File "C:\Users\류이\AppData\Local\Programs\Python\Python313\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 271, in parse_authorization_code_response
+    raise InsecureTransportError()
+oauthlib.oauth2.rfc6749.errors.InsecureTransportError: (insecure_transport) OAuth 2 MUST utilize https.

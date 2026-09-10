@@ -344,7 +344,20 @@ class FloatingTripService : Service() {
         if (getSharedPreferences("callradar_prefs", MODE_PRIVATE).getBoolean("float_suppressed", false)) { setFloatVisible(false); stopLocationForeground(); return }
         val active = com.callradar.app.NaviIntentReceiver.activeTripId > 0
         val p = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
-        val armed = p.getBoolean("auto_record_on", false)
+        /* ★★ [v105] 배지가 접근성 꺼짐을 몰랐다 — 거짓말하는 배지였다.
+         *
+         *  v103 에서 홈 카드는 정직해졌는데(AccessibilityState) **배지는 그 정리에서 빠졌다.**
+         *  armed 가 prefs("auto_record_on") 만 봐서, OS 접근성이 꺼져도 '🟢자동 대기'가 떴다.
+         *  실측(v104 클릭 검사): 접근성 꺼짐인데 배지는 초록 '자동 대기'.
+         *
+         *  ★ 배지가 홈 카드보다 훨씬 위험하다. 홈 카드는 앱을 열어야 보이지만
+         *    배지는 **운행 내내 화면에 떠 있다.** 기사는 배지를 보고 "기록되고 있구나" 한다.
+         *    그 상태로 하루를 뛰면 그날 운행이 통째로 안 남는다.
+         *
+         *  정관: 같은 지표의 가드가 파일마다 다르면 이미 사고가 난 것이다. 판정을 한 곳으로 모은다. */
+        val autoPref = p.getBoolean("auto_record_on", false)
+        val accOn = com.callradar.app.AccessibilityState.isOn(this)
+        val armed = autoPref && accOn
         val floatingOn = p.getBoolean("floating_on", false)   // [#5] 수동 '운행 기록 버튼' 토글
         /* [v94] 일시정지 중이면 배지를 내린다.
          *  기사 요청: "일시정지 했는데 운행 버튼이 계속 떠 있어서 앱을 종료해야 한다."
@@ -397,6 +410,11 @@ class FloatingTripService : Service() {
              *  원인은 색이 아니라 글자였다. 대기 상태인데 버튼에 "운행"이라고 쓰여 있으니
              *  이미 누른 줄 알고 안 눌렀던 것이다. '운행'은 상태처럼 읽히고 '시작'은 동작으로 읽힌다.
              *   · 대기  = ▶ 시작 (눌러라)  · 운행중 = 🚕운행 + 빨강 + 펄스 (지금 기록 중이다) */
+            // [v105] 자동기록을 켜뒀는데 OS 접근성이 꺼진 상태 — 초록 '대기'로 속이지 않는다.
+            //  주황 경고 + 탭하면 접근성 설정으로 보낸다(onButtonTap 앞쪽 가드).
+            floatingOn && autoPref && !accOn -> {
+                setFloatVisible(true); stopPulse(); updateButtonSmall("⚠️자동꺼짐\n눌러켜기", "#F59E0B"); stopLocationForeground()
+            }
             floatingOn && armed -> {    // 운행 기록 버튼 ON + 자동 대기
                 setFloatVisible(true); stopPulse(); updateButtonSmall("🟢자동\n대기", "#10B981"); stopLocationForeground()
             }
@@ -531,6 +549,19 @@ class FloatingTripService : Service() {
 
         if (!isRiding) {
             val p0 = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
+            /* [v105] '⚠️자동꺼짐' 배지를 탭하면 접근성 설정으로 보낸다.
+             *  경고만 띄우고 갈 곳을 안 주면 기사는 뭘 눌러야 하는지 모른다.
+             *  ★ activeTripId>0 검사보다 먼저 두면 안 된다 — 운행 중 마감을 뺏는다.
+             *    접근성이 꺼졌으면 자동 트립도 없으므로 실제로는 부딪히지 않지만 순서로 못 박아 둔다. */
+            if (com.callradar.app.NaviIntentReceiver.activeTripId <= 0 &&
+                p0.getBoolean("auto_record_on", false) && !com.callradar.app.AccessibilityState.isOn(this)) {
+                toast("자동기록이 꺼져 있어요 · 접근성을 켜주세요")
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (e: Exception) {}
+                return
+            }
             // [완료콜누락 방어 v66] 자동기록이 플랫폼 콜을 기록 중일 때 탭 → '완료?' 무장(완료로 기록, 삭제 아님).
             //  다른 앱 쓰다 '운행 완료' 탭을 못 잡아 배지가 안 꺼진 케이스를, 기록 유지한 채 원터치로 마감할 수 있게.
             //  (삭제가 필요하면 배지를 길게 눌러 '취소?' 무장 → 탭.) 한 번 더 탭해야 실제 실행 + 4초 뒤 자동 원복(실수 방지).

@@ -1,0 +1,71 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     
+
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>페이지 없음</title>
+		<link rel="stylesheet" href="/err/assets/css/reset.css" />
+		<link rel="stylesheet" href="/err/assets/css/style.css" />
+		<link rel="shortcut icon" href="/favicon.ico">
+        
+
+
+
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.airport.kr">
+<meta property="og:title" content="인천국제공항">
+<meta property="og:site_name" content="인천국제공항">
+<meta property="og:image" content="https://www.airport.kr/Web-home/og/images/og_main.jpg">
+<meta property="og:description" content="인천국제공항에 오신 것을 환영합니다.">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:url" content="https://www.airport.kr">
+<meta name="twitter:title" content="인천국제공항"/>
+<meta name="twitter:image" content="https://www.airport.kr/Web-home/og/images/og_main.jpg"/>
+<meta name="twitter:description" content="인천국제공항에 오신 것을 환영합니다.">
+	
+<meta name="generator" content="인천국제공항"> 
+
+<meta name="apple-mobile-web-app-title" content="인천국제공항">
+<link rel="shortcut icon" type="image/x-icon" href="/Web-home/og/images/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/Web-home/og/images/apple-touch-icon.png">
+    </head>
+    <body>
+		<div class="wrap-error full-width">
+			<div class="inner">
+				<strong class="big-font">
+					페이지를 찾을 수가 없습니다. <span class="icon"></span>
+				</strong>
+				<a href="javascript:history.back();" class="link">이전화면으로</a>
+			</div>
+		</div>
+
+		
+    </body>
+</html>

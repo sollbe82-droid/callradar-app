@@ -1,0 +1,18 @@
+  bash arg: -p
+  bash arg: com.callradar.app
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 1
+args: [-p, com.callradar.app, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "com.callradar.app"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="com.callradar.app"
+data="android.intent.category.LAUNCHER"
+Events injected: 1
+## Network stats: elapsed time=21ms (0ms mobile, 0ms wifi, 21ms not connected)
+UI hierchary dumped to: /sdcard/u1.xml
+/sdcard/u1.xml: 1 file pulled, 0 skipped. 1.4 MB/s (19352 bytes in 0.013s)
+T1_DONE 

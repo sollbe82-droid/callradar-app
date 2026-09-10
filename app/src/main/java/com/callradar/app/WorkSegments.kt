@@ -24,21 +24,33 @@ object WorkSegments {
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
 
-    /** 영업일 키 — day_start_hour(기본 0시) 기준으로 하루를 가른다 */
-    private fun dayKey(ctx: Context, t: Long = System.currentTimeMillis()): Long {
-        val shift = prefs(ctx).getInt("day_start_hour", 0) * 3600_000L
-        return (t + 9L * 3600_000L - shift) / 86_400_000L
-    }
+    /** 영업일 키 — ★ 직접 계산하지 않는다. BusinessDay 가 유일한 판정처다(2026-09-10). */
+    private fun dayKey(ctx: Context, t: Long = System.currentTimeMillis()): Long =
+        BusinessDay.key(ctx, t)
 
+    /* ★★ [2026-09-10 유저 103] 저장 시점 키만 믿으면 지난 영업일 구간이 살아남는다.
+     *
+     *  예전엔 `저장된 KEY_DAY != 지금 dayKey` 면 리스트를 **통째로** 버리는 게 전부였다.
+     *  그런데 ensureOpened() 가 지난 영업일의 work_start 로 구간을 다시 만들어 **오늘 키를 찍어**
+     *  저장해 버리면, 그 뒤로는 키가 맞으니 영원히 오늘 구간 행세를 한다.
+     *  실측: 영업일 시작 10시인데 03:40 구간이 남아 분모가 9시간 30분 부풀었다.
+     *
+     *  그래서 키 비교에 더해 **구간 하나하나가 오늘 영업일에 속하는지** 다시 본다.
+     *  키는 빠른 경로일 뿐이고, 진실은 구간의 시작 시각이다. */
     private fun load(ctx: Context): MutableList<LongArray> {
         val p = prefs(ctx)
         // 영업일이 바뀌었으면 어제 구간은 버린다(오늘 표시용이므로)
         if (p.getLong(KEY_DAY, -1L) != dayKey(ctx)) return mutableListOf()
         return try {
             val arr = JSONArray(p.getString(KEY, "[]"))
-            MutableList(arr.length()) { i ->
-                val e = arr.getJSONArray(i); longArrayOf(e.optLong(0), e.optLong(1))
+            val out = mutableListOf<LongArray>()
+            for (i in 0 until arr.length()) {
+                val e = arr.getJSONArray(i)
+                val s = e.optLong(0)
+                if (!BusinessDay.isToday(ctx, s)) continue   // ← 지난 영업일 구간은 오늘 것이 아니다
+                out.add(longArrayOf(s, e.optLong(1)))
             }
+            out
         } catch (e: Exception) { mutableListOf() }
     }
 
@@ -63,6 +75,14 @@ object WorkSegments {
         val p = prefs(ctx)
         val ws = p.getLong("work_start", 0L)
         if (ws <= 0L) return
+        /* ★★ [2026-09-10 유저 103] '구간이 비었다'는 뜻이 두 가지인데 하나로 봤다.
+         *   (A) 자동출근이라 애초에 안 만들어졌다   → 메우는 게 맞다 (이 함수를 만든 이유)
+         *   (B) 영업일이 바뀌어 load() 가 버렸다    → 메우면 **어제 근무가 되살아난다**
+         *   코드에선 둘 다 list.isEmpty() 로 똑같이 보인다.
+         *   실제로 영업일 시작 10시를 넘긴 뒤 화면을 그리는 순간, 아직 남아 있던
+         *   어제 출근시각(03:40)으로 오늘 구간이 새로 만들어졌다.
+         *   → work_start 가 **오늘 영업일**일 때만 메운다. */
+        if (!BusinessDay.isToday(ctx, ws)) return
         val list = load(ctx)
         if (list.isNotEmpty()) return
         // 일시정지 중이면 그 시각까지만, 아니면 열어둔 채로

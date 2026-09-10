@@ -159,6 +159,22 @@ fun AirportScreen() {
     var selectedFlight by remember { mutableStateOf<FlightInfo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var lastUpdated by remember { mutableStateOf("") }
+    /* ★★ [v105] 공공데이터에서 못 받았을 때 '0대'로 보여주지 않는다.
+     *  '택시 대기 0대'는 기사에게 **빈 공항**으로 읽힌다 — 지금 가면 바로 손님이라고 믿고
+     *  공차로 인천까지 달렸다가 대기줄에 선다. 실제로는 아무것도 못 받은 상태다.
+     *  (2026-09-06 실측: apis.data.go.kr 게이트웨이 TCP 연결 자체 타임아웃. 포털은 정상)
+     *  0 을 보여주는 게 안 보여주는 것보다 나쁘다. */
+    var dataOk by remember { mutableStateOf(true) }
+    /* [v106] 택시와 항공편을 갈라서 본다.
+     *  포털이 죽어도 택시 대기는 공항공사 사이트에서 긁어와 **실값**이다.
+     *  그때 "아래 숫자는 실제 값이 아니다"라고 하면 진짜 값을 못 믿게 만든다 — 그것도 거짓말이다.
+     *  못 가져온 쪽만 정확히 지목한다. */
+    var taxiOk by remember { mutableStateOf(true) }
+    var flightsOk by remember { mutableStateOf(true) }
+    /* [v107] 승객 수는 도착편 목록과 또 다르다.
+     *  공항공사 폴백은 편명·시각은 주지만 **탑승 인원은 안 준다**(포털의 승객예고 전용).
+     *  그래서 도착편은 정상인데 입국심사 인원만 없는 상태가 실제로 존재한다. */
+    var paxOk by remember { mutableStateOf(true) }
     var forecast by remember { mutableStateOf<List<HourPax>>(emptyList()) }
     var customPhrases by remember { mutableStateOf(loadCustomPhrases(context)) }
     var phraseLanguage by remember { mutableStateOf(0) }
@@ -252,6 +268,11 @@ fun AirportScreen() {
                     val conn = (URL("$SERVER_URL/api/airport/cached").openConnection().apply { com.callradar.app.Auth.tok?.let { _t -> if (_t.isNotBlank()) setRequestProperty("Authorization", "Bearer $_t") } } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 8000 }
                     val raw = conn.inputStream.bufferedReader().readText(); conn.disconnect()
                     val json = JSONObject(raw)
+                    // 구버전 서버 호환: 필드가 없으면 true(=기존 동작 유지). 켜는 건 즉시, 끄는 건 확실할 때만.
+                    dataOk = json.optBoolean("dataOk", true)
+                    taxiOk = json.optBoolean("taxiOk", dataOk)       // 구버전 서버면 dataOk 를 따른다
+                    flightsOk = json.optBoolean("flightsOk", dataOk)
+                    paxOk = json.optBoolean("paxOk", flightsOk)      // 구버전 서버면 flightsOk 를 따른다
 
                     fun parseTerminal(key: String): TerminalData? {
                         val obj = json.optJSONObject(key) ?: return null
@@ -347,6 +368,31 @@ fun AirportScreen() {
             }
         }
 
+        /* [v105] 공공데이터를 못 받은 상태 — 숫자를 믿지 말라고 먼저 말한다.
+         *  회화카드(3번 탭)는 서버 데이터와 무관하므로 배너를 띄우지 않는다. */
+        if (!dataOk && selectedTab != 3) {
+            val (bTitle, bBody) = when {
+                // 택시·도착편은 공항공사에서 살렸고 승객 수만 없는 상태 — 포털 장애 시 제일 흔하다
+                taxiOk && flightsOk && !paxOk -> "입국심사 인원만 못 가져왔어요" to
+                    "택시 대기와 도착편은 공항공사 실시간 값이라 정확합니다. 입국 승객 수만 공공데이터포털 전용이라 지금 받을 수 없어요."
+                taxiOk && !flightsOk -> "도착편 정보를 못 가져왔어요" to
+                    "택시 대기 수는 공항공사 실시간 값이라 정확합니다. 도착편·입국심사 숫자만 믿지 마세요."
+                !taxiOk && flightsOk -> "택시 대기 정보를 못 가져왔어요" to
+                    "택시 대기 숫자는 실제 값이 아닙니다. 도착편 정보는 정상입니다."
+                else -> "공항 정보를 못 가져왔어요" to
+                    "공공데이터포털 서버가 응답하지 않습니다. 아래 숫자는 실제 값이 아니니 믿지 마세요."
+            }
+            Row(Modifier.fillMaxWidth().background(Color(0xFF3A2A12)).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("⚠️", fontSize = 16.sp)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(bTitle, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B))
+                    Text(bBody, fontSize = 11.sp, color = muted, lineHeight = 15.sp)
+                }
+            }
+        }
+
         val curData = if (selectedTerminal == 0) t1Data else t2Data
         val tn = if (selectedTerminal == 0) "T1" else "T2"
 
@@ -408,6 +454,15 @@ fun AirportScreen() {
                                     Text("$tn 입국심사 진행 인원", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                                 }
                                 Spacer(Modifier.height(4.dp))
+                                /* [v107] 승객 수만 못 가져온 상태에서 '0 명'을 쓰지 않는다.
+                                 *  공항공사 폴백은 도착편 목록은 주지만 승객 수는 안 준다(포털 전용).
+                                 *  0 을 그대로 쓰면 '지금 입국객이 없다'로 읽혀 판단을 망친다. */
+                                if (!paxOk) {
+                                    Text("정보 없음", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = muted)
+                                    Spacer(Modifier.height(6.dp))
+                                    Text("공공데이터포털에서만 오는 값이라 지금은 받을 수 없어요. 아래 도착편 목록은 정상입니다.",
+                                        fontSize = 11.sp, color = muted, lineHeight = 15.sp)
+                                } else {
                                 Text("${String.format("%,d", curData?.immigrationTotal ?: 0)} 명", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = green)
                                 Spacer(Modifier.height(6.dp))
                                 Text("현재 입국장으로 들어오는 승객 규모입니다", fontSize = 11.sp, color = muted)
@@ -446,6 +501,7 @@ fun AirportScreen() {
                                     Spacer(Modifier.height(4.dp))
                                     Text("도착편 예정시각·탑승인원 기준 예상치예요", fontSize = 10.sp, color = muted)
                                 }
+                                }   // [v107] paxOk else 끝 — 승객 수가 있을 때만 보여주는 블록
                             }
                         }
                     }
@@ -488,6 +544,7 @@ fun AirportScreen() {
                             val cal0 = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
                             val nowMin0 = cal0.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal0.get(java.util.Calendar.MINUTE)
                             val paxBk = IntArray(6); val flBk = IntArray(6)
+                            // 편수는 도착편 목록으로 센다(편명이 실제로 있는 것만).
                             (curData?.flights ?: emptyList()).forEach { f ->
                                 val et = f.estimatedTime
                                 val ps = et.split(":")
@@ -496,6 +553,37 @@ fun AirportScreen() {
                                     var mm = (fh * 60 + fm) - nowMin0
                                     if (mm < -180) mm += 1440   // 자정 직전 현재 → 새벽 도착편 보정
                                     if (mm in 0 until 180) { val bi = (mm / 30).coerceIn(0, 5); paxBk[bi] += f.total; flBk[bi] += 1 }
+                                }
+                            }
+                            /* ★★ [v108] 인원은 승객예고(forecast)로 다시 계산한다 — 도착편으로는 항상 0이 나온다.
+                             *
+                             *  대표 지적: "혼잡도 정보 안 나오네." 아침 8시에 "앞으로 3시간 도착 예정 손님이
+                             *  거의 없어요 (심야엔 항공편이 적어요)" 가 떴다. 심야도 아니고 사실도 아니었다.
+                             *
+                             *  원인: 도착편 API(getArrivalsCongestion)는 **이미 도착했거나 임박한 편만** 준다.
+                             *   실측 08:14 — 포털이 준 26편이 전부 06:14~07:09(지나간 편, 인원 0).
+                             *   같은 시각 공항공사 데이터에는 08시대 38편 · 09시대 7편이 있었다.
+                             *   그래서 미래 버킷이 전부 0 → totalAhead=0 → "거의 없어요".
+                             *
+                             *  ★ 이건 이미 아는 문제의 **미처리 잔여분**이었다. 정관에 적어둔
+                             *    "도착편 API 는 미래 편을 안 줘서 항상 0 → 승객예고로 안분한다" 를
+                             *    그때 in30Pax/in60Pax 에만 적용하고 이 카드는 안 고쳤다.
+                             *    한 종류를 고칠 때 '같은 종류'를 좁게 잡으면 나머지가 남는다(body.user_id 와 같은 패턴).
+                             *
+                             *  서버 window(mins,key) 와 같은 방식으로 시간대별 예상 인원을 분 단위 안분한다. */
+                            if (forecast.isNotEmpty()) {
+                                val hp = forecast.associate { it.hour to (if (selectedTerminal == 0) it.t1 else it.t2) }
+                                for (bi in 0 until 6) {
+                                    var m = nowMin0 + bi * 30
+                                    val end = m + 30
+                                    var sum = 0.0
+                                    while (m < end) {
+                                        val h = ((m / 60) % 24 + 24) % 24
+                                        val span = minOf(60 - (m % 60), end - m)
+                                        sum += (hp[h] ?: 0) * (span / 60.0)
+                                        m += span
+                                    }
+                                    paxBk[bi] = Math.round(sum).toInt()
                                 }
                             }
                             val maxBk = (paxBk.maxOrNull() ?: 0).coerceAtLeast(1)
@@ -518,7 +606,14 @@ fun AirportScreen() {
                                     }
                                     Spacer(Modifier.height(14.dp))
                                     if (totalAhead == 0) {
-                                        Text("앞으로 3시간 도착 예정 손님이 거의 없어요.\n(심야엔 항공편이 적어요)", fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 6.dp))
+                                        /* [v108] "손님이 없다"와 "값을 못 받았다"를 구분한다.
+                                         *  예고 데이터가 없는데 '거의 없어요'라고 하면 기사가 공항을 포기한다 —
+                                         *  못 가져온 걸 0으로 보여주지 않는다는 원칙(공항 택시 0대와 같은 건)이다. */
+                                        Text(
+                                            if (forecast.isEmpty())
+                                                "입국 예고를 아직 못 받았어요.\n위 새로고침을 눌러 주세요."
+                                            else "앞으로 3시간은 도착 손님이 적어요.\n(승객예고 기준)",
+                                            fontSize = 12.sp, color = muted, modifier = Modifier.padding(vertical = 6.dp))
                                     } else {
                                         for (i in 0 until 6) {
                                             val pax = paxBk[i]; val isMine = i == myBk
@@ -532,12 +627,18 @@ fun AirportScreen() {
                                                 }
                                                 Column(Modifier.width(66.dp), horizontalAlignment = Alignment.End) {
                                                     Text(String.format("%,d명", pax), fontSize = 12.sp, color = AppTheme.text, fontWeight = FontWeight.Medium)
-                                                    Text("${flBk[i]}편", fontSize = 10.sp, color = muted)
+                                                    /* [v109] 편수가 0이면 아예 안 쓴다.
+                                                     *  인원은 승객예고로 고쳤지만 편수는 여전히 도착편 API 기반이고,
+                                                     *  그 API 는 미래 편을 안 준다 → 항상 0 이다.
+                                                     *  "1,067명 · 0편" 은 모순으로 읽힌다. 0 은 '없다'가 아니라 '모른다'다.
+                                                     *  모르는 걸 0 으로 보여주지 않는다(공항 택시 0대와 같은 원칙). */
+                                                    if (flBk[i] > 0) Text("${flBk[i]}편", fontSize = 10.sp, color = muted)
                                                 }
                                             }
                                         }
                                         Spacer(Modifier.height(6.dp))
-                                        Text("도착편 예정시각 기준 · 노란 줄이 내가 도착할 시간대", fontSize = 11.sp, color = muted)
+                                        Text(if (forecast.isNotEmpty()) "인천공항 승객예고 기준 · 노란 줄이 내가 도착할 시간대"
+                                             else "도착편 예정시각 기준 · 노란 줄이 내가 도착할 시간대", fontSize = 11.sp, color = muted)
                                     }
                                 }
                             }
@@ -546,10 +647,16 @@ fun AirportScreen() {
                         run {
                             val nowHour = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul")).get(java.util.Calendar.HOUR_OF_DAY)
                             val fromForecast = forecast.isNotEmpty()
-                            val bars: List<Pair<Int, Int>> = if (fromForecast)
+                            val barsRaw: List<Pair<Int, Int>> = if (fromForecast)
                                 forecast.map { it.hour to (if (selectedTerminal == 0) it.t1 else it.t2) }
                             else
                                 (curData?.hourly ?: emptyList()).map { it.hour to it.pax }
+                            /* ★ [v108 대표 지시] 지금 시각부터 보여준다.
+                             *  아침 8시인데 표가 새벽 00시부터 시작했다. 기사가 판단하는 건 **앞으로**다.
+                             *  지나간 시간은 뒤로 돌려 붙인다(하루 패턴은 그대로 볼 수 있게 버리지 않는다). */
+                            val bars: List<Pair<Int, Int>> =
+                                if (barsRaw.size >= 12) barsRaw.sortedBy { ((it.first - nowHour) + 24) % 24 }
+                                else barsRaw
                             val maxPax = (bars.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
                             Card(Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures(onLongPress = { val sb = StringBuilder("🚕 콜레이더 · " + tn + " 시간대별 입국 예고 (인천공항)\n"); bars.sortedByDescending { it.second }.take(5).forEach { (h, p) -> sb.append(String.format("%02d시 · %,d명\n", h, p)) }; sb.append("\n공항 손님 몰리는 시간 참고! · 콜레이더"); context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, sb.toString()) }, "공유")) }) }, colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(20.dp)) {
                                 Column(Modifier.padding(20.dp)) {

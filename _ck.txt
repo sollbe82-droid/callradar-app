@@ -1,0 +1,1 @@
+﻿dataOk=False  dataErr=fetch failed | cause=UND_ERR_CONNECT_TIMEOUT:Connect Timeout Error (attempted address: apis.data.go.kr:443, timeout: 10000ms)  loading=True  lastUpdate=0

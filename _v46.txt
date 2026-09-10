@@ -1,0 +1,22 @@
+==== DNS A / AAAA 
+Non-authoritative answer:
+Server:  bns1.hananet.net
+Address:  210.220.163.82
+
+Name:    apis.data.go.kr
+Address:  27.101.236.63
+
+Server:  bns1.hananet.net
+Address:  210.220.163.82
+
+Name:    apis.data.go.kr
+
+==== curl -4 (IPv4 강제) 
+curl: (28) Connection timed out after 20002 milliseconds
+ipv4 http=000 tls=0.000000s total=20.002707s ip=
+==== curl -6 (IPv6 강제) 
+curl: (6) Could not resolve host: apis.data.go.kr
+ipv6 http=000 total=0.026929s ip=
+==== curl -4 IP 직접 지정 
+curl: (28) Connection timed out after 20012 milliseconds
+direct http=000 total=20.013021s

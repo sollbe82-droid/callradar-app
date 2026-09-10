@@ -1,0 +1,27 @@
+﻿{
+    "hasKey":  true,
+    "last":  {
+                 "at":  "2026-09-06T11:52:53.089Z",
+                 "taxi":  {
+                              "at":  "2026-09-06T11:52:42.610Z",
+                              "ok":  false,
+                              "reason":  "fetch failed"
+                          },
+                 "flights":  {
+                                 "at":  "2026-09-06T11:52:53.089Z",
+                                 "ok":  false,
+                                 "reason":  "fetch failed"
+                             }
+             },
+    "cacheAgeSec":  null,
+    "t1":  {
+               "taxiSeoul":  0,
+               "flights":  0,
+               "immigrationTotal":  0
+           },
+    "t2":  {
+               "taxiSeoul":  0,
+               "flights":  0,
+               "immigrationTotal":  0
+           }
+}

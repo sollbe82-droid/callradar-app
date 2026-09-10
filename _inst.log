@@ -1,0 +1,8 @@
+List of devices attached
+R5KL10AL1ZF	device
+
+Performing Streamed Install
+Success
+/system/bin/sh: findstr: inaccessible or not found
+Failed to write while dumping service package: Broken pipe
+INST_DONE 

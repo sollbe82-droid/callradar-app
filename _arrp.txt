@@ -1,0 +1,1 @@
+/data/local/tmp/arr.json: 1 file pulled, 0 skipped. 0.6 MB/s (1865 bytes in 0.003s)

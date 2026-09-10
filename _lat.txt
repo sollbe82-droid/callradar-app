@@ -1,0 +1,2 @@
+cached 1회차: http=200 total=8.286857s
+cached 2회차: http=200 total=8.376046s

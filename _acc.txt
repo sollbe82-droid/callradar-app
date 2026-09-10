@@ -1,0 +1,351 @@
+ACCESSIBILITY MANAGER (dumpsys accessibility)
+
+currentUserId=0
+hasMagnificationConnection=false
+Magnifier on display#0
+    MagnificationConfig[mode: 1, activated: false, scale: 1.0, centerX: 0.0, centerY: 0.0] 
+    Magnification region=SkRegion((0,0,1080,2205))
+    IdOfLastServiceToMagnify=-1
+    SupportWindowMagnification=true
+    WindowMagnificationConnectionState=DISCONNECTED
+User state[
+     attributes:{id=0, mIsTapDurationEnabled=false, mIsTouchBlockingEnabled=false, mIsStickyKeysEnabled=false, mIsBounceKeysEnabled=false, mIsSlowKeysEnabled=false, mIsAutoActionEnabled=false, mIsCornerActionEnabled=false, mIsAMEnabled=false, autoActionEnabled=false, cornerActionEnabled=false, AmEnabled=false, touchExplorationEnabled=false, serviceHandlesDoubleTap=false, requestMultiFingerGestures=false, requestTwoFingerPassthrough=false, sendMotionEventsEnabledfalse, displayMagnificationEnabled=false, autoclickEnabled=false, nonInteractiveUiTimeout=0, interactiveUiTimeout=0, installedServiceCount=11, magnificationModes={0=2}, magnificationCapabilities=3, audioDescriptionByDefaultEnabled=false, magnificationCursorFollowingMode=0, magnificationFollowTypingEnabled=true, magnificationFollowKeyboardEnabled=false, alwaysOnMagnificationEnabled=true}
+     button mode: 0
+     shortcut key:{[]}
+     button:{[]}
+     direct access:{[]}
+     button target:{null}
+     gesture:{[]}
+     qs shortcut targets:{[]}
+     a11y tiles in QS panel:[]
+
+     installed services: {
+      0 : com.google.android.apps.accessibility.voiceaccess/.JustSpeakService  (A11yTool)
+      1 : com.ktshow.cs/com.plantynet.ktclicksafe.service.KtODSACCSVC
+      2 : com.microsoft.appmanager/com.microsoft.mmx.screenmirroringsrc.accessibility.ScreenMirroringAccessibilityService
+      3 : com.samsung.accessibility/.assistantmenu.serviceframework.AssistantMenuService  (A11yTool)
+      4 : com.samsung.accessibility/.universalswitch.UniversalSwitchService  (A11yTool)
+      5 : com.samsung.android.accessibility.talkback/com.samsung.android.marvin.talkback.TalkBackService  (A11yTool)
+      6 : autoclicker.clicker.autoclickerapp.autoclickerforgames/autoclicker.clicker.clickerapp.autoclickerforgames.service.AutoClickerService
+      7 : com.ahnlab.v3mobileplus/com.gnom.voice.service.GnomAccessibilityService
+      8 : com.callradar.app/.NaviIntentReceiver
+      9 : com.estsoft.alyac/.memory_saver.MemorySaverAccessibilityService
+      10 : com.openai.chatgpt/com.openai.feature.conversations.screencontext.ConversationScreenAccessibilityService
+     }
+     Bound services:{}
+     Enabled services:{}
+     Binding services:{}
+     Crashed services:{}
+     Client list info:{
+          Client list callbacks: 14
+          Client list killed: false
+          Client list broadcasts count: -1
+          Registered clients:{
+[com.google.android.as][com.callradar.app][com.skt.prod.dialer][com.sec.android.app.shealth][com.google.android.googlequicksearchbox][com.kakao.talk][com.skt.tmap.ku][com.google.android.youtube][com.google.android.apps.photos][com.tencent.mm][com.sec.android.app.shealth][com.google.android.googlequicksearchbox][com.android.chrome][com.tencent.mm]}]
+  AccessibilityInputFilter:{
+  }]
+
+User state[
+     attributes:{id=150, mIsTapDurationEnabled=false, mIsTouchBlockingEnabled=false, mIsStickyKeysEnabled=false, mIsBounceKeysEnabled=false, mIsSlowKeysEnabled=false, mIsAutoActionEnabled=false, mIsCornerActionEnabled=false, mIsAMEnabled=false, autoActionEnabled=false, cornerActionEnabled=false, AmEnabled=false, touchExplorationEnabled=false, serviceHandlesDoubleTap=false, requestMultiFingerGestures=false, requestTwoFingerPassthrough=false, sendMotionEventsEnabledfalse, displayMagnificationEnabled=false, autoclickEnabled=false, nonInteractiveUiTimeout=0, interactiveUiTimeout=0, installedServiceCount=0, magnificationModes={}, magnificationCapabilities=3, audioDescriptionByDefaultEnabled=false, magnificationCursorFollowingMode=0, magnificationFollowTypingEnabled=true, magnificationFollowKeyboardEnabled=false, alwaysOnMagnificationEnabled=false}
+     button mode: 1
+     shortcut key:{[]}
+     button:{[]}
+     direct access:{[]}
+     button target:{null}
+     gesture:{[]}
+     qs shortcut targets:{[]}
+     a11y tiles in QS panel:[]
+
+     installed services: {
+     }
+     Bound services:{}
+     Enabled services:{}
+     Binding services:{}
+     Crashed services:{}
+     Client list info:{
+          Client list callbacks: 0
+          Client list killed: false
+          Client list broadcasts count: -1
+          Registered clients:{
+}]
+  AccessibilityInputFilter:{
+  }]
+
+**** A11y Service CallStack History ****
+history [0] {
+09-03 12:58:18
+value : com.callradar.app/com.callradar.app.NaviIntentReceiver
+package : com.android.settings
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.settingslib.accessibility.AccessibilityUtils.setAccessibilityServiceState(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:160)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onSwitchToggledAfterConfirm(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:18)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.handleConfirmServiceEnabled(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:11)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:2)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.access$onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:1)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController$showDialog$1.onClick(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:20)
+	at android.view.View.performClick(View.java:8812)
+	at android.widget.TextView.performClick(TextView.java:18678)
+	at android.view.View.performClickInternal(View.java:8789)
+	at android.view.View.-$$Nest$mperformClickInternal(View.java:0)
+	at android.view.View$PerformClick.run(View.java:33803)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.app.ActivityThread.main(ActivityThread.java:10343)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:605)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+}
+history [1] {
+09-03 23:05:09
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+history [2] {
+09-03 23:05:37
+value : com.callradar.app/com.callradar.app.NaviIntentReceiver
+package : com.android.settings
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.settingslib.accessibility.AccessibilityUtils.setAccessibilityServiceState(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:160)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onSwitchToggledAfterConfirm(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:18)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.handleConfirmServiceEnabled(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:11)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:2)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.access$onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:1)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController$showDialog$1.onClick(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:20)
+	at android.view.View.performClick(View.java:8812)
+	at android.widget.TextView.performClick(TextView.java:18678)
+	at android.view.View.performClickInternal(View.java:8789)
+	at android.view.View.-$$Nest$mperformClickInternal(View.java:0)
+	at android.view.View$PerformClick.run(View.java:33803)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.app.ActivityThread.main(ActivityThread.java:10343)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:605)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+}
+history [3] {
+09-04 00:01:07
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+history [4] {
+09-04 00:01:37
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+history [5] {
+09-04 00:03:58
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+history [6] {
+09-06 20:35:18
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+history [7] {
+09-06 20:35:31
+value : com.callradar.app/com.callradar.app.NaviIntentReceiver
+package : com.android.settings
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.settingslib.accessibility.AccessibilityUtils.setAccessibilityServiceState(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:160)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onSwitchToggledAfterConfirm(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:18)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.handleConfirmServiceEnabled(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:11)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:2)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController.access$onAllowButtonFromEnableToggleClicked(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:1)
+	at com.samsung.android.settings.accessibility.detail.a11yservice.SecUseServiceTogglePreferenceController$showDialog$1.onClick(qb/113778204 ae7f58f7754e7212050471312500a3d81ca368cb68b365215fe38d1b3cf5752a:20)
+	at android.view.View.performClick(View.java:8812)
+	at android.widget.TextView.performClick(TextView.java:18678)
+	at android.view.View.performClickInternal(View.java:8789)
+	at android.view.View.-$$Nest$mperformClickInternal(View.java:0)
+	at android.view.View$PerformClick.run(View.java:33803)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.app.ActivityThread.main(ActivityThread.java:10343)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:605)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:972)
+}
+history [8] {
+09-06 20:35:54
+value : null
+package : android
+user id : 0
+java.lang.Exception: a11y service changed
+	at android.provider.Settings$NameValueCache.semDumpCallStackIfNeeded(Settings.java:3962)
+	at android.provider.Settings$NameValueCache.putStringForUser(Settings.java:3938)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10947)
+	at android.provider.Settings$Secure.putStringForUser(Settings.java:10927)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:16)
+	at com.android.server.accessibility.AccessibilityManagerService.persistColonDelimitedSetToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:1)
+	at com.android.server.accessibility.AccessibilityManagerService.persistComponentNamesToSettingLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:7)
+	at com.android.server.accessibility.AccessibilityManagerService.onPackagesForceStoppedLocked(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:118)
+	at com.android.server.accessibility.AccessibilityManagerService$ManagerPackageMonitor.onHandleForceStop(qb/113778204 9b0c9e7c5a74971691d37fefef8f9b78930580f1c84aa49359c66426df4ade88:110)
+	at com.android.internal.content.PackageMonitor.onHandleForceStop(PackageMonitor.java:262)
+	at com.android.internal.content.PackageMonitor.doHandlePackageEvent(PackageMonitor.java:546)
+	at com.android.internal.content.PackageMonitor.lambda$postHandlePackageEvent$0(PackageMonitor.java:433)
+	at com.android.internal.content.PackageMonitor.$r8$lambda$bSKEInwdT6Kd7GAyzMZPsXTTqeQ(PackageMonitor.java:0)
+	at com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:1070)
+	at android.os.Handler.dispatchMessage(Handler.java:125)
+	at android.os.Looper.dispatchMessage(Looper.java:358)
+	at android.os.Looper.loopOnce(Looper.java:288)
+	at android.os.Looper.loop(Looper.java:392)
+	at android.os.HandlerThread.run(HandlerThread.java:139)
+}
+**** End of CallStack History ****
+
+Global Info [ Top focused display Id = 0
+     Active Window Id = -1
+     Top Focused Window Id = 1707
+     Accessibility Focused Window Id = -1 ]
+
+
+Window attributes:[{1482=AccessibilityWindowAttributes{mAccessibilityWindowTitle=Chrome: 모든 탭mLocales=[ko_KR]}, 1557=AccessibilityWindowAttributes{mAccessibilityWindowTitle=음성 녹음mLocales=[ko_KR]}, 1688=AccessibilityWindowAttributes{mAccessibilityWindowTitle=에이닷 전화mLocales=[ko_KR]}}]
+Global client list info:{
+    Client list callbacks: 27
+    Client list killed: false
+    Client list broadcasts count: -1
+    Registered clients:{
+[com.samsung.android.inputshare][com.sec.android.app.quicktool, com.sec.android.app.wlantest, com.samsung.sait.sohservice, com.sem.factoryapp, com.samsung.android.sead, com.android.dynsystem, com.samsung.android.hdmapp, com.sec.imslogger, com.sec.sve, com.qualcomm.qti.services.systemhelper, com.samsung.android.knox.pushmanager, com.samsung.android.lool, com.samsung.android.svcagent, com.sec.epdg, com.samsung.euicc, com.samsung.android.smartswitchassistant, com.samsung.android.knox.attestation, com.samsung.android.dqagent, com.ims.dm, com.samsung.android.moaiapc, com.samsung.aasaservice, com.samsung.android.app.omcagent, com.samsung.android.camerasdkservice, com.samsung.android.providers.factory, com.samsung.android.bbc.bbcagent, com.sec.android.app.uwbtest, com.samsung.android.biometrics.app.setting, com.samsung.android.wifi.ai, com.samsung.drm, android, com.samsung.android.qmdservice, com.samsung.android.bixby.wakeup, com.android.location.fused, com.samsung.android.motionphoto.app, com.android.providers.settings, com.android.DeviceAsWebcam, com.samsung.android.forest, com.sec.android.CcInfo, com.sec.android.soagent, com.samsung.android.messageguardsync, com.sec.bcservice, com.samsung.android.cameraxservice, com.samsung.android.brightnessbackupservice, com.sec.usbsettings, com.samsung.android.emergency, com.sec.android.smartfpsadjuster, com.sec.android.app.SecSetupWizard, com.sec.android.sdhms, com.samsung.android.fmm, com.samsung.android.aircommandmanager, com.samsung.gpuwatchapp, com.sec.facatfunction, com.samsung.android.wifi.intelligence, com.samsung.oda.service, com.sec.android.emergencylauncher, com.android.keychain, com.samsung.android.ese, com.android.server.telecom, com.sec.factory.camera, com.android.localtransport, com.samsung.android.da.daagent, com.sec.mhs.smarttethering, com.samsung.SMT, com.samsung.android.vtcamerasettings, com.android.inputdevices, com.android.settings, com.sec.modem.settings, com.samsung.android.themecenter, com.sec.android.diagmonagent, com.samsung.android.photoremasterservice, com.samsung.android.provider.filterprovider, com.samsung.android.dck.timesync, com.samsung.android.mdecservice, com.samsung.android.knox.mpos, com.sec.android.app.parser, com.sec.imsservice, com.samsung.android.knox.zt.framework, com.samsung.accessibility, com.sec.android.iaft, com.sec.android.app.factorykeystring, com.sec.automation, com.samsung.android.app.dressroom, com.samsung.android.globalpostprocmgr, com.samsung.android.stickercenter, com.samsung.android.app.esimkeystring, com.sec.android.app.servicemodeapp, com.skms.android.agent, com.sec.app.RilErrorNotifier, com.sec.android.app.hwmoduletest, com.sec.android.app.RilPhoneNumberService, com.samsung.android.vexfwk.service, com.qti.snapdragon.qdcm_ff, com.samsung.android.smartface, com.wssyncmldm][com.samsung.wearable.watchuniteplugin][com.android.vending][com.samsung.android.honeyboard][com.android.intentresolver][com.samsung.android.bixby.agent][com.samsung.android.smartsuggestions][com.sec.android.daemonapp][com.sec.android.app.launcher][com.samsung.android.app.smartcapture][com.sec.android.app.voicenote][com.google.android.providers.media.module][com.google.android.gms][com.android.settings.intelligence][com.sec.android.app.quicktool, com.sec.android.app.wlantest, com.samsung.sait.sohservice, com.sem.factoryapp, com.samsung.android.sead, com.android.dynsystem, com.samsung.android.hdmapp, com.sec.imslogger, com.sec.sve, com.qualcomm.qti.services.systemhelper, com.samsung.android.knox.pushmanager, com.samsung.android.lool, com.samsung.android.svcagent, com.sec.epdg, com.samsung.euicc, com.samsung.android.smartswitchassistant, com.samsung.android.knox.attestation, com.samsung.android.dqagent, com.ims.dm, com.samsung.android.moaiapc, com.samsung.aasaservice, com.samsung.android.app.omcagent, com.samsung.android.camerasdkservice, com.samsung.android.providers.factory, com.samsung.android.bbc.bbcagent, com.sec.android.app.uwbtest, com.samsung.android.biometrics.app.setting, com.samsung.android.wifi.ai, com.samsung.drm, android, com.samsung.android.qmdservice, com.samsung.android.bixby.wakeup, com.android.location.fused, com.samsung.android.motionphoto.app, com.android.providers.settings, com.android.DeviceAsWebcam, com.samsung.android.forest, com.sec.android.CcInfo, com.sec.android.soagent, com.samsung.android.messageguardsync, com.sec.bcservice, com.samsung.android.cameraxservice, com.samsung.android.brightnessbackupservice, com.sec.usbsettings, com.samsung.android.emergency, com.sec.android.smartfpsadjuster, com.sec.android.app.SecSetupWizard, com.sec.android.sdhms, com.samsung.android.fmm, com.samsung.android.aircommandmanager, com.samsung.gpuwatchapp, com.sec.facatfunction, com.samsung.android.wifi.intelligence, com.samsung.oda.service, com.sec.android.emergencylauncher, com.android.keychain, com.samsung.android.ese, com.android.server.telecom, com.sec.factory.camera, com.android.localtransport, com.samsung.android.da.daagent, com.sec.mhs.smarttethering, com.samsung.SMT, com.samsung.android.vtcamerasettings, com.android.inputdevices, com.android.settings, com.sec.modem.settings, com.samsung.android.themecenter, com.sec.android.diagmonagent, com.samsung.android.photoremasterservice, com.samsung.android.provider.filterprovider, com.samsung.android.dck.timesync, com.samsung.android.mdecservice, com.samsung.android.knox.mpos, com.sec.android.app.parser, com.sec.imsservice, com.samsung.android.knox.zt.framework, com.samsung.accessibility, com.sec.android.iaft, com.sec.android.app.factorykeystring, com.sec.automation, com.samsung.android.app.dressroom, com.samsung.android.globalpostprocmgr, com.samsung.android.stickercenter, com.samsung.android.app.esimkeystring, com.sec.android.app.servicemodeapp, com.skms.android.agent, com.sec.app.RilErrorNotifier, com.sec.android.app.hwmoduletest, com.sec.android.app.RilPhoneNumberService, com.samsung.android.vexfwk.service, com.qti.snapdragon.qdcm_ff, com.samsung.android.smartface, com.wssyncmldm][com.samsung.android.calendar][com.samsung.android.game.gametools][com.samsung.android.spay][com.samsung.android.cidmanager, com.android.stk, com.sec.phone, com.sec.android.UsimRegistrationKOR, com.sec.android.RilServiceModeApp, com.samsung.android.app.telephonyui, com.sec.android.QRreader, com.samsung.hidden.KT, com.android.phone, com.samsung.android.incallui, com.samsung.sec.android.application.csc, com.android.ons, com.android.stk2, com.samsung.android.callbgprovider, com.android.mms.service, com.android.providers.telephony][com.samsung.android.app.spage][com.samsung.android.fmm, com.samsung.android.qmdservice, com.samsung.android.smartswitchassistant, com.android.location.fused, com.sec.android.app.SecSetupWizard, com.samsung.android.vexfwk.service, com.sem.factoryapp, com.android.inputdevices, com.sec.android.smartfpsadjuster, com.samsung.oda.service, com.samsung.android.sead, com.samsung.android.themecenter, com.samsung.android.knox.attestation, com.samsung.android.forest, com.sec.android.app.RilPhoneNumberService, com.android.server.telecom, com.samsung.android.mdecservice, com.skms.android.agent, com.sec.epdg, com.android.settings, com.samsung.android.knox.pushmanager, com.sec.sve, com.samsung.android.dck.timesync, com.samsung.android.da.daagent, com.sec.factory.camera, com.samsung.android.bixby.wakeup, com.samsung.android.bbc.bbcagent, com.ims.dm, com.samsung.android.knox.zt.framework, com.samsung.aasaservice, com.samsung.gpuwatchapp, com.samsung.android.cameraxservice, com.qti.snapdragon.qdcm_ff, com.samsung.android.svcagent, com.samsung.android.ese, com.samsung.SMT, com.android.keychain, com.samsung.android.app.omcagent, com.samsung.android.smartface, com.samsung.android.hdmapp, com.sec.app.RilErrorNotifier, com.sec.modem.settings, com.sec.imslogger, com.sec.android.app.wlantest, com.android.dynsystem, com.sec.android.app.uwbtest, com.samsung.android.app.esimkeystring, com.samsung.android.lool, com.samsung.android.stickercenter, com.wssyncmldm, com.samsung.android.aircommandmanager, com.sec.android.app.factorykeystring, com.samsung.android.motionphoto.app, com.samsung.android.emergency, com.android.DeviceAsWebcam, com.sec.android.diagmonagent, com.samsung.drm, com.android.providers.settings, com.sec.facatfunction, com.samsung.sait.sohservice, com.samsung.android.wifi.ai, com.sec.android.app.quicktool, com.samsung.android.knox.mpos, com.samsung.android.camerasdkservice, com.samsung.android.dqagent, com.sec.bcservice, com.samsung.android.vtcamerasettings, com.samsung.android.moaiapc, com.sec.android.soagent, com.samsung.android.biometrics.app.setting, com.sec.usbsettings, com.sec.android.app.parser, com.samsung.android.globalpostprocmgr, com.samsung.android.brightnessbackupservice, com.sec.android.emergencylauncher, com.sec.android.iaft, com.samsung.accessibility, com.sec.android.CcInfo, com.samsung.android.providers.factory, com.sec.android.sdhms, com.samsung.android.wifi.intelligence, com.sec.imsservice, com.sec.android.app.servicemodeapp, com.samsung.android.app.dressroom, com.samsung.android.provider.filterprovider, com.samsung.android.photoremasterservice, com.android.localtransport, com.qualcomm.qti.services.systemhelper, com.samsung.euicc, com.sec.android.app.hwmoduletest, android, com.sec.automation, com.sec.mhs.smarttethering, com.samsung.android.messageguardsync][com.osp.app.signin][com.google.android.gms][com.android.systemui, com.samsung.android.app.routines, com.samsung.android.app.aodservice][com.google.android.permissioncontroller][com.google.android.gms]
+
+Proxy manager state:
+    Number of proxy connections: 0
+    Registered proxy connections:
+Accessibility Display Listener:
+    SystemUI uid: 10049
+    1 valid display: 0

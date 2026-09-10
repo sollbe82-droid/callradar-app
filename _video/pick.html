@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>CallRadar local file bridge</title>
+<body style="font:14px system-ui;padding:24px">
+<div id="s">준비 중…</div>
+<script>
+(async () => {
+  const s = document.getElementById('s');
+  const p = new URLSearchParams(location.search);
+  const rel = p.get('f') || 'short_20260908/final.mp4';
+  try {
+    const r = await fetch('/' + rel);
+    const b = await r.blob();
+    const f = new File([b], (p.get('n') || 'video.mp4'), { type: 'video/mp4' });
+    s.textContent = '읽음 ' + b.size + ' bytes — 전달 중';
+    if (window.opener) {
+      window.opener.postMessage({ __crfile: f, name: f.name, size: b.size }, '*');
+      s.textContent = '전달 완료 (' + b.size + ' bytes). 이 창은 닫아도 됩니다.';
+    } else {
+      s.textContent = 'opener 없음 — 창을 window.open 으로 열어야 합니다.';
+    }
+  } catch (e) {
+    s.textContent = 'ERR ' + e;
+  }
+})();
+</script>
+</body>

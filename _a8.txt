@@ -1,0 +1,3 @@
+C:\CallRadar\_pt6.sh: 1 file pushed, 0 skipped. 0.1 MB/s (569 bytes in 0.007s)
+size=70448
+/data/local/tmp/a8.json: 1 file pulled, 0 skipped. 16.2 MB/s (70448 bytes in 0.004s)

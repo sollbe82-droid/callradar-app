@@ -1,11 +1,7 @@
-'ser.email'��(��) ���� �Ǵ� �ܺ� ����, ������ �� �ִ� ���α׷�, �Ǵ�
-��ġ ������ �ƴմϴ�.
- 
----- PUSH ---- 
-error: src refspec main does not match any
-error: failed to push some refs to 'https://github.com/sollbe82-droid/callradar-app.git'
-PUSH_EXITCODE 1 
-41ddd31 가스영수증 좌표 판독(FuelReceipt) + 검산, 인식률 안내문구, 스크립트 키 평문 제거
-0f5f46d [유저제보 124] 내 운행 지도 — 좌상단 필터 버튼이 범례 카드에 가려지던 것 수정
-b450b39 [보안·중대] DB 비밀번호·.env 가 git 에 올라가 있었다 — 추적 제거
-PUSH_DONE 2026-08-27 15:52:34.92 
+warning: in the working copy of 'index.js', LF will be replaced by CRLF the next time Git touches it
+[main 054d077] 계정 요약 API — "아이디 몇 개인가 / 스토어 중복은 어떻게 세나" (대표 질문)
+ 1 file changed, 67 insertions(+)
+To https://github.com/sollbe82-droid/callradar-server.git
+   5bfa8a3..054d077  main -> main
+054d077 계정 요약 API — "아이디 몇 개인가 / 스토어 중복은 어떻게 세나" (대표 질문)
+PUSHE_DONE 

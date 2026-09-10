@@ -1,0 +1,3 @@
+﻿apis.data.go.kr   DNS=27.101.236.63  TCP443=True
+www.kopis.or.kr   DNS=180.210.79.29  TCP443=True
+naver(대조)      DNS=  TCP443=True

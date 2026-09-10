@@ -1,0 +1,44 @@
+﻿{
+    "probe":  {
+                  "1_https_airport":  {
+                                          "ok":  false,
+                                          "ms":  10112,
+                                          "error":  "fetch failed | cause=UND_ERR_CONNECT_TIMEOUT:Connect Timeout Error (attempted address: apis.data.go.kr:443, timeout: 10000ms)"
+                                      },
+                  "2_http_airport":  {
+                                         "ok":  false,
+                                         "ms":  15002,
+                                         "error":  "timeout_12s"
+                                     },
+                  "3_https_tour":  {
+                                       "ok":  false,
+                                       "ms":  10466,
+                                       "error":  "fetch failed | cause=UND_ERR_CONNECT_TIMEOUT:Connect Timeout Error (attempted address: apis.data.go.kr:443, timeout: 10000ms)"
+                                   }
+              },
+    "hasKey":  true,
+    "last":  {
+                 "at":  "2026-09-06T12:15:08.193Z",
+                 "taxi":  {
+                              "at":  "2026-09-06T12:14:57.704Z",
+                              "ok":  false,
+                              "reason":  "fetch failed | cause=UND_ERR_CONNECT_TIMEOUT:Connect Timeout Error (attempted address: apis.data.go.kr:443, timeout: 10000ms)"
+                          },
+                 "flights":  {
+                                 "at":  "2026-09-06T12:15:08.193Z",
+                                 "ok":  false,
+                                 "reason":  "fetch failed | cause=UND_ERR_CONNECT_TIMEOUT:Connect Timeout Error (attempted address: apis.data.go.kr:443, timeout: 10000ms)"
+                             }
+             },
+    "cacheAgeSec":  null,
+    "t1":  {
+               "taxiSeoul":  0,
+               "flights":  0,
+               "immigrationTotal":  0
+           },
+    "t2":  {
+               "taxiSeoul":  0,
+               "flights":  0,
+               "immigrationTotal":  0
+           }
+}

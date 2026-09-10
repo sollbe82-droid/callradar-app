@@ -69,14 +69,8 @@ class TrackActivity : ComponentActivity() {
         setContent { CallRadarTheme { Screen() } }
     }
 
-    private fun dayStart(): Long {
-        val prefs = getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
-        val h = prefs.getInt("day_start_hour", 0)
-        val c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"))
-        if (c.get(Calendar.HOUR_OF_DAY) < h) c.add(Calendar.DAY_OF_YEAR, -1)
-        c.set(Calendar.HOUR_OF_DAY, h); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
-        return c.timeInMillis
-    }
+    // ★ [2026-09-10] 영업일 판정은 BusinessDay 한 곳에서만 한다(같은 계산이 앱에 5벌 있었다).
+    private fun dayStart(): Long = com.callradar.app.BusinessDay.startOf(this)
 
     private fun load() {
         loading = true

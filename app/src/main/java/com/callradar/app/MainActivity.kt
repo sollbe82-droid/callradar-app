@@ -440,6 +440,15 @@ class MainActivity : ComponentActivity() {
                         containerColor = AppTheme.card
                     )
                 }
+
+                /* [v110] 업데이트 안내 — 다른 팝업이 다 끝난 뒤 맨 마지막에 뜬다(겹침 방지).
+                 *  홈·간편홈 어느 쪽이든 여기 하나로 덮인다. 서버 안내가 없으면 아무것도 안 그린다.
+                 *  왜 필요한가: v100 에서 고친 late_cancel 이 09-05 에도 발생했다 —
+                 *  코드는 고쳤는데 기사 폰에 안 갔다. "고쳤다"와 "갔다"는 다른 말이다. */
+                if (onboardingDone && driverTypeChosen && !showSetupPopup && !showAutoWizard
+                    && !wizardReopen.value && urgent == null) {
+                    com.callradar.app.UpdateNotice.Popup(this@MainActivity)
+                }
             }
         }
     }

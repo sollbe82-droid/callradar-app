@@ -1,0 +1,4 @@
+C:\CallRadar\_pt5.sh: 1 file pushed, 0 skipped. 0.1 MB/s (643 bytes in 0.006s)
+08시대 도착편(공항공사): 51 편
+09시대 도착편(공항공사): 51 편
+10시대 도착편(공항공사): 51 편

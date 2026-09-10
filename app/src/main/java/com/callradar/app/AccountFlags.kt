@@ -58,6 +58,21 @@ object AccountFlags {
                 return Pair(prefs.getBoolean("is_admin", false),
                             prefs.getBoolean("acct_entitled", false) || prefs.getBoolean("auto_free_open", false))
             }
+            /* [v110] 업데이트 안내 — 서버가 내려주면 prefs 에 담아 두고 홈이 팝업으로 띄운다.
+             *  왜 여기냐: 이 호출은 앱이 뜰 때 이미 버전을 실어 보내고 있다. 새 통신을 만들 필요가 없다.
+             *  ★ 안내가 없으면 **지운다.** 안 지우면 업데이트한 뒤에도 팝업이 계속 뜬다. */
+            val up = o.optJSONObject("update")
+            prefs.edit().apply {
+                if (up != null) {
+                    putString("upd_required", up.optString("required", ""))
+                    putString("upd_reason", up.optString("reason", ""))
+                    putString("upd_store", up.optString("store", "play"))
+                    putBoolean("upd_force", up.optBoolean("force", false))
+                } else {
+                    remove("upd_required"); remove("upd_reason"); remove("upd_store"); remove("upd_force")
+                }
+            }.apply()
+
             prefs.edit().putBoolean("acct_admin", ia).putBoolean("acct_entitled", ae)
                 .putBoolean("is_admin", ia).putBoolean("auto_free_open", fo).apply()
             Pair(ia, ae || fo)

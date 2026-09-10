@@ -1,0 +1,21 @@
+Performing Streamed Install
+Success
+  bash arg: -p
+  bash arg: com.callradar.app
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 1
+args: [-p, com.callradar.app, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "com.callradar.app"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="com.callradar.app"
+data="android.intent.category.LAUNCHER"
+Events injected: 1
+## Network stats: elapsed time=14ms (0ms mobile, 0ms wifi, 14ms not connected)
+UI hierchary dumped to: /sdcard/v8a.xml
+/sdcard/v8a.xml: 1 file pulled, 0 skipped. 9.4 MB/s (30865 bytes in 0.003s)
+/sdcard/v8a.png: 1 file pulled, 0 skipped. 70.6 MB/s (189005 bytes in 0.003s)
+T8_DONE 

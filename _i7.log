@@ -1,0 +1,24 @@
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+List of devices attached
+R5KL10AL1ZF	device
+
+Performing Streamed Install
+Success
+  bash arg: -p
+  bash arg: com.callradar.app
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 1
+args: [-p, com.callradar.app, -c, android.intent.category.LAUNCHER, 1]
+ arg: "-p"
+ arg: "com.callradar.app"
+ arg: "-c"
+ arg: "android.intent.category.LAUNCHER"
+ arg: "1"
+data="com.callradar.app"
+data="android.intent.category.LAUNCHER"
+Events injected: 1
+## Network stats: elapsed time=18ms (0ms mobile, 0ms wifi, 18ms not connected)
+/sdcard/s1.png: 1 file pulled, 0 skipped. 75.2 MB/s (192969 bytes in 0.002s)
+I7_DONE 

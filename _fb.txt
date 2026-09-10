@@ -1,0 +1,4 @@
+﻿T1 일반=137 모범=9 대형=12
+T2 서울=71 인천=12 경기=11 시계외=28
+갱신=2026.09.06 21:53:11  출처=airport.kr
+taxiOk=True flightsOk=False dataOk=False
