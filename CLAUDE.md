@@ -526,6 +526,21 @@ token_blocked      앱 요청이 401 로 막힌 건수. **정상값은 0**
 검증: 배포 후 실측으로 09-07(15.8% vs 평소 3.2%)·09-08 둘 다 잡혔다. 어제 아침에 이게 있었으면 잡혔다.
 ★ `percentile_cont` 는 double 을 돌려준다 — `round(double,int)` 는 없다. `::numeric` 캐스팅 필수.
 
+### ★★ 그래서 **무토큰 PUT 은 지금도 열려 있다** — 닫는 판단 기준 (2026-09-11 실측 확인)
+위 e32dff6 이 PUT 을 계측만 하도록 되돌렸으므로, `PUT /api/trips/:trip_id` 는 **토큰 없이도 200** 이다.
+실측: 무토큰 `PUT /api/trips/1` + `{"user_id":1}` → 200. (`_paramGuard` 는 경로에 `:user_id` 가 있어야 도는데
+이 라우트는 `:trip_id` 라 안 돈다. body 가드는 PUT 을 안 막는다.)
+`id`·`user_id` 가 둘 다 SERIAL 이므로 **번호를 훑으면 남의 운행 금액·시각을 고칠 수 있다.** 의도된 절충이지 해결이 아니다.
+
+**다만 이 라우트의 UPDATE 는 전 컬럼이 `COALESCE($n, 컬럼)` 이고 `updated_at` 류가 없다.**
+→ 본문에 값을 안 넣으면 **아무것도 안 바뀌는 무해한 no-op** 이다. 점검용으로 때려봐도 데이터는 안 상한다.
+(2026-09-11 에 내가 검증용으로 한 번 날렸고, 코드로 무변경을 확인했다. 그래도 **실데이터 라우트에 쓰기 요청을 던지기 전에
+핸들러를 먼저 읽을 것** — 이번엔 우연히 안전했던 것이지 확인하고 던진 게 아니었다.)
+
+**닫는 절차**: 앱이 토큰을 확실히 붙이게 된 뒤 Render 환경변수 `PARAM_GUARD_ALL=true`.
+판단 근거는 **코드 읽기가 아니라 서버 계측** — `/api/admin/token-stats` 의 `무토큰_user경로_요청수` 가 0 에 수렴해야 한다
+(정관 09-08 교훈 2: "호출부 존재 ≠ 헤더 존재"). v111 이 두 스토어에 퍼진 뒤 이 숫자를 보고 켠다.
+
 ### ★ `/api/auth/token` 은 오탐이었다 — 스캔 결과를 그대로 믿지 말 것
 내 자동 스캔이 이걸 "토큰 발급인데 body.user_id 사용"으로 잡았지만, 코드를 읽으니
 **"토큰도 기기도 없는 미활성 계정만 1회 링크"** 로 이미 탈취를 막고 있었다.
@@ -901,8 +916,53 @@ DB 최종: 46분 · 8,800원 한 건.  실제 25,400원 중 16,600원이 사라�
 
 ## ★ 서버
 - **배포 서버: `C:\CallRadar\server`** → GitHub `sollbe82-droid/callradar-server` → Render 자동배포(`callradar-server.onrender.com`). 수정·배포 반드시 여기서. `C:\CallRadarServer`(구폴더)는 폐기.
+
+### ★★ Render 서비스 설정 실측값 (2026-09-11) — 추측하지 말 것
+```
+서비스     callradar-server   srv-d8l6gkjtqb8s73aru6e0   Node · Starter · Oregon
+빌드       npm install        ← node_modules 를 깃에 안 올려도 된다(package-lock 으로 설치)
+시작       node index.js      ← package.json 의 start 스크립트가 아니라 대시보드 값이 먼저다
+브랜치     main   Root Dir 없음   자동배포 ON
+DB         callradar-db (PostgreSQL 18, Oregon)   프로젝트 prj-d8l2h43eo5us73b0rqh0
+```
+배포 확인은 Render **Deploys 탭에서 Live 배지**를 본다. 빌드가 실패해도 이전 버전이 계속 떠 있어서
+`/health` 200 만으로는 "새 코드가 떴다"는 증거가 안 된다(정관 ⑥ 실사례).
+
+### ★ 깃 위생 (2026-09-11 정리)
+- `node_modules` 2,950개가 커밋돼 있었다 → `git rm -r --cached` 로 제거(커밋 `68cf75f`). 추적파일 2,990 → 38.
+  **`.gitignore` 는 이미 추적중인 파일에 안 먹는다** — 무시 규칙을 넣었다고 안심하지 말고 `git ls-files` 로 확인할 것.
+  덤: 저장소가 작아져 Render 배포가 59초 → 27초.
+- npm 취약점은 `npm audit fix`(--force 없이)로 5건 → 2건(커밋 `6321589`).
+  남은 2건(uuid ← exceljs)은 `--force` 시 exceljs 4.4.0 → **3.4.0 다운그레이드**라 내보내기 회귀 위험. 손대지 말 것.
+- 저장소는 **Private · 포크 0**. 단 `.env` 가 first commit 부터 히스토리에 있다(아래 절).
 - Render 스타터(콜드스타트 30~60s). ENFORCE_TOKEN OFF(구버전 로그아웃 방지). ADMIN_KEY Render에 설정됨.
 - 계정: device_id 연결(게스트/페어링 = 같은 user_id), 카카오는 kakao_id. **로그인 = 카카오 + 게스트만**(아이디/비번 폐기).
+
+### ★★★ `.env` 가 git 히스토리에 남아 있다 — 키 회전 **미완** (2026-09-11 확정)
+`29db50b` 에서 추적만 뗐고 **히스토리(first commit `b655e49` 부터)에는 그대로 있다.**
+2026-09-11 실측: 로컬 `.env` 10개 키가 **그때 올라간 값과 전부 동일**했다 = 한 번도 안 바꿨다.
+
+**진짜 비밀은 3개뿐이다. 나머지 7개는 로컬 개발용이라 회전 가치 없다.**
+```
+RENDER_DATABASE_URL   ★ 운영 Postgres 비밀번호. 코드는 DATABASE_URL 로 28곳에서 붙는다(같은 DB)
+KAKAO_REST_KEY        ★ 카카오 REST 키
+AIRPORT_API_KEY       ★ 공공데이터포털 키(64자)
+DB_HOST/USER/PASSWORD/PORT/NAME · PORT · KAKAO_REDIRECT_URI   전부 localhost 용 → 무시
+```
+**히스토리 재작성(filter-repo)은 하지 말 것.** 332커밋의 SHA 가 전부 바뀌어
+정관·인계에 적힌 커밋 해시(`d48bbc1`·`e32dff6`…)가 통째로 死링크가 된다. 저장소가 Private·포크 0 이라
+**값만 바꾸면 실질적으로 끝난다.** 비용 대비 실익이 없다.
+
+**회전은 대표 몫이다**(비밀번호·API키 입력은 Claude 가 하지 않는다). 순서:
+```
+1. Render > callradar-db > Access Control 에서 비밀번호 재발급 (또는 psql 로 ALTER USER)
+2. Render > callradar-server > Environment 의 DATABASE_URL 교체 → 자동 재배포
+3. GitHub > Settings > Secrets > Actions 의 DATABASE_URL 교체 (db-backup 워크플로가 쓴다)
+4. 로컬 C:\CallRadar\server\.env 의 RENDER_DATABASE_URL 교체
+5. 카카오 개발자센터 REST 키 재발급 → Render 환경변수 KAKAO_REST_KEY 교체
+6. 공공데이터포털 AIRPORT_API_KEY 재발급 → Render 교체 (운영계정 전환과 같이 하면 한 번에 끝난다)
+끝나고 /health 의 keyLength 가 64 인지, 공항 탭이 뜨는지 확인.
+```
 
 ## ★ 현재 상태 (2026-09-02)
 
