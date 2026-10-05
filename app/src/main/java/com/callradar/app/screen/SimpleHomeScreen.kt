@@ -234,7 +234,7 @@ fun SimpleHomeScreen(
         }
     }
     // [km폭주③] 앱 재시작 시: 소유폰(로컬 출근한 폰)만 미터 재개. pull은 미터 안 켜므로 여기서 복원.
-    LaunchedEffect(Unit) { if (workStart > 0L && pauseStart == 0L && prefs.getBoolean("meter_local", false) && distEnabled) startMeter() }
+    LaunchedEffect(Unit) { if (workStart > 0L) { com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)); if (pauseStart == 0L && prefs.getBoolean("meter_local", false) && distEnabled) startMeter() } }
 
     val doStart = {
         val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
@@ -247,7 +247,7 @@ fun SimpleHomeScreen(
         if (newDay) com.callradar.app.WorkSegments.clear(context)
         com.callradar.app.WorkResume.clear(context)   // [v93] 새 출근 → 지난 자동 재개 안내는 끝난 얘기
         com.callradar.app.WorkSegments.open(context, t)
-        pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); if (distEnabled) startMeter()
+        pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); com.callradar.app.WorkAutoEnd.schedule(context, t, prefs.getInt("work_max_hours", 0)); if (distEnabled) startMeter()
     }
     val doPauseResume = {
         val t = System.currentTimeMillis()
@@ -293,7 +293,7 @@ fun SimpleHomeScreen(
             //  이 값이 없으면 위 pull의 v91 '퇴근 세션 부활 방지'(resurrect) 가드가 통째로 죽는다.
             //  간편모드 쓰는 기사는 퇴근해도 앱 재실행 시 근무가 되살아날 수 있었다.
             prefs.edit().putLong("work_start", 0L).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L).putFloat("work_distance_m", 0f).putBoolean("meter_local", false).putLong("last_work_end", now).apply(); workDist = 0f
-            pushWorkSession(0L, 0L, 0L, 0); stopMeter()
+            pushWorkSession(0L, 0L, 0L, 0); stopMeter(); com.callradar.app.WorkAutoEnd.cancel(context)
             com.callradar.app.Telemetry.log(context, "shift_end", "simple_home", meta = sFare.toString())
             // 서버 근무세션 요약 저장 (classic과 동일)
             if (userId.isNotEmpty()) scope.launch { try { withContext(Dispatchers.IO) {
@@ -453,7 +453,7 @@ fun SimpleHomeScreen(
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showRestCheck = false }) { Text("취소", color = muted) }
+                OutlinedButton(onClick = { showRestCheck = false }) { Text("계속 근무", color = muted) }
             },
             containerColor = AppTheme.card
         )
@@ -697,7 +697,7 @@ fun SimpleHomeScreen(
                 Text("오늘 매출", fontSize = 11.sp, color = muted)
                 if (active) {
                     Spacer(Modifier.height(6.dp))
-                    Text((if (perHour >= 0) "시간당 ${String.format("%,d", perHour)}원" else "시간당 1시간 후") + " · ${String.format("%.1f", distKm)}km", fontSize = 12.sp, color = muted)
+                    Text((if (perHour >= 0) "시간당 ${String.format("%,d", perHour)}원" else "시간당 1시간 후") + (if (distEnabled) " · ${String.format("%.1f", distKm)}km" else ""), fontSize = 12.sp, color = muted)
                     // [근무 구간] 일시정지로 나뉜 구간을 그대로 보여준다 — "06:00~11:00 · 15:00~23:00"
                     //  (예전엔 한 덩어리로만 보여서, 중간에 몇 시간 쉬었는지 알 수 없었다)
                     val segTxt = remember(nowTick, paused) {

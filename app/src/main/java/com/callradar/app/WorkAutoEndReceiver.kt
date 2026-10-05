@@ -60,6 +60,10 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
             .putLong("work_start", 0L)
             .putLong("work_paused_total", 0L)
             .putLong("work_pause_start", 0L)
+            // [거리이월 수정] 수동 퇴근(Home/SimpleHome)은 이미 지우는데 자동마감만 빠져 있었다.
+            //  같은 영업일에 다시 출근하면 newDay=false 라 리셋이 안 돌아 거리가 그대로 이월된다.
+            .putFloat("work_distance_m", 0f)
+            .putBoolean("meter_local", false)
             .apply()
 
         // 거리 미터 서비스 중지
