@@ -129,9 +129,22 @@ class WorkSessionService : Service() {
                 val offDuty = p0.getLong("work_start", 0L) <= 0L
                 val isPaused = p0.getLong("work_pause_start", 0L) > 0L
                 val notOwner = !p0.getBoolean("meter_local", false)
-                if (offDuty || isPaused || notOwner) {
-                    // 사유를 가른다 — 「퇴근 후에도 쌓였다」와 「다른 폰이 주인이다」는 전혀 다른 문제다.
-                    val reason = if (offDuty) "off" else if (isPaused) "paused" else "notowner"
+                // notOwner 는 세기만 하고 막지 않는다 — 아래 주석 참조.
+                if (notOwner) {
+                    p0.edit()
+                        .putInt("dist_blocked_notowner", p0.getInt("dist_blocked_notowner", 0) + 1)
+                        .putFloat("dist_blocked_m_notowner", p0.getFloat("dist_blocked_m_notowner", 0f) + d)
+                        .putLong("dist_blocked_last", nowMs).apply()
+                }
+                if (offDuty || isPaused) {
+                    /* 진짜 방어선은 이 둘이다 — 「퇴근 후」와 「일시정지」(지시서 8장: 비근무 상태 거리 증가 금지).
+                     *
+                     *  meter_local(다른 폰이 주인)로도 막아봤다가 2026-10-05 실기기에서 되돌렸다.
+                     *  자동출근 경로가 둘인데 둘 다 meter_local 을 안 넣고 있어서, 게이트가
+                     *  정상 운행 거리를 통째로 막았다(실측 dist_blocked_notowner=1 · 8.07m).
+                     *  못 찾은 경로가 또 있을 수 있고, 그때 잃는 것은 기사의 하루 거리다.
+                     *  이중 누적(폰 두 대)보다 거리 유실이 훨씬 나쁘다 — 세기만 하고 막지 않는다. */
+                    val reason = if (offDuty) "off" else "paused"
                     p0.edit()
                         .putInt("dist_blocked_" + reason, p0.getInt("dist_blocked_" + reason, 0) + 1)
                         .putFloat("dist_blocked_m_" + reason, p0.getFloat("dist_blocked_m_" + reason, 0f) + d)

@@ -493,7 +493,12 @@ class FloatingTripService : Service() {
             var pushWs = ws; var pushPt = p.getLong("work_paused_total", 0L); var pushPs = ps
             if (ws == 0L) {
                 p.edit().putLong("work_start", now).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L)
-                    .putInt("work_start_fare", p.getInt("work_day_start_fare", 0)).apply()
+                    .putInt("work_start_fare", p.getInt("work_day_start_fare", 0))
+                    /* ★ [거리게이트 선행조건] 자동출근 경로가 둘인데(여기 + NaviIntentReceiver.ensureWorkStarted)
+                     *  둘 다 meter_local 을 안 넣고 있었다. WorkSessionService 가 근무 게이트를 갖게 되면서
+                     *  이 값이 없으면 거리가 통째로 막힌다 — 2026-10-05 실기기에서 실제로 막혔다
+                     *  (dist_blocked_notowner=1, 8.07m). 자동출근을 띄운 폰이 곧 미터 소유자다. */
+                    .putBoolean("meter_local", true).apply()
                 pushWs = now; pushPt = 0L; pushPs = 0L
                 try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 toast("자동 출근 — 근무 시작")
