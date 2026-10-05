@@ -39,7 +39,7 @@ class KnowhowActivity : ComponentActivity() {
         }
     }
 
-    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
     private val bg = Color(0xFF0A0E1A); private val card = Color(0xFF111827)
     private val accent = Color(0xFFF59E0B); private val green = Color(0xFF10B981); private val muted = Color(0xFF9CA3AF)
 

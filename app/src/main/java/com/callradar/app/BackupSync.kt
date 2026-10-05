@@ -13,7 +13,7 @@ import java.net.URL
  *  본인 계정·본인 데이터 범위. 홈/정산 계산 로직은 무손상(prefs 키만 채움).
  */
 object BackupSync {
-    private const val SERVER = "https://callradar-server.onrender.com"
+    private val SERVER = com.callradar.app.Endpoint.base
     private const val PREFS = "callradar_prefs"
     private const val KEY_PROFILES = "company_profiles"
     private const val KEY_PAYROLL = "payroll_v1"

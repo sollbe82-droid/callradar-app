@@ -44,6 +44,9 @@ class WorkSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(this)
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
         locThread = android.os.HandlerThread("worksession-loc").apply { start() }   // [v33] 위치 콜백 전용 백그라운드 루퍼
         // [v32] 오래된 궤적 정리(7일 이전) — 저장 누수 방지. [v33] 메인 스레드 밖에서.
@@ -198,7 +201,7 @@ class WorkSessionService : Service() {
             try {
                 val uid = prefs().getString("user_id", "") ?: ""
                 if (uid.isEmpty()) return@Thread
-                val body = (java.net.URL("https://callradar-server.onrender.com/api/events/nearby?lat=$lat&lng=$lng&km=7").openConnection()
+                val body = (java.net.URL("${com.callradar.app.Endpoint.base}/api/events/nearby?lat=$lat&lng=$lng&km=7").openConnection()
                     .apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as java.net.HttpURLConnection)
                     .apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()
                 val arr = org.json.JSONArray(body)
@@ -238,7 +241,7 @@ class WorkSessionService : Service() {
             try {
                 val uid = prefs().getString("user_id", "") ?: ""
                 if (uid.isEmpty()) return@Thread
-                val body = (java.net.URL("https://callradar-server.onrender.com/api/bookings/$uid").openConnection()
+                val body = (java.net.URL("${com.callradar.app.Endpoint.base}/api/bookings/$uid").openConnection()
                     .apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as java.net.HttpURLConnection)
                     .apply { connectTimeout = 8000; readTimeout = 15000 }.inputStream.bufferedReader().readText()
                 val arr = org.json.JSONArray(body)

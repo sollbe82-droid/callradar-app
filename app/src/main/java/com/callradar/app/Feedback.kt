@@ -8,7 +8,7 @@ import java.net.URL
 // [v24 A단계] 인식 학습 업로드 — 인식값(ai) + 유저 확정값(user)을 서버(/api/feedback)로.
 //  서버가 자동 채점 → 규칙 자동개선(카나리). 실패해도 앱 흐름엔 무영향(백그라운드 1회).
 object Feedback {
-    private const val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
 
     fun send(
         context: Context,

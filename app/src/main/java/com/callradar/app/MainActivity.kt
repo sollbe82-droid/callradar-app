@@ -198,6 +198,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        /* [서버 주소 확정] 다른 어떤 일보다 먼저. 아래 동의 게이트와 서비스 기동이 이미 서버를 치므로
+         *  여기보다 늦으면 그 요청들이 기본값(운영)으로 나간다.
+         *  release 빌드에서는 Endpoint 가 override 를 읽지 않고 운영으로 고정한다. */
+        com.callradar.app.Endpoint.init(this)
         // [위치정보법 동의 게이트] 위치 수집·서비스 시작 전에 필수 동의부터. 미동의면 동의화면으로 보내고 여기서 중단.
         //  (동의 후 ConsentActivity가 MainActivity를 다시 띄우면 이 검사를 통과해 정상 진행)
         if (com.callradar.app.ConsentActivity.needed(this)) {
@@ -227,7 +231,7 @@ class MainActivity : ComponentActivity() {
             try { startService(Intent(this, FloatingTripService::class.java)) } catch (e: Exception) {}
         }
         // 서버 웜업 (슬립 깨우기) — 타임아웃 없으면 무한 대기/소켓 누수
-        Thread { try { (URL("https://callradar-server.onrender.com/api/health").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }.getInputStream().close() } catch (e: Exception) {} }.start()
+        Thread { try { (URL("${com.callradar.app.Endpoint.base}/api/health").openConnection() as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 30000 }.getInputStream().close() } catch (e: Exception) {} }.start()
         // [v31] 로컬에 남은 pending 트립·지출 재전송 — 앱 열 때마다. [A-Z] 로컬DB 읽기를 백그라운드로(메인스레드 I/O 제거).
         Thread { try { val ldb = com.callradar.app.LocalTripDatabase.getInstance(this); ldb.syncPendingTrips(this); ldb.syncFareUpdates(); ldb.syncPendingExpenses(this) } catch (e: Exception) {} }.start()
         com.callradar.app.TrackSync.uploadRecent(this)   // [v44] 최근 궤적 서버 백업(기기변경 대비)

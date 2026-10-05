@@ -17,9 +17,19 @@ import java.net.URL
 //  로컬 세션 초기화 + 이어가기 스냅샷 저장 + 서버 세션 0으로 push + 거리미터 중지 + 알림.
 class WorkAutoEndReceiver : BroadcastReceiver() {
 
-    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
+
+    companion object {
+        /** 운행 중 마감을 미루는 간격. */
+        const val DEFER_MS = 30L * 60_000L
+        /** 유예 상한. 30분 × 8 = 4시간. 넘으면 운행 중이라도 마감한다. */
+        const val MAX_DEFER = 8
+    }
 
     override fun onReceive(context: Context, intent: Intent?) {
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(context)
         val prefs = context.getSharedPreferences("callradar_prefs", Context.MODE_PRIVATE)
         val workStart = prefs.getLong("work_start", 0L)
         if (workStart <= 0L) return                       // 이미 퇴근
@@ -32,6 +42,54 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
             WorkAutoEnd.schedule(context, workStart, maxHours)
             return
         }
+
+        /* ★ [진행 중 콜 보호] 2026-10-05
+         *
+         *  'FloatingTripService 를 멈추지 않으니 진행 중 운행은 안전하다' 는 판단은 틀렸다.
+         *  마감이 그대로 돌면 실제로 이런 일이 벌어진다:
+         *   · work_start=0, work_distance_m=0, meter_local=false 로 근무 상태가 초기화된다
+         *   · WorkSessionService 가 멈춘다 → **진행 중 콜의 남은 거리가 아예 측정되지 않는다**
+         *   · 그 콜이 끝나 저장되면 운행은 남지만, 방금 닫힌 세션에는 fare 0 으로 기록된다
+         *     → 매출이 세션 밖으로 떨어져 시급이 왜곡된다
+         *   · 콜 종료 후 다음 운행이 시작되면 자동출근이 새 세션을 열고(ensureWorkSessionActive)
+         *     거기서 또 15시간 예약이 걸린다 → 마감이 '무한 누적 방지' 가 아니라 '구간 분할' 이 된다
+         *
+         *  그래서 운행 중에는 마감하지 않고 **미룬다**. 운행이 떠 있다는 것은 기사가 일하고 있다는
+         *  증거이고, 손님을 태운 채로 근무를 끊는 것이 더 나쁘다.
+         *  무한정 미루면 마감의 뜻이 사라지므로 상한을 둔다 — 30분씩, 최대 8회(4시간).
+         *  상한을 넘으면 마감하되 '운행 중 마감' 이었음을 기록한다(사후 추적용).
+         *
+         *  진행 중 판정은 **디스크 상태**로 한다. 이 수신기는 별도 프로세스로 깨어날 수 있어
+         *  서비스의 메모리 변수를 볼 수 없다.
+         *   · auto_trip_id > 0   자동기록이 띄운 운행 (NaviIntentReceiver.saveTripState)
+         *   · ride_active        수동 플로팅 탑승 중 (FloatingTripService:441)
+         */
+        val tripId = prefs.getInt("auto_trip_id", -1)
+        val riding = prefs.getBoolean("ride_active", false)
+        if (tripId > 0 || riding) {
+            /* 유예 횟수는 **이 세션에 대한 것**이다. 다른 세션의 카운터가 이월되면 새 세션이
+             * 유예를 못 받는다. 그래서 세션 식별자(work_start)를 같이 들고 다닌다. */
+            val deferWs = prefs.getLong("autoend_defer_ws", 0L)
+            if (deferWs != workStart) {
+                prefs.edit().putLong("autoend_defer_ws", workStart).putInt("autoend_deferred", 0).apply()
+            }
+            val deferred = prefs.getInt("autoend_deferred", 0)
+            if (deferred < MAX_DEFER) {
+                prefs.edit()
+                    .putInt("autoend_deferred", deferred + 1)
+                    .putLong("autoend_deferred_at", now)
+                    .putString("autoend_defer_reason", if (tripId > 0) "auto_trip_$tripId" else "ride_active")
+                    .apply()
+                // 지금 시각 기준 30분 뒤로 미룬다. workStart 를 바꾸지 않으므로 '연장' 이 아니라 '유예' 다.
+                WorkAutoEnd.scheduleAt(context, now + DEFER_MS)
+                notifyDeferred(context, maxHours, deferred + 1)
+                return
+            }
+            // 상한 초과 — 마감한다. 다만 운행 중이었다는 사실을 남긴다.
+            prefs.edit().putBoolean("autoend_closed_mid_trip", true).apply()
+        }
+        // 마감이 실제로 일어나므로 유예 카운터를 리셋한다(다음 세션에 이월되면 안 된다).
+        prefs.edit().remove("autoend_deferred").remove("autoend_defer_reason").apply()
 
         val pausedTotal = prefs.getLong("work_paused_total", 0L)
         val pauseStart = prefs.getLong("work_pause_start", 0L)
@@ -93,6 +151,30 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
                 } catch (e: Exception) {} finally { try { pending.finish() } catch (e: Exception) {} }
             }.start()
         }
+    }
+
+    /** 유예했음을 알린다. 기사가 '왜 마감이 안 됐지' 하지 않게. */
+    private fun notifyDeferred(context: Context, maxHours: Int, nth: Int) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val chId = "callradar_autoend"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(NotificationChannel(chId, "근무 자동 마감", NotificationManager.IMPORTANCE_LOW))
+            }
+            val left = MAX_DEFER - nth
+            val noti = Notification.Builder(context, chId)
+                .setContentTitle("운행 중이라 자동 마감을 미뤘어요")
+                .setContentText("${maxHours}시간을 넘겼지만 운행이 진행 중이라 30분 뒤 다시 확인합니다.")
+                .setStyle(Notification.BigTextStyle().bigText(
+                    "설정한 최대 근무 ${maxHours}시간을 넘겼는데 운행이 진행 중이라 마감하지 않았어요. " +
+                    "손님을 태운 채로 근무를 끊으면 그 운행의 거리·시간·매출이 어긋납니다. " +
+                    "30분 뒤 다시 확인하고, 그때도 운행 중이면 또 미룹니다(최대 ${left}회 남음). " +
+                    "지금 끝내려면 앱에서 퇴근을 눌러 주세요."))
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setAutoCancel(true)
+                .build()
+            nm.notify(3104, noti)
+        } catch (e: Exception) {}
     }
 
     private fun notifyAutoEnd(context: Context, grossMin: Long, maxHours: Int) {

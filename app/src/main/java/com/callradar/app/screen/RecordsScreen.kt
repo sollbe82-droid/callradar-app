@@ -40,7 +40,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val SERVER_URL = Config.SERVER_URL
+private val SERVER_URL = Config.SERVER_URL
 
 // [v22] 다이얼로그 키보드 가림 완전수정: AlertDialog는 별도 윈도우라 imePadding()이 IME inset을 못 받아 무시됨.
 // 다이얼로그 윈도우에 decorFitsSystemWindows=false를 걸면 imePadding()이 실제 작동 → 저장 버튼이 키보드 위로 올라옴.

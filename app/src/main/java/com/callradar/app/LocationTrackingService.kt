@@ -50,6 +50,9 @@ class LocationTrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(this)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setupLocationCallback()
     }

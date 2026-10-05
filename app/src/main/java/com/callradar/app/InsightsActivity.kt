@@ -43,7 +43,7 @@ import java.net.URL
  */
 class InsightsActivity : ComponentActivity() {
     companion object {
-        private const val SERVER_URL = "https://callradar-server.onrender.com"
+        private val SERVER_URL = com.callradar.app.Endpoint.base
         fun start(context: Context) {
             context.startActivity(Intent(context, InsightsActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         }
@@ -82,7 +82,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
     suspend fun loadBad() {
         try {
             val t = withContext(Dispatchers.IO) {
-                (URL("https://callradar-server.onrender.com/api/quality/my/$userId").openConnection().apply {
+                (URL("${com.callradar.app.Endpoint.base}/api/quality/my/$userId").openConnection().apply {
                     com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
                 } as HttpURLConnection).apply { connectTimeout = 8000; readTimeout = 20000 }.inputStream.bufferedReader().readText()
             }
@@ -95,7 +95,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
         loading = true; err = ""
         try {
             val txt = withContext(Dispatchers.IO) {
-                (URL("https://callradar-server.onrender.com/api/insights/$userId").openConnection().apply {
+                (URL("${com.callradar.app.Endpoint.base}/api/insights/$userId").openConnection().apply {
                     com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
                 } as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 40000 }
                     .inputStream.bufferedReader().readText()
@@ -137,7 +137,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
                         try {
                             withContext(Dispatchers.IO) {
                                 // 요금을 고치고, 이어서 '확인됨'으로 풀어 통계에 되돌린다.
-                                val c1 = (URL("https://callradar-server.onrender.com/api/trips/$id").openConnection().apply {
+                                val c1 = (URL("${com.callradar.app.Endpoint.base}/api/trips/$id").openConnection().apply {
                                     com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
                                 } as HttpURLConnection).apply {
                                     requestMethod = "PUT"; setRequestProperty("Content-Type", "application/json"); doOutput = true
@@ -145,7 +145,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
                                 }
                                 c1.outputStream.use { os -> os.write(JSONObject().put("user_id", userId).put("fare", newFare).toString().toByteArray()) }
                                 c1.responseCode
-                                val c2 = (URL("https://callradar-server.onrender.com/api/quality/confirm/$id").openConnection().apply {
+                                val c2 = (URL("${com.callradar.app.Endpoint.base}/api/quality/confirm/$id").openConnection().apply {
                                     com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
                                 } as HttpURLConnection).apply {
                                     requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true
@@ -184,7 +184,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
                     scope.launch {
                         try {
                             withContext(Dispatchers.IO) {
-                                val c = (URL("https://callradar-server.onrender.com/api/trips/$id").openConnection().apply {
+                                val c = (URL("${com.callradar.app.Endpoint.base}/api/trips/$id").openConnection().apply {
                                     com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
                                 } as HttpURLConnection).apply {
                                     requestMethod = "DELETE"; setRequestProperty("Content-Type", "application/json"); doOutput = true
@@ -259,7 +259,7 @@ private fun InsightsScreen(onClose: () -> Unit) {
                                                 scope.launch {
                                                     try {
                                                         withContext(Dispatchers.IO) {
-                                                            val c2 = (URL("https://callradar-server.onrender.com/api/quality/confirm/$id").openConnection().apply {
+                                                            val c2 = (URL("${com.callradar.app.Endpoint.base}/api/quality/confirm/$id").openConnection().apply {
                                                                 com.callradar.app.Auth.tok?.let { tk -> if (tk.isNotBlank()) setRequestProperty("Authorization", "Bearer $tk") }
                                                             } as HttpURLConnection).apply {
                                                                 requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true

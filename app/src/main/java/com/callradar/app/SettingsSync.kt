@@ -30,7 +30,7 @@ import java.net.URL
  */
 object SettingsSync {
 
-    private const val SERVER = "https://callradar-server.onrender.com"
+    private val SERVER = com.callradar.app.Endpoint.base
 
     /** 앱 시작(로그인 직후) 1회 — 서버 설정으로 로컬 빈 칸을 메운다 */
     fun restore(ctx: Context, userId: String) {

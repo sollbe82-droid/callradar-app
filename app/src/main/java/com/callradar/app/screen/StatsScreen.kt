@@ -24,7 +24,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val SERVER_URL = Config.SERVER_URL
+private val SERVER_URL = Config.SERVER_URL
 
 data class SpotItem(val id: Int, val name: String)
 data class HeatmapCell(val dayOfWeek: Int, val hour: Int, val count: Int)

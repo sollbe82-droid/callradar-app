@@ -52,7 +52,7 @@ fun DayStartDialog(onDismiss: () -> Unit, onSaved: (Int) -> Unit = {}) {
                 val uid = prefs.getString("user_id", "") ?: ""
                 if (uid.isNotEmpty()) Thread {
                     try {
-                        val conn = (java.net.URL("https://callradar-server.onrender.com/api/user-settings").openConnection() as java.net.HttpURLConnection).apply {
+                        val conn = (java.net.URL("${com.callradar.app.Endpoint.base}/api/user-settings").openConnection() as java.net.HttpURLConnection).apply {
                             requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 6000
                             com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") }
                         }

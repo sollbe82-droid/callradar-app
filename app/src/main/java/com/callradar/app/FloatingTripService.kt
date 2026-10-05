@@ -36,7 +36,7 @@ import kotlin.concurrent.thread
 
 class FloatingTripService : Service() {
 
-    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
     private lateinit var windowManager: WindowManager
     private var floatingView: TextView? = null
     // [v91] 캡처 전용 버튼 — 카카오T·우버 화면 위에서 콜을 찍으려면 앱 밖에 떠 있어야 한다.
@@ -93,6 +93,9 @@ class FloatingTripService : Service() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate() {
         super.onCreate()
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(this)
         try { getSharedPreferences("callradar_prefs", MODE_PRIVATE).edit().putString("overlay_started", java.text.SimpleDateFormat("MM-dd HH:mm:ss").format(java.util.Date())).apply() } catch (e: Exception) {}
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
@@ -503,11 +506,15 @@ class FloatingTripService : Service() {
                 /* ★ [자동마감 미예약] 2026-10-05 전수점검에서 확정된 결함.
                  *  NaviIntentReceiver.ensureWorkStarted() 는 :1037 에서 자동마감을 예약하는데
                  *  이 경로는 예약이 아예 없었다(이 파일에 WorkAutoEnd 참조가 0건이었다).
-                 *  스토어 빌드는 접근성 수신기를 싣지 않으므로 자동출근이 이 경로로만 일어난다 →
-                 *  스토어 사용자는 자동출근한 날 15시간 자동마감이 걸리지 않았다.
+                 *  영향 집단: 접근성 자동기록을 끈/허용하지 않은 기사. 그 경우 자동출근이 이
+                 *  경로로만 일어나므로 15시간 자동마감이 걸리지 않았다.
+                 *  (앞서 '스토어 빌드에는 접근성 수신기가 없다' 고 적었던 것은 틀렸다 —
+                 *   aapt2 로 최종 APK 를 확인한 결과 play·onestore 둘 다 싣고 있다.)
                  *  기사가 '꺼짐'을 고른 것(work_max_hours_set)은 뒤집지 않는다. 미설정일 때만 기본값. */
                 if (!p.getBoolean("work_max_hours_set", false) && p.getInt("work_max_hours", 0) == 0)
                     p.edit().putInt("work_max_hours", 15).apply()
+                // [자동마감 직후 재출근 추적] 마감이 '구간 분할' 로 동작하는 것을 집계가 알 수 있게.
+                try { com.callradar.app.WorkAutoEnd.noteChainedAutoStart(this, now) } catch (e: Exception) {}
                 try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 toast("자동 출근 — 근무 시작")
             }

@@ -31,7 +31,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.math.roundToInt
 
-private const val MAP_SERVER = Config.SERVER_URL
+private val MAP_SERVER = Config.SERVER_URL
 
 @Composable
 fun DriverMapScreen(userId: String, onBack: () -> Unit, embedded: Boolean = false, showTrack: Boolean = true) {

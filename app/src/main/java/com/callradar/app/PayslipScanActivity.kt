@@ -39,7 +39,7 @@ import java.net.URL
  */
 class PayslipScanActivity : ComponentActivity() {
 
-    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
     private val ocr = PayslipOcr()
     private var result by mutableStateOf<PayslipOcr.Result?>(null)
     private var isProcessing by mutableStateOf(false)

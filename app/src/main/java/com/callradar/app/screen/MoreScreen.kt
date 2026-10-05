@@ -47,7 +47,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val SETTINGS_SERVER = Config.SERVER_URL
+private val SETTINGS_SERVER = Config.SERVER_URL
 
 // [A-Z] AI/레이더 GET 헬퍼 — 타임아웃(콜드스타트 무한대기 방지)+인증헤더(ENFORCE_TOKEN 대비). 기존 URL(x).readText() 대체.
 private fun moreGet(url: String): String {

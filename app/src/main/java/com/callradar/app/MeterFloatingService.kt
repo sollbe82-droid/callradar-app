@@ -41,7 +41,7 @@ class MeterFloatingService : Service() {
         fun stop(ctx: Context) { ctx.stopService(Intent(ctx, MeterFloatingService::class.java)) }
     }
 
-    private val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
     private lateinit var wm: WindowManager
     private var view: TextView? = null
     private lateinit var fused: FusedLocationProviderClient
@@ -60,6 +60,9 @@ class MeterFloatingService : Service() {
     @SuppressLint("ClickableViewAccessibility", "MissingPermission")
     override fun onCreate() {
         super.onCreate()
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(this)
         running = true
         val prefs = getSharedPreferences("callradar_prefs", MODE_PRIVATE)
         rate = rateOfRegion(prefs.getString("meter_region", "서울") ?: "서울")

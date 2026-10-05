@@ -50,7 +50,7 @@ class NaviIntentReceiver : AccessibilityService() {
             KAKAO_TAXI to "카카오T", UBER to "우버",
             TMONEYGO to "티머니고", TMONEYGO_NAVI to "티머니고"
         )
-        private const val SERVER_URL = "https://callradar-server.onrender.com"
+        private val SERVER_URL = com.callradar.app.Endpoint.base
         private val FARE_PATTERNS = listOf(
             Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
@@ -192,6 +192,9 @@ class NaviIntentReceiver : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        /* [서버 주소 확정] 이 경로는 MainActivity 없이 깨어난다(부팅·알람·접근성·알림).
+         *  여기서 안 부르면 이 진입점의 요청이 기본값(운영)으로 나가 검증 환경이 무의미해진다. */
+        com.callradar.app.Endpoint.init(this)
         instance = this   // [v53 #124] 플로팅 수동취소용 인스턴스 등록
         serviceInfo = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
@@ -1020,6 +1023,8 @@ class NaviIntentReceiver : AccessibilityService() {
                     // [자동마감 기본값] 미설정일 때만. 기사가 '꺼짐'을 고른 것(work_max_hours_set)은 뒤집지 않는다.
                     if (!p.getBoolean("work_max_hours_set", false) && p.getInt("work_max_hours", 0) == 0)
                         p.edit().putInt("work_max_hours", 15).apply()
+                    // [자동마감 직후 재출근 추적] 마감이 '구간 분할' 로 동작하는 것을 집계가 알 수 있게.
+                    try { com.callradar.app.WorkAutoEnd.noteChainedAutoStart(this, now) } catch (e: Exception) {}
                     try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 }
                 // [v93] ps > 0L(일시정지 → 자동 재개) 분기 삭제.

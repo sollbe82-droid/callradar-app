@@ -9,7 +9,7 @@ import java.net.URL
 //  나중에 "언제 자동 시작/종료할지"를 데이터가 알려줌(로드맵 §2). 스샷 없이 컨텍스트만 = 심사 안전.
 //  실패해도 앱 흐름 무영향(백그라운드 1회).
 object TimingLog {
-    private const val SERVER_URL = "https://callradar-server.onrender.com"
+    private val SERVER_URL = com.callradar.app.Endpoint.base
 
     fun send(
         context: Context,

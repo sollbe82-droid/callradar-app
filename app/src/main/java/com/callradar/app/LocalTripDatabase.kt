@@ -13,7 +13,7 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
 
     companion object {
         private const val TAG = "CallRadar"
-        private const val SERVER_URL = "https://callradar-server.onrender.com"
+        private val SERVER_URL = com.callradar.app.Endpoint.base
 
         // [v31 fix-B] createTrip이 직접 전송 중인 localId — syncPendingTrips가 중복 전송하지 않도록.
         val handlingLocalIds = java.util.Collections.synchronizedSet(mutableSetOf<Long>())

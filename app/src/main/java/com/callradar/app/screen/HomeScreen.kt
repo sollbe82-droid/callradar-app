@@ -39,7 +39,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val SERVER_URL = Config.SERVER_URL
+private val SERVER_URL = Config.SERVER_URL
 
 // [v24] 자가치유 GET — 토큰이 stale/불일치라 403/401 나면 토큰 비우고 무토큰으로 1회 재시도.
 //  (특정 유저가 '서버 연결 실패' 지속되던 문제: 페어링/계정전환 후 남은 토큰↔user_id 불일치 → 403)

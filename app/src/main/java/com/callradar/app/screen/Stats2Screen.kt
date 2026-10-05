@@ -29,7 +29,7 @@ private data class HeatCell(val level: Int, val rate: Int, val hrs: Int)
 
 @Composable
 fun Stats2Screen(userId: String) {
-    val SERVER_URL = "https://callradar-server.onrender.com"
+    val SERVER_URL = com.callradar.app.Endpoint.base
     val accent = Color(0xFFF59E0B); val green = Color(0xFF10B981); val muted = AppTheme.muted
     val scope = rememberCoroutineScope()
 
