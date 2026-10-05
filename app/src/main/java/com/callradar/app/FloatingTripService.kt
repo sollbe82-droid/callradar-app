@@ -500,11 +500,27 @@ class FloatingTripService : Service() {
                      *  (dist_blocked_notowner=1, 8.07m). 자동출근을 띄운 폰이 곧 미터 소유자다. */
                     .putBoolean("meter_local", true).apply()
                 pushWs = now; pushPt = 0L; pushPs = 0L
+                /* ★ [자동마감 미예약] 2026-10-05 전수점검에서 확정된 결함.
+                 *  NaviIntentReceiver.ensureWorkStarted() 는 :1037 에서 자동마감을 예약하는데
+                 *  이 경로는 예약이 아예 없었다(이 파일에 WorkAutoEnd 참조가 0건이었다).
+                 *  스토어 빌드는 접근성 수신기를 싣지 않으므로 자동출근이 이 경로로만 일어난다 →
+                 *  스토어 사용자는 자동출근한 날 15시간 자동마감이 걸리지 않았다.
+                 *  기사가 '꺼짐'을 고른 것(work_max_hours_set)은 뒤집지 않는다. 미설정일 때만 기본값. */
+                if (!p.getBoolean("work_max_hours_set", false) && p.getInt("work_max_hours", 0) == 0)
+                    p.edit().putInt("work_max_hours", 15).apply()
                 try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 toast("자동 출근 — 근무 시작")
             }
             // [v93] ps > 0L(일시정지) 분기 삭제 — 운행 확정 저장 시점(createTrip)에서만 재개한다.
             try { androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.callradar.app.WorkSessionService::class.java)) } catch (e: Exception) {}
+            /* [자동마감 예약] 이 호출은 멱등이다 — WorkAutoEnd.schedule 의 발화시각은
+             *  workStart + maxHours 로만 정해지고 '지금'이 들어가지 않는다. 따라서 운행이 여러 번
+             *  시작돼도, 일시정지→재개가 반복돼도 마감 시각은 밀리지 않는다.
+             *  (재부팅으로 알람이 날아간 세션을 원래 시각으로 되살리는 효과도 같은 식으로 얻는다.)
+             *  maxHours<=0(기사가 끈 상태)이면 schedule 이 cancel 로 빠진다 — 15시간을 강제하지 않는다. */
+            if (pushWs > 0L) {
+                try { com.callradar.app.WorkAutoEnd.schedule(this, pushWs, p.getInt("work_max_hours", 0)) } catch (e: Exception) {}
+            }
             val uid = userId()
             if (uid.isNotEmpty()) {
                 val sf = p.getInt("work_start_fare", 0)

@@ -63,6 +63,18 @@ object WorkResume {
             val prevPt = p.getLong("work_paused_total", 0L)
             val newPt = prevPt + (now - ps)
 
+            /* ★ [소유권 전이 검사 — 2026-10-05]
+             *  이 경로는 세 번째 상태 변경 주체다(자동출근 2곳 + 여기). 전수점검에서 이 함수가
+             *  meter_local 을 설정하지 않는다는 것이 확인됐다.
+             *  그렇다고 여기서 meter_local=true 를 무조건 넣지 않는다 — 이 폰이 미터 소유자라는
+             *  근거가 여기에는 없다(재개를 부른 건 '운행이 저장됐다'는 사실뿐이고, 그 운행이
+             *  이 폰에서 시작된 세션의 것인지는 이 함수가 모른다). 무조건 넣으면 두 기기
+             *  이중 누적 방어가 무력화된다.
+             *  대신 전이 전후 값을 남겨서, 재개가 소유권·누적거리를 **건드리지 않았다는 것**을
+             *  실기기 덤프로 확인할 수 있게 한다. 값이 달라지면 그게 결함 증거다. */
+            val ownerBefore = p.getBoolean("meter_local", false)
+            val distBefore = p.getFloat("work_distance_m", 0f)
+
             p.edit()
                 .putLong("work_paused_total", newPt)
                 .putLong("work_pause_start", 0L)
@@ -75,6 +87,22 @@ object WorkResume {
 
             // [핵심] 재개 구간을 연다. 이게 없어서 재개분이 타임라인에 안 남았다.
             try { WorkSegments.open(ctx, now) } catch (e: Exception) {}
+
+            // 전이 후 값을 다시 읽어 보존 여부를 기록한다. 이 함수는 둘 중 어느 것도 쓰지 않으므로
+            // 정상이면 before == after 다. 어긋나면 다른 경로가 같은 창에서 끼어든 것이다.
+            val ownerAfter = p.getBoolean("meter_local", false)
+            val distAfter = p.getFloat("work_distance_m", 0f)
+            p.edit()
+                .putBoolean("resume_owner_before", ownerBefore)
+                .putBoolean("resume_owner_after", ownerAfter)
+                .putFloat("resume_dist_before_m", distBefore)
+                .putFloat("resume_dist_after_m", distAfter)
+                .putInt(
+                    "resume_owner_mismatch",
+                    p.getInt("resume_owner_mismatch", 0) +
+                        (if (ownerBefore != ownerAfter || distBefore != distAfter) 1 else 0)
+                )
+                .apply()
 
             pushWorkSession(ctx, ws, newPt, 0L)
             try { Telemetry.log(ctx, "work_auto_resume", reason) } catch (e: Exception) {}
