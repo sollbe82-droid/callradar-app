@@ -112,7 +112,38 @@ class WorkSessionService : Service() {
             //   정지 중에도 20km씩 붙어 하루 900km까지 누적되던 버그. 연속 업데이트(≤60초)만 실이동으로 인정.
             // [v59 거리버그] 게이트 강화(548km 오누적): 속도 60→40m/s(144km/h·택시현실), 단일구간 20km→3km(dt≤60s×40m/s=2.4km라 3km면 충분). GPS 튐·드리프트 차단.
             if (d >= 5f && speed <= 40.0 && d <= 3000f && dtSec <= 60.0) {
+                /* ★ [근무 게이트 — 2026-10-05] 근무 상태가 아니면 거리를 늘리지 않는다.
+                 *
+                 *  대표 제보: 출퇴근 한 번인데 12.9시간에 906.5km 가 찍혔다(work_sessions_log #2049).
+                 *  속도·거리·dt 게이트는 이미 세 번 강화했는데도 또 났다. 공통점은 전부
+                 *  「점 하나하나는 그럴듯한데 근무가 아닌 동안 쌓였다」는 것이다.
+                 *  이 서비스는 지금까지 '자기가 떠 있으면 누적한다'였고, 근무 상태를 본 적이 없다.
+                 *
+                 *  단일 boolean 을 믿지 않는다(지시서). 근무 계약 세 가지를 다 본다:
+                 *    work_start  > 0  출근한 상태인가
+                 *    work_pause_start == 0  일시정지가 아닌가
+                 *    meter_local == true    이 폰이 미터 소유자인가(두 기기 이중 누적 차단)
+                 *
+                 *  ★ 자동 보정은 하지 않는다. 막기만 하고, 막았다는 사실을 센다(지시서 8장). */
+                val p0 = prefs()
+                val onDuty = p0.getLong("work_start", 0L) > 0L &&
+                             p0.getLong("work_pause_start", 0L) == 0L &&
+                             p0.getBoolean("meter_local", false)
+                if (!onDuty) {
+                    val blocked = p0.getInt("dist_blocked_count", 0) + 1
+                    val blockedM = p0.getFloat("dist_blocked_m", 0f) + d
+                    p0.edit().putInt("dist_blocked_count", blocked)
+                        .putFloat("dist_blocked_m", blockedM)
+                        .putLong("dist_blocked_last", nowMs).apply()
+                    lastLat = lat; lastLng = lng; lastLocTs = nowMs
+                    return
+                }
                 val cur = prefs().getFloat("work_distance_m", 0f)
+                // [이상 탐지] 근무 중인데 한 구간이 비현실적으로 크면 센다. 값은 건드리지 않는다.
+                if (d > 2000f) {
+                    prefs().edit().putInt("dist_jump_count", prefs().getInt("dist_jump_count", 0) + 1)
+                        .putFloat("dist_jump_max_m", maxOf(prefs().getFloat("dist_jump_max_m", 0f), d)).apply()
+                }
                 val nv = cur + d
                 prefs().edit().putFloat("work_distance_m", nv).apply()
                 // [v32] 알림 실시간 갱신 — 예전엔 시작 때 0.0km로 만든 알림을 안 바꿔서 계속 0.0으로 멈춰 있었음

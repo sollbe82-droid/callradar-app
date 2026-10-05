@@ -1063,7 +1063,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val sessionFare = todayFare.coerceAtLeast(0)
                     // 근무 구간 기준 시간당(정지 제외). 구간이 없거나 실패하면 null → 아래에서 예전 방식 폴백.
                     var segRate by remember(refreshKey) { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
-                    LaunchedEffect(refreshKey, userId, workedMs) {
+                    LaunchedEffect(refreshKey, userId, workedMs / 60000L) {   // [호출폭주] 밀리초 키는 1초마다 재실행된다(실측 분당 170회). 분 단위면 화면 값은 같고 호출만 1/60 로 준다.
                         segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
                     }
                     // ══════════════════════════════════════════════════════

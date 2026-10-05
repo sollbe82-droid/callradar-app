@@ -110,6 +110,7 @@ fun SimpleHomeScreen(
      *  그래서 `val` 로 두고 **내용만 갈아끼운다**. SnapshotStateList 는 내용 변경으로 재구성을 일으킨다. */
     val restChecked = remember { androidx.compose.runtime.mutableStateListOf<Boolean>() }
     val distEnabled = prefs.getBoolean("work_dist_enabled", true)
+    var maxHours by remember { mutableStateOf(prefs.getInt("work_max_hours", 0)) }   // [C8] 근무 최대시간 자동마감(0=끔)
     val active = workStart > 0L
     val paused = pauseStart > 0L
     val driverType = prefs.getString("driver_type", "personal") ?: "personal"
@@ -132,7 +133,8 @@ fun SimpleHomeScreen(
     // 오늘 매출 폴링 (classic /api/today와 동일: 콜제보 제외 서버측 처리)
     // [로딩개선] 마지막 값을 캐시해 열자마자 표시(0원 깜빡임·서버 슬립 30~60초 공백 제거), 서버 응답 오면 갱신
     LaunchedEffect(Unit) {
-        val dayKeyNow = (System.currentTimeMillis() + 9 * 3600_000L) / 86400_000L   // KST 날짜 키
+        // [영업일 계약] 달력날짜가 아니라 BusinessDay 로 센다 — 서버 호출(?dayStart=)과 축을 맞춘다.
+        val dayKeyNow = com.callradar.app.BusinessDay.key(context)
         if (prefs.getLong("cache_today_day", -1L) == dayKeyNow) {
             val c = prefs.getInt("cache_today_fare", -1); if (c >= 0) todayFare = c
         }
@@ -234,7 +236,7 @@ fun SimpleHomeScreen(
         }
     }
     // [km폭주③] 앱 재시작 시: 소유폰(로컬 출근한 폰)만 미터 재개. pull은 미터 안 켜므로 여기서 복원.
-    LaunchedEffect(Unit) { if (workStart > 0L) { com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 0)); if (pauseStart == 0L && prefs.getBoolean("meter_local", false) && distEnabled) startMeter() } }
+    LaunchedEffect(Unit) { if (workStart > 0L) { com.callradar.app.WorkAutoEnd.schedule(context, workStart, prefs.getInt("work_max_hours", 15)); if (pauseStart == 0L && prefs.getBoolean("meter_local", false) && distEnabled) startMeter() } }
 
     val doStart = {
         val t = System.currentTimeMillis(); workStart = t; pausedTotal = 0L; pauseStart = 0L; nowTick = t
@@ -247,7 +249,12 @@ fun SimpleHomeScreen(
         if (newDay) com.callradar.app.WorkSegments.clear(context)
         com.callradar.app.WorkResume.clear(context)   // [v93] 새 출근 → 지난 자동 재개 안내는 끝난 얘기
         com.callradar.app.WorkSegments.open(context, t)
-        pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); com.callradar.app.WorkAutoEnd.schedule(context, t, prefs.getInt("work_max_hours", 0)); if (distEnabled) startMeter()
+        /* [죽은 코드 수정] 자동마감은 work_max_hours > 0 일 때만 걸린다. 그런데 그 값을 켜는 UI 가
+         *  클래식 홈에만 있어서(HomeScreen.kt:1236), 간편모드만 쓴 기사는 평생 0 이다.
+         *  → 예약을 넣어도 아무 일이 없었다. 자동기록 경로(NaviIntentReceiver.kt:1015)는 이미
+         *    같은 이유로 기본 15시간을 박고 있다. 간편모드도 같은 값으로 맞춘다. */
+        if (prefs.getInt("work_max_hours", 0) == 0) prefs.edit().putInt("work_max_hours", 15).apply()
+        pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); com.callradar.app.WorkAutoEnd.schedule(context, t, prefs.getInt("work_max_hours", 15)); if (distEnabled) startMeter()
     }
     val doPauseResume = {
         val t = System.currentTimeMillis()
@@ -308,6 +315,10 @@ fun SimpleHomeScreen(
                  */
                 var fixedFare = sFare
                 var fixedPerHour = pH
+                /* [분모 불일치] per_hour 만 구간값으로 바꾸고 net_min 은 영업일 누계를 보내면
+                 *  서버에 per_hour x net_min/60 != fare 인 행이 쌓인다(anomaly work_rate_mismatch).
+                 *  클래식은 2026-09-10 에 고쳤는데 간편홈 복사본엔 그 한 줄이 안 갔다. */
+                var fixedNetMin = dayNetMs / 60000L
                 try {
                     if (startedAtMs > 0 && now > startedAtMs) {
                         val fc = (URL("$SERVER_URL/api/fare-range/$userId?from=$startedAtMs&to=$now").openConnection().apply {
@@ -334,10 +345,11 @@ fun SimpleHomeScreen(
                         if (fSeg >= 0 && wMs > 0L) {
                             fixedFare = fSeg
                             fixedPerHour = if (wMs >= 3600000L) (fSeg / (wMs / 3600000.0)).toInt() else 0
+                            fixedNetMin = wMs / 60000L   // ← 분자를 바꿨으니 분모도 같은 것으로 (HomeScreen.kt:825 와 동일)
                         }
                     }
                 } catch (e: Exception) {}
-                val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", dayNetMs / 60000L); put("dist_km", dKm.toDouble()); put("fare", fixedFare); put("per_hour", fixedPerHour) }
+                val j = JSONObject().apply { put("user_id", userId); put("started_at", startedAtMs); put("ended_at", now); put("gross_min", dayGrossMs / 60000L); put("net_min", fixedNetMin); put("dist_km", dKm.toDouble()); put("fare", fixedFare); put("per_hour", fixedPerHour) }
                 val conn = (URL("$SERVER_URL/api/work-session/close").openConnection().apply { com.callradar.app.Auth.tok?.let { t -> if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t") } } as HttpURLConnection).apply { requestMethod = "POST"; setRequestProperty("Content-Type", "application/json; charset=utf-8"); doOutput = true; connectTimeout = 8000; readTimeout = 15000 }
                 conn.outputStream.use { it.write(j.toString().toByteArray(Charsets.UTF_8)) }; conn.responseCode
             } } catch (e: Exception) {} }
@@ -625,6 +637,20 @@ fun SimpleHomeScreen(
                 if (!overlayOk) add("운행 버튼 띄우기")
                 if (!notifOk) add("금액 자동입력")
                 if (!battOk) add("배터리 최적화 해제")
+            }
+            // [C8 이전] 근무시간 자동마감 프리셋 — 클래식 홈에만 있던 유일한 설정 UI 를 간편홈으로 옮긴다.
+            //  이 값이 0이면 자동마감이 통째로 안 걸린다(깜빡 퇴근 시 세션 무한 누적).
+            run {
+                val presets = listOf(0, 10, 12, 15, 18, 24)
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
+                    val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
+                    val nv = presets[(idx + 1) % presets.size]
+                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
+                    if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
+                }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("\uD83D\uDECC 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
+                    Text(if (maxHours > 0) "${maxHours}시간 후" else "꺼짐 · 탭해서 설정", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (maxHours > 0) accent else muted)
+                }
             }
             if (missing.isNotEmpty()) {
                 Card(
