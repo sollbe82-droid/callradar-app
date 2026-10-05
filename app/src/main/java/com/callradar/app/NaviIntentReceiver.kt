@@ -1011,8 +1011,15 @@ class NaviIntentReceiver : AccessibilityService() {
                 ws == 0L -> {  // 미출근 → 자동 출근
                     pushWs = now; pushPt = 0L; pushPs = 0L
                     p.edit().putLong("work_start", now).putLong("work_paused_total", 0L).putLong("work_pause_start", 0L)
-                        .putInt("work_start_fare", p.getInt("work_day_start_fare", 0)).apply()
-                    if (p.getInt("work_max_hours", 0) == 0) p.edit().putInt("work_max_hours", 15).apply()  // 무한누적 방지
+                        .putInt("work_start_fare", p.getInt("work_day_start_fare", 0))
+                        /* ★ [거리게이트 선행조건] 자동출근은 지금까지 meter_local 을 안 넣었다.
+                         *  WorkSessionService 가 '근무 중일 때만 누적'으로 바뀌면서(2026-10-05)
+                         *  이 값이 없으면 자동기록만 쓰는 기사의 거리가 통째로 0이 된다.
+                         *  자동출근을 띄운 폰이 곧 미터 소유자다. */
+                        .putBoolean("meter_local", true).apply()
+                    // [자동마감 기본값] 미설정일 때만. 기사가 '꺼짐'을 고른 것(work_max_hours_set)은 뒤집지 않는다.
+                    if (!p.getBoolean("work_max_hours_set", false) && p.getInt("work_max_hours", 0) == 0)
+                        p.edit().putInt("work_max_hours", 15).apply()
                     try { com.callradar.app.WorkSegments.open(this, now) } catch (e: Exception) {}   // [v93] 자동출근도 구간을 남긴다
                 }
                 // [v93] ps > 0L(일시정지 → 자동 재개) 분기 삭제.

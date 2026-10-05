@@ -126,15 +126,17 @@ class WorkSessionService : Service() {
                  *
                  *  ★ 자동 보정은 하지 않는다. 막기만 하고, 막았다는 사실을 센다(지시서 8장). */
                 val p0 = prefs()
-                val onDuty = p0.getLong("work_start", 0L) > 0L &&
-                             p0.getLong("work_pause_start", 0L) == 0L &&
-                             p0.getBoolean("meter_local", false)
-                if (!onDuty) {
-                    val blocked = p0.getInt("dist_blocked_count", 0) + 1
-                    val blockedM = p0.getFloat("dist_blocked_m", 0f) + d
-                    p0.edit().putInt("dist_blocked_count", blocked)
-                        .putFloat("dist_blocked_m", blockedM)
+                val offDuty = p0.getLong("work_start", 0L) <= 0L
+                val isPaused = p0.getLong("work_pause_start", 0L) > 0L
+                val notOwner = !p0.getBoolean("meter_local", false)
+                if (offDuty || isPaused || notOwner) {
+                    // 사유를 가른다 — 「퇴근 후에도 쌓였다」와 「다른 폰이 주인이다」는 전혀 다른 문제다.
+                    val reason = if (offDuty) "off" else if (isPaused) "paused" else "notowner"
+                    p0.edit()
+                        .putInt("dist_blocked_" + reason, p0.getInt("dist_blocked_" + reason, 0) + 1)
+                        .putFloat("dist_blocked_m_" + reason, p0.getFloat("dist_blocked_m_" + reason, 0f) + d)
                         .putLong("dist_blocked_last", nowMs).apply()
+                    // ★ work_distance_m 은 여기서 읽지도 쓰지도 않는다. 차단 = 누적값 불변.
                     lastLat = lat; lastLng = lng; lastLocTs = nowMs
                     return
                 }

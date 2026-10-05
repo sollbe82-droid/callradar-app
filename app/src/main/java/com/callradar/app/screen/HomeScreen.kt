@@ -1063,7 +1063,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                     val sessionFare = todayFare.coerceAtLeast(0)
                     // 근무 구간 기준 시간당(정지 제외). 구간이 없거나 실패하면 null → 아래에서 예전 방식 폴백.
                     var segRate by remember(refreshKey) { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
-                    LaunchedEffect(refreshKey, userId, workedMs / 60000L) {   // [호출폭주] 밀리초 키는 1초마다 재실행된다(실측 분당 170회). 분 단위면 화면 값은 같고 호출만 1/60 로 준다.
+                    LaunchedEffect(refreshKey, userId, workedMs / 60000L, active, paused, todayFare) {   // [호출폭주] 밀리초 키는 1초마다 재실행된다(실측 분당 170회). 분 단위면 화면 값은 같고 호출만 1/60 로 준다. 단 출근·퇴근·휴식·재개·금액변경은 분을 기다리지 않고 즉시 갱신해야 하므로 그 키를 같이 건다.
                         segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
                     }
                     // ══════════════════════════════════════════════════════
@@ -1233,7 +1233,7 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                 Row(modifier = Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
                                     val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
                                     val nv = presets[(idx + 1) % presets.size]
-                                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
+                                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).putBoolean("work_max_hours_set", true).apply()
                                     if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
                                 }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Text("🛌 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)

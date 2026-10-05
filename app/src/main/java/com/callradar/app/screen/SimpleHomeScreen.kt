@@ -251,9 +251,13 @@ fun SimpleHomeScreen(
         com.callradar.app.WorkSegments.open(context, t)
         /* [죽은 코드 수정] 자동마감은 work_max_hours > 0 일 때만 걸린다. 그런데 그 값을 켜는 UI 가
          *  클래식 홈에만 있어서(HomeScreen.kt:1236), 간편모드만 쓴 기사는 평생 0 이다.
-         *  → 예약을 넣어도 아무 일이 없었다. 자동기록 경로(NaviIntentReceiver.kt:1015)는 이미
-         *    같은 이유로 기본 15시간을 박고 있다. 간편모드도 같은 값으로 맞춘다. */
-        if (prefs.getInt("work_max_hours", 0) == 0) prefs.edit().putInt("work_max_hours", 15).apply()
+         *  → 예약을 넣어도 아무 일이 없었다.
+         *
+         *  ★ 다만 0 에는 두 가지 뜻이 섞여 있다 — 「한 번도 설정 안 함」과 「기사가 꺼짐을 골랐음」.
+         *    일괄로 15를 박으면 의도적으로 끈 기사의 선택을 뒤집는다(장거리·24시간 운행 기사).
+         *    work_max_hours_set 플래그로 가른다. 설정 UI 를 누르면 그 플래그가 켜진다. */
+        if (!prefs.getBoolean("work_max_hours_set", false) && prefs.getInt("work_max_hours", 0) == 0)
+            prefs.edit().putInt("work_max_hours", 15).apply()
         pushWorkSession(t, 0L, 0L, todayFare); com.callradar.app.Telemetry.log(context, "shift_start", "simple_home"); com.callradar.app.WorkAutoEnd.schedule(context, t, prefs.getInt("work_max_hours", 15)); if (distEnabled) startMeter()
     }
     val doPauseResume = {
@@ -371,7 +375,8 @@ fun SimpleHomeScreen(
      *  같은 계산기를 쓴다(정관: 같은 지표의 가드가 파일마다 다르면 이미 사고가 난 것). */
     var segRate by remember { mutableStateOf<com.callradar.app.WorkRate.Rate?>(null) }
     // 근무시간이 바뀔 때마다 다시 물어본다(분 단위). permTickHome·dayNetMs 는 아래에서 선언되므로 쓸 수 없다.
-    LaunchedEffect(userId, workedMin) {
+    // [즉시 갱신] 분 단위 폴링이지만 출근·퇴근·휴식·재개·금액변경은 분을 기다리지 않는다.
+    LaunchedEffect(userId, workedMin, active, paused, todayFare) {
         segRate = com.callradar.app.WorkRate.ofSegments(context, userId)
     }
     val hoursForRate = segRate?.hours ?: maxOf(workedHours, todayActiveHours.toDouble())
@@ -645,7 +650,7 @@ fun SimpleHomeScreen(
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).background(AppTheme.surface2, RoundedCornerShape(10.dp)).clickable {
                     val idx = presets.indexOf(maxHours).let { if (it < 0) 0 else it }
                     val nv = presets[(idx + 1) % presets.size]
-                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).apply()
+                    maxHours = nv; prefs.edit().putInt("work_max_hours", nv).putBoolean("work_max_hours_set", true).apply()
                     if (active) { if (nv > 0) com.callradar.app.WorkAutoEnd.schedule(context, workStart, nv) else com.callradar.app.WorkAutoEnd.cancel(context) }
                 }.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("\uD83D\uDECC 근무시간 자동마감(깜빡 방지)", fontSize = 12.sp, color = muted)
