@@ -129,28 +129,65 @@ class NaviIntentReceiver : AccessibilityService() {
     private var originLng = 0.0
     private val TRIGGER_COOLDOWN = 1000L
     private val CLICK_SUPPRESS_WINDOW = 2000L
+    /** 목적지 갱신 타이머를 끊는 운행 시간 상한. 이걸 넘기면 완료 감지를 못 한 운행이다. */
+    private val DEST_UPDATE_MAX_MS = 4L * 60 * 60 * 1000
+    /** 직전에 보낸 좌표에서 이만큼은 움직여야 다시 보낸다. 주차된 차의 반복 전송을 막는다. */
+    private val DEST_UPDATE_MIN_MOVE_M = 150.0
+    @Volatile private var lastDestPutLat = 0.0
+    @Volatile private var lastDestPutLng = 0.0
 
-    // 목적지 자동 갱신 타이머
+    /* 목적지 자동 갱신 타이머
+     *
+     * ★★ [재시도 폭주] 2026-10-06 실측으로 찾은 결함. 예전 조건은 `lastTripId > 0` 하나였고
+     *   거기서 끝없이 스스로 재예약했다. 완료가 감지되지 않은 트립(=미완성 트립)은
+     *   lastTripId 가 영원히 양수로 남으므로, 이 타이머가 **한 교대 내내 30초마다 PUT** 했다.
+     *
+     *   운영 계측(/api/health/anomalies token_blocked, 44.1시간):
+     *     PUT /api/trips/38553  938회  = 938 x 30초 = 7.8시간
+     *     PUT /api/trips/38178  793회  = 6.6시간
+     *     PUT /api/trips/38190  750회  = 6.25시간
+     *     PUT /api/trips/37430  728회  = 6.1시간
+     *   트립 4개가 44시간에 3,209 요청을 만들었다. 0.1 CPU 서버가 이걸 받고 있었고,
+     *   느려서 재시도하고 재시도해서 느려지는 쪽으로 서로를 밀고 있었다
+     *   (/api/trips/manual p95 4.5초, /api/return-outlook p50 4.4초).
+     *
+     *   그물 두 개를 건다:
+     *     ① 시간 상한 — 한 운행이 4시간을 넘으면 타이머를 끊는다. 플로팅 쪽은 이미
+     *        3시간을 '비정상 장시간 = 깜빡 잊고 안 끔'으로 보고 기록을 버린다. 여기선
+     *        기록은 살리되(도착지는 마지막 갱신값으로 남는다) 갱신만 멈춘다.
+     *     ② 안 움직였으면 안 보낸다 — 직전에 보낸 좌표에서 150m 이내면 건너뛴다.
+     *        주차해 둔 차가 같은 좌표를 30초마다 다시 보내는 것이 대부분이었다.
+     *   ★ ①에 걸려 멈추는 것은 '정상 완료'가 아니다. 그래서 끊을 때 로그를 남긴다 -
+     *     이 줄이 자주 보이면 완료 감지 쪽을 봐야 한다는 신호다. */
     private val destUpdateHandler = Handler(Looper.getMainLooper())
     private val destUpdateRunnable = object : Runnable {
         override fun run() {
-            if (lastTripId > 0 && tripStartedAt > 0) {
-                val lat = LocationTrackingService.currentLat
-                val lng = LocationTrackingService.currentLng
-                if (lat != 0.0 || lng != 0.0) {
-                    val dist = distanceMeters(originLat, originLng, lat, lng)
-                    if (dist > 300) {
-                        Log.d(TAG, "⏱️ 타이머 목적지 갱신 (출발지에서 ${dist.toInt()}m)")
-                        refreshTripDestination(lastTripId, lat, lng)
-                    }
-                }
-                destUpdateHandler.postDelayed(this, DEST_UPDATE_INTERVAL)
+            if (lastTripId <= 0 || tripStartedAt <= 0) return
+            val ran = System.currentTimeMillis() - tripStartedAt
+            if (ran > DEST_UPDATE_MAX_MS) {
+                Log.w(TAG, "⏱️ 목적지 갱신 타이머 상한 도달 (#$lastTripId, ${ran / 60000}분) — 중지. 완료 감지를 못 한 운행이다")
+                sendDebugLog("DEST_TIMER_CAP", "#$lastTripId | ${ran / 60000}분 | 완료 미감지로 갱신 중단")
+                return   // 재예약하지 않는다
             }
+            val lat = LocationTrackingService.currentLat
+            val lng = LocationTrackingService.currentLng
+            if (lat != 0.0 || lng != 0.0) {
+                val dist = distanceMeters(originLat, originLng, lat, lng)
+                val moved = if (lastDestPutLat == 0.0 && lastDestPutLng == 0.0) Double.MAX_VALUE
+                            else distanceMeters(lastDestPutLat, lastDestPutLng, lat, lng)
+                if (dist > 300 && moved >= DEST_UPDATE_MIN_MOVE_M) {
+                    Log.d(TAG, "⏱️ 타이머 목적지 갱신 (출발지에서 ${dist.toInt()}m, 직전전송에서 ${if (moved == Double.MAX_VALUE) 0 else moved.toInt()}m)")
+                    lastDestPutLat = lat; lastDestPutLng = lng
+                    refreshTripDestination(lastTripId, lat, lng)
+                }
+            }
+            destUpdateHandler.postDelayed(this, DEST_UPDATE_INTERVAL)
         }
     }
 
     private fun startDestUpdateTimer() {
         destUpdateHandler.removeCallbacks(destUpdateRunnable)
+        lastDestPutLat = 0.0; lastDestPutLng = 0.0   // 새 운행 — 직전전송 위치를 비운다(첫 갱신은 거리조건 없이 통과)
         destUpdateHandler.postDelayed(destUpdateRunnable, DEST_UPDATE_INTERVAL)
         Log.d(TAG, "⏱️ 목적지 갱신 타이머 시작 (${DEST_UPDATE_INTERVAL/1000}초 간격)")
     }
