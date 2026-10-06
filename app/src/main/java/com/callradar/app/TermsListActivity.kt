@@ -34,7 +34,7 @@ import com.callradar.app.ui.theme.CallRadarTheme
 class TermsListActivity : ComponentActivity() {
 
     companion object {
-        private val SERVER_URL = com.callradar.app.Endpoint.base
+        private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
         fun start(ctx: Context) {
             ctx.startActivity(Intent(ctx, TermsListActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

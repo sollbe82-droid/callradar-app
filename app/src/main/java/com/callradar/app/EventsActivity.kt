@@ -33,7 +33,7 @@ import java.net.URL
 
 class EventsActivity : ComponentActivity() {
     companion object {
-        private val SERVER_URL = com.callradar.app.Endpoint.base
+        private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
         fun start(context: Context) {
             context.startActivity(Intent(context, EventsActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         }

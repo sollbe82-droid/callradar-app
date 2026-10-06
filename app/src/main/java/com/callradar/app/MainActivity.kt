@@ -57,7 +57,7 @@ import java.util.*
 
 class MainActivity : ComponentActivity() {
 
-    private val SERVER_URL = Config.SERVER_URL
+    private val SERVER_URL: String get() = Config.SERVER_URL
     @Volatile private var backupRestored = false   // BackupSync.restore 완료 여부(완료 후에만 서버 백업 push → 부분데이터 덮어쓰기 방지)
     private val PREFS_NAME = "callradar_prefs"
     private val KEY_USER_ID = "user_id"

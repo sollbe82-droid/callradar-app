@@ -35,7 +35,7 @@ import java.net.URL
 //   촬영/갤러리 → ML Kit OCR → 포맷 전용 파서 → 서버 /api/receipt/reconcile → 요약 → 반영.
 class ReceiptReconcileActivity : ComponentActivity() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
     private val recognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
 
     private var status by mutableStateOf("미터기 '당일상세거래내역' 영수증을 촬영하세요")

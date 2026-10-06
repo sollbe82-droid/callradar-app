@@ -34,7 +34,7 @@ import java.net.URL
  */
 class ConsentActivity : ComponentActivity() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
 
     companion object {
         const val CONSENT_VERSION = "2026-08-15"   // 약관/처리방침 개정일. 바뀌면 재동의 유도.

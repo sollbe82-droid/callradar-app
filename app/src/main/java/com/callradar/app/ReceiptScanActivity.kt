@@ -35,7 +35,7 @@ import java.net.URL
 
 class ReceiptScanActivity : ComponentActivity() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
     private val ocrService = ReceiptOcrService()
     private var scanResult by mutableStateOf<ReceiptOcrService.ReceiptResult?>(null)
     private var isProcessing by mutableStateOf(false)

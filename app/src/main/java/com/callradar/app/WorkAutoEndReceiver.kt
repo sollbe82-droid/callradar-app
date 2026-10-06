@@ -17,7 +17,7 @@ import java.net.URL
 //  로컬 세션 초기화 + 이어가기 스냅샷 저장 + 서버 세션 0으로 push + 거리미터 중지 + 알림.
 class WorkAutoEndReceiver : BroadcastReceiver() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
 
     companion object {
         /** 운행 중 마감을 미루는 간격. */
@@ -104,7 +104,19 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
             val log = try { JSONArray(prefs.getString("work_session_log", "[]")) } catch (e: Exception) { JSONArray() }
             log.put(JSONObject().apply {
                 put("end", now); put("grossMin", grossMin); put("netMin", netMin)
-                put("distKm", distKm.toDouble()); put("fare", 0); put("perHour", 0); put("autoEnded", true)
+                put("distKm", distKm.toDouble())
+                /* ★ [0원 vs 미상] 2026-10-05
+                 *  예전엔 fare 0 / perHour 0 을 적었다. 그건 '0원 벌었다' 는 뜻이 되고,
+                 *  실측에서 근무세션 1,000건 중 112건이 그렇게 매출 0원으로 남아 시간당 통계를
+                 *  통째로 끌어내렸다. 자동마감은 **그 세션의 매출을 모른다** — 기사가 퇴근을
+                 *  안 눌러서 세션 구간 매출을 집계할 기준이 없다.
+                 *  그래서 숫자를 적지 않고 '모른다' 를 적는다. 읽는 쪽(HomeScreen 지난 근무 기록)은
+                 *  fareUnknown 을 보고 '매출 미상' 으로 표시한다 — 0원이라고 말하지 않는다. */
+                put("fareUnknown", true)
+                put("fareUnknownReason", "auto_ended_no_shift_end")
+                // 운행 중 마감이었으면 그 사실도 남긴다(그 콜의 매출·거리가 세션 밖으로 떨어진다)
+                if (prefs.getBoolean("autoend_closed_mid_trip", false)) put("closedMidTrip", true)
+                put("autoEnded", true)
             })
             val trimmed = if (log.length() > 90) JSONArray().also { for (i in log.length() - 90 until log.length()) it.put(log.get(i)) } else log
             prefs.edit().putString("work_session_log", trimmed.toString()).apply()

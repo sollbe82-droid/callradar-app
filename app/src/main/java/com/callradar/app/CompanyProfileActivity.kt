@@ -38,7 +38,7 @@ import java.util.*
  */
 class CompanyProfileActivity : ComponentActivity() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
 
     // 서버에서 불러온 실측치
     private var monthFare by mutableStateOf(0)

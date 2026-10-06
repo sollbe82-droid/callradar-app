@@ -50,7 +50,7 @@ class NaviIntentReceiver : AccessibilityService() {
             KAKAO_TAXI to "카카오T", UBER to "우버",
             TMONEYGO to "티머니고", TMONEYGO_NAVI to "티머니고"
         )
-        private val SERVER_URL = com.callradar.app.Endpoint.base
+        private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
         private val FARE_PATTERNS = listOf(
             Regex("결제\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
             Regex("미터기\\s*요금\\s*[：:]?\\s*([0-9,]+)"),
@@ -763,7 +763,26 @@ class NaviIntentReceiver : AccessibilityService() {
                 val startedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA).format(now)
 
                 val db = LocalTripDatabase.getInstance(this)
-                val localId = db.savePending(userId, lastPlatform, oName, oName, lat, lng, lat, lng, startedAt)
+                /* ★ [멱등키 누락] 2026-10-06 실측으로 찾은 결함. 여기 savePending 호출이
+                 *  client_uuid 인자를 안 넘기고 있었다(savePending 의 기본값 null).
+                 *
+                 *  무슨 일이 벌어졌나:
+                 *   ① 이 줄이 '출발=도착, 좌표 동일' placeholder 행을 pending 으로 남긴다(정상 — 도착지·요금은
+                 *      운행이 끝나면 PUT /api/trips/{id} 가 채운다).
+                 *   ② 바로 아래 POST /api/trips 가 실패하면(콜드스타트·토큰·네트워크) markSynced 가 안 돌아
+                 *      이 행이 pending 으로 영구 잔류한다.
+                 *   ③ LocalTripDatabase.syncPendingTrips 가 그 행을 /api/trips/manual 로 보낸다.
+                 *   ④ client_uuid 가 NULL 이라 서버의 ON CONFLICT (user_id, client_uuid) 멱등이 발동하지
+                 *      못한다 → sync 가 돌 때마다 같은 행이 **새 트립으로 또** 들어간다.
+                 *
+                 *  실측 피해: 기사 #1097 이 3일간 456건 중 445건(97.6%)을 이 경로로 만들었고,
+                 *  그대로 전체 기사 랭킹 1위(week_trips 454)에 올라가 있었다.
+                 *  "같은 분에 11건"은 배차 11번이 아니라 **sync 11번**이었다.
+                 *
+                 *  여기서 키를 넘기면 ④가 막힌다. ②③ 자체는 설계된 오프라인 큐라 그대로 둔다 —
+                 *  운행 기록을 잃지 않는 쪽이 맞고, 키가 있으면 몇 번 재전송돼도 한 행이다. */
+                val cuid = java.util.UUID.randomUUID().toString()
+                val localId = db.savePending(userId, lastPlatform, oName, oName, lat, lng, lat, lng, startedAt, cuid)
                 lastLocalTripId = localId
 
                 try {

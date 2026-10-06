@@ -22,7 +22,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private val SERVER_URL = Config.SERVER_URL
+private val SERVER_URL: String get() = Config.SERVER_URL
 
 // [v95][유저지시] 계정 고유번호(users.id)를 닉네임 앞에 노출한다.
 //  서버는 예전부터 id 를 내려주고 있었는데 앱이 파싱에서 버리고 있었다.

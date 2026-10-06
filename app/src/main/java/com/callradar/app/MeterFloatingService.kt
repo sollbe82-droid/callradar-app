@@ -41,7 +41,7 @@ class MeterFloatingService : Service() {
         fun stop(ctx: Context) { ctx.stopService(Intent(ctx, MeterFloatingService::class.java)) }
     }
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
     private lateinit var wm: WindowManager
     private var view: TextView? = null
     private lateinit var fused: FusedLocationProviderClient

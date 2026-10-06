@@ -90,6 +90,8 @@ fun SimpleHomeScreen(
     var workDist by remember { mutableStateOf(prefs.getFloat("work_distance_m", 0f)) }
     var lastLocalChange by remember { mutableStateOf(0L) }
     var todayFare by remember { mutableStateOf(0) }
+    // [완전성 표시] 오늘 금액이 안 잡힌 운행 수. 이 숫자가 0 이 아니면 매출을 '확정' 으로 보여주지 않는다.
+    var todayNoFare by remember { mutableStateOf(prefs.getInt("cache_today_nofare", 0)) }
     // [2026-08-28] 시간당 매출의 분모(서버 /api/today activeHours)
     var todayActiveHours by remember { mutableStateOf(0) }
     var supplyInfo by remember { mutableStateOf<Pair<String, String>?>(null) }   // [귀로내비] (라벨, 부제)
@@ -148,7 +150,18 @@ fun SimpleHomeScreen(
                     }
                     todayFare = o.optInt("todayFare", 0)
                     todayActiveHours = o.optInt("activeHours", 0)
-                    try { prefs.edit().putInt("cache_today_fare", todayFare).putLong("cache_today_day", dayKeyNow).apply() } catch (e: Exception) {}
+                    /* ★ [완전성 표시] 2026-10-05
+                     *  서버는 금액이 안 잡힌 운행 수를 noFareCount 로 내려준다. Classic 홈은 그걸로
+                     *  배너를 띄우는데(HomeScreen:973, :1542) 간편홈은 안 읽고 있었다.
+                     *  간편홈이 신규 기사 기본 홈이라, 실제로 영향을 받은 기사 29명 중 간편홈
+                     *  사용자는 자기 매출에서 빠진 건이 있다는 것을 **한 번도 못 봤다**.
+                     *  (내 계정도 10/1 에 1건이 빠졌는데 화면은 245,200원을 정상처럼 보여줬다.)
+                     *
+                     *  주의: 서버의 noFareCount 는 COALESCE(fare,0)=0 이라 **'실제 0원' 과
+                     *  '금액 미정' 을 같이 센다.** 그래서 문구를 '0원' 이라고 단정하지 않고
+                     *  '금액이 안 잡힌' 으로 쓴다. 둘을 나누는 것은 서버 변경(S6)이라 승인 대기다. */
+                    todayNoFare = o.optInt("noFareCount", 0)
+                    try { prefs.edit().putInt("cache_today_fare", todayFare).putInt("cache_today_nofare", todayNoFare).putLong("cache_today_day", dayKeyNow).apply() } catch (e: Exception) {}
                 } catch (e: Exception) {}
             }
             delay(30000)
@@ -725,7 +738,20 @@ fun SimpleHomeScreen(
                 Text(if (!active) "근무 시작 전" else if (paused) "근무 일시정지" else "근무 중 · ${hh}시간 ${mm}분", fontSize = 12.sp, color = if (active && !paused) green else muted)
                 Spacer(Modifier.height(8.dp))
                 Text("${String.format("%,d", todayFare)}원", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = if (todayFare > 0) green else muted)
-                Text("오늘 매출", fontSize = 11.sp, color = muted)
+                /* ★ [완전성 표시] 금액이 안 잡힌 운행이 있으면 '오늘 매출' 이라고만 쓰지 않는다.
+                 *  이 숫자는 **기록된 매출**이고, 빠진 건이 있으면 실제보다 작다.
+                 *  탭하면 기록 화면으로 보내 금액을 채우게 한다 — 보여주고 끝내면 또 묻히기 때문이다. */
+                if (todayNoFare > 0) {
+                    Text("기록된 매출 · 금액 미반영 ${todayNoFare}건", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
+                    Text(
+                        "탭해서 금액 넣기",
+                        fontSize = 11.sp, color = accent,
+                        // openCard 의 else 분기가 route = id 로 가고, MainActivity 에 "records" 라우트가 있다.
+                        modifier = Modifier.clickable { onOpenCard("records") }
+                    )
+                } else {
+                    Text("오늘 매출", fontSize = 11.sp, color = muted)
+                }
                 if (active) {
                     Spacer(Modifier.height(6.dp))
                     Text((if (perHour >= 0) "시간당 ${String.format("%,d", perHour)}원" else "시간당 1시간 후") + (if (distEnabled) " · ${String.format("%.1f", distKm)}km" else ""), fontSize = 12.sp, color = muted)

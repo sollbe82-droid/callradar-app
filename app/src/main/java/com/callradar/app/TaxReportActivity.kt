@@ -33,7 +33,7 @@ import java.util.*
  */
 class TaxReportActivity : ComponentActivity() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
     private var report by mutableStateOf<JSONObject?>(null)
     private var loading by mutableStateOf(true)
     private var errorMsg by mutableStateOf("")

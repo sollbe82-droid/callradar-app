@@ -13,7 +13,13 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
 
     companion object {
         private const val TAG = "CallRadar"
-        private val SERVER_URL = com.callradar.app.Endpoint.base
+        /** 한 번의 syncPendingTrips 에서 재전송할 최대 건수. 나머지는 다음 sync 가 이어받는다. */
+        private const val SYNC_BATCH = 20
+        /** 재전송 간격(ms) — 직렬 전송 사이 숨. 0.1 CPU 서버를 몰아치지 않기 위한 값. */
+        private const val SYNC_GAP_MS = 300L
+        /** syncPendingTrips 가 지금 돌고 있는가. 중복 기동을 막는다(앱이 여러 화면에서 호출한다). */
+        @Volatile private var syncRunning = false
+        private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
 
         // [v31 fix-B] createTrip이 직접 전송 중인 localId — syncPendingTrips가 중복 전송하지 않도록.
         val handlingLocalIds = java.util.Collections.synchronizedSet(mutableSetOf<Long>())
@@ -176,12 +182,17 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
         }
     }
 
-    // pending 항목 전체 가져오기
+    // pending 항목 가져오기 (오래된 것부터, 한 번에 SYNC_BATCH 개까지)
+    //
+    // ★ [배치 상한] 2026-10-06 신설. 예전엔 limit 이 없어 대기 행 **전체**를 한 번에 돌려줬고,
+    //   syncPendingTrips 가 그 전부를 각각 Thread 로 띄워 동시에 날렸다. 밀린 행이 수백 개면
+    //   0.1 CPU / 256MB 인스턴스에 수백 요청이 한꺼번에 들어간다(실측: /api/trips/manual p95 4.5초).
+    //   한 번에 20개씩만 집어가고 다음 sync 가 이어받는다 — 큐는 어차피 앱을 열 때마다 돈다.
     fun getPendingTrips(): List<Map<String, Any?>> {
         val result = mutableListOf<Map<String, Any?>>()
         val cursor = readableDatabase.query(
             "local_trips", null, "status=?", arrayOf("pending"),
-            null, null, "created_at ASC"
+            null, null, "created_at ASC", SYNC_BATCH.toString()
         )
         cursor.use {
             while (it.moveToNext()) {
@@ -199,16 +210,31 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
         return result
     }
 
-    // pending 항목 서버로 재전송
+    /* pending 항목 서버로 재전송
+     *
+     * ★ [직렬화] 2026-10-06. 예전 구조는 `pending.forEach { Thread { ... }.start() }` 였다 —
+     *   대기 행 하나당 스레드 하나를 띄워 **전부 동시에** 날렸다. 밀린 행이 수백 개면
+     *   0.1 CPU 서버에 수백 요청이 한꺼번에 꽂힌다. 실측된 결과가 두 가지다:
+     *     · "같은 분에 11건" — 유령 운행의 그 모양. 배차 11번이 아니라 이 동시 전송이었다.
+     *     · /api/trips/manual p95 4,481ms, 628건 중 260건이 2초 초과.
+     *   이제 스레드 **하나**에서 순서대로 보내고 사이에 SYNC_GAP_MS 쉰다. 느려 보이지만
+     *   큐는 앱을 열 때마다 돌고, 한 번에 SYNC_BATCH(20)개만 집어간다.
+     *
+     * ★ [중복 기동 방지] syncRunning 으로 막는다. 앱의 여러 화면이 이걸 부르는데, 예전엔
+     *   두 호출이 같은 pending 행 집합을 각각 전송할 수 있었다. */
     fun syncPendingTrips(context: Context) {
+        if (syncRunning) { Log.d(TAG, "재전송 이미 진행 중 — 건너뜀"); return }
         val pending = getPendingTrips()
         if (pending.isEmpty()) return
-        Log.d(TAG, "재전송 대기 항목: ${pending.size}건")
-        pending.forEach { trip ->
-            val localId = (trip["id"] as? Long) ?: return@forEach
-            // [fix-B] createTrip이 지금 이 행을 직접 전송 중이면 건너뜀(중복 방지)
-            if (handlingLocalIds.contains(localId)) return@forEach
-            Thread {
+        syncRunning = true
+        Log.d(TAG, "재전송 대기 항목: ${pending.size}건 (배치 상한 $SYNC_BATCH)")
+        Thread {
+          try {
+            for (trip in pending) {
+                val localId = (trip["id"] as? Long) ?: continue
+                // [fix-B] createTrip이 지금 이 행을 직접 전송 중이면 건너뜀(중복 방지)
+                if (handlingLocalIds.contains(localId)) continue
+                try { Thread.sleep(SYNC_GAP_MS) } catch (e: InterruptedException) {}
                 try {
                     // [fix-A] createTrip과 동일한 /api/trips/manual + 동일 필드(fare·started_at 보존).
                     //  기존 /api/trips는 fare를 무시하고 started_at을 안 넣어 트립이 통계에서 사라졌음.
@@ -244,8 +270,9 @@ class LocalTripDatabase(context: Context) : SQLiteOpenHelper(context, "callradar
                 } catch (e: Exception) {
                     Log.e(TAG, "재전송 실패: local #$localId - ${e.message}")
                 }
-            }.start()
-        }
+            }
+          } finally { syncRunning = false }   // 중간에 던져도 반드시 풀어준다 — 안 풀면 재전송이 영구 정지한다
+        }.start()
     }
 
     // ===== [지출 오프라인 큐] 운행과 동일 패턴: 로컬 우선 저장 → 온라인 시 재전송 =====

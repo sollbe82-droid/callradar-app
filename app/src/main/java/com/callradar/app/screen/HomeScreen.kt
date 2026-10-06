@@ -39,7 +39,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val SERVER_URL = Config.SERVER_URL
+private val SERVER_URL: String get() = Config.SERVER_URL
 
 // [v24] 자가치유 GET — 토큰이 stale/불일치라 403/401 나면 토큰 비우고 무토큰으로 1회 재시도.
 //  (특정 유저가 '서버 연결 실패' 지속되던 문제: 페어링/계정전환 후 남은 토큰↔user_id 불일치 → 403)
@@ -1010,15 +1010,27 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                         val o = logArr.optJSONObject(i) ?: continue
                                         val endMs = o.optLong("end", 0L)
                                         val nmP = o.optLong("netMin", 0L); val nhP = nmP / 60; val nmmP = nmP % 60
+                                        /* [0원 vs 미상] optInt(…,0) 으로 읽으면 '모른다' 가 다시 0원이 된다.
+                                         *  자동마감 세션은 fareUnknown=true 로 적히므로(WorkAutoEndReceiver)
+                                         *  그걸 먼저 보고, 금액 자리에는 숫자를 쓰지 않는다. */
+                                        val fareUnknownP = o.optBoolean("fareUnknown", false) || !o.has("fare")
                                         val fareP = o.optInt("fare", 0)
                                         val phP = o.optInt("perHour", 0)
+                                        val midTripP = o.optBoolean("closedMidTrip", false)
                                         val dkP = o.optDouble("distKm", 0.0)
                                         val dateP = if (endMs > 0) fmtP.format(java.util.Date(endMs)) else "-"
                                         Column(Modifier.fillMaxWidth().background(AppTheme.surface2, RoundedCornerShape(10.dp)).padding(12.dp)) {
                                             Text(dateP, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.text)
                                             Text("근무 ${nhP}시간 ${nmmP}분 · ${String.format("%.1f", dkP)}km", fontSize = 12.sp, color = muted)
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                                Text("매출 ${String.format("%,d", fareP)}원 · 시간당 ${String.format("%,d", phP)}원", fontSize = 12.sp, color = green)
+                                                if (fareUnknownP) Column {
+                                                    Text("매출 미상 · 자동 마감", fontSize = 12.sp, color = muted)
+                                                    Text(
+                                                        if (midTripP) "운행 중 마감돼 그 콜의 매출·거리가 빠졌어요"
+                                                        else "퇴근을 안 눌러 세션 매출을 집계하지 못했어요",
+                                                        fontSize = 11.sp, color = muted
+                                                    )
+                                                } else Text("매출 ${String.format("%,d", fareP)}원 · 시간당 ${String.format("%,d", phP)}원", fontSize = 12.sp, color = green)
                                                 TextButton(onClick = {
                                                     val dashP = "─".repeat(22)
                                                     val txtP = buildString {
@@ -1026,8 +1038,12 @@ fun HomeScreen(nickname: String, userId: String, refreshKey: Int, onLogout: () -
                                                         append("날짜   $dateP\n")
                                                         append("근무   ${nhP}시간 ${nmmP}분\n")
                                                         append("거리   ${String.format("%.1f", dkP)} km\n")
-                                                        append("매출   ${String.format("%,d", fareP)}원\n")
-                                                        append("시간당 ${String.format("%,d", phP)}원\n")
+                                                        // 영수증에도 0원을 쓰지 않는다 — 공유된 숫자가 남의 손에 가서 사실이 된다.
+                                                        if (fareUnknownP) append("매출   미상 (자동 마감)\n")
+                                                        else {
+                                                            append("매출   ${String.format("%,d", fareP)}원\n")
+                                                            append("시간당 ${String.format("%,d", phP)}원\n")
+                                                        }
                                                         append("$dashP\n수고하셨습니다!")
                                                     }
                                                     try { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txtP) }, "영수증 공유")) } catch (e: Exception) {}

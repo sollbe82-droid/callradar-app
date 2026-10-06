@@ -36,7 +36,7 @@ import kotlin.concurrent.thread
 
 class FloatingTripService : Service() {
 
-    private val SERVER_URL = com.callradar.app.Endpoint.base
+    private val SERVER_URL: String get() = com.callradar.app.Endpoint.base
     private lateinit var windowManager: WindowManager
     private var floatingView: TextView? = null
     // [v91] 캡처 전용 버튼 — 카카오T·우버 화면 위에서 콜을 찍으려면 앱 밖에 떠 있어야 한다.
