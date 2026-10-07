@@ -37,9 +37,42 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
         if (maxHours <= 0) return                         // 기능 꺼짐
         val now = System.currentTimeMillis()
         val thresholdMs = maxHours.toLong() * 3600_000L
-        // 조기/스테일 발화 방어: 아직 임계 미달이면 남은 시간만큼 재예약 후 종료.
-        if (now - workStart < thresholdMs - 60_000L) {
-            WorkAutoEnd.schedule(context, workStart, maxHours)
+
+        /* ★★ [일시정지 반영] 2026-10-07 실운행에서 잡힌 결함.
+         *  예전 판정: now - workStart < thresholdMs  ← 벽시계. 쉰 시간을 근무로 셌다.
+         *  실측(영진, 10-07): 07:13 출근 / 16:08~19:10 정지(3시간 2분) / 00:49 까지 운행.
+         *  22:13 에 15시간이 걸렸지만 그때 실근무는 11시간 58분이었다. 유예로 22:46 에
+         *  마감돼 **일하는 중에 퇴근 처리**됐고, 52초 뒤 새 콜이 세션을 쪼갰다.
+         *  이제 정지 누적을 빼고 센다 — 'maxHours 만큼 실제로 일했는가' 를 본다. */
+        val pausedTotal = prefs.getLong("work_paused_total", 0L).coerceAtLeast(0L)
+        val pauseStart = prefs.getLong("work_pause_start", 0L)
+
+        /* ★ 지금 일시정지 중이면 마감하지 않는다.
+         *  쉬는 중에 끊으면 '휴식' 이 '퇴근' 이 된다. 기사는 돌아와서 자기가 퇴근된 걸 본다.
+         *  재개하면 WorkResume 이 늘어난 정지 누적으로 다시 예약하므로, 여기서는 미루면 된다.
+         *  ★ 정지한 채 잊어버린 세션도 영구히 열려 있으면 안 되므로 유예 상한(MAX_DEFER)을
+         *    같이 적용한다. 상한을 넘으면 마감한다 — 그게 이 기능의 원래 목적이다. */
+        if (pauseStart > 0L) {
+            val deferWs = prefs.getLong("autoend_defer_ws", 0L)
+            if (deferWs != workStart) {
+                prefs.edit().putLong("autoend_defer_ws", workStart).putInt("autoend_deferred", 0).apply()
+            }
+            val deferred = prefs.getInt("autoend_deferred", 0)
+            if (deferred < MAX_DEFER) {
+                prefs.edit()
+                    .putInt("autoend_deferred", deferred + 1)
+                    .putLong("autoend_deferred_at", now)
+                    .putString("autoend_defer_reason", "paused")
+                    .apply()
+                WorkAutoEnd.scheduleAt(context, now + DEFER_MS)
+                return
+            }
+        }
+
+        // 조기/스테일 발화 방어: 실근무가 아직 임계 미달이면 남은 시간만큼 재예약 후 종료.
+        val workedMs = now - workStart - pausedTotal - (if (pauseStart > 0L) now - pauseStart else 0L)
+        if (workedMs < thresholdMs - 60_000L) {
+            WorkAutoEnd.schedule(context, workStart, maxHours, pausedTotal)
             return
         }
 
@@ -91,10 +124,9 @@ class WorkAutoEndReceiver : BroadcastReceiver() {
         // 마감이 실제로 일어나므로 유예 카운터를 리셋한다(다음 세션에 이월되면 안 된다).
         prefs.edit().remove("autoend_deferred").remove("autoend_defer_reason").apply()
 
-        val pausedTotal = prefs.getLong("work_paused_total", 0L)
-        val pauseStart = prefs.getLong("work_pause_start", 0L)
+        // pausedTotal / pauseStart 는 위 임계 판정에서 이미 읽었다(일시정지 반영). 재선언하지 않는다.
         val grossMs = (now - workStart).coerceAtLeast(0L)
-        val netMs = (grossMs - pausedTotal - (if (pauseStart > 0L) now - pauseStart else 0L)).coerceAtLeast(0L)
+        val netMs = workedMs.coerceAtLeast(0L)   // = gross - 정지누적 - 진행중 정지분. 위 판정과 같은 값을 쓴다.
         val distKm = prefs.getFloat("work_distance_m", 0f) / 1000f
         val grossMin = grossMs / 60000L
         val netMin = netMs / 60000L

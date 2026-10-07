@@ -88,6 +88,27 @@ object WorkResume {
             // [핵심] 재개 구간을 연다. 이게 없어서 재개분이 타임라인에 안 남았다.
             try { WorkSegments.open(ctx, now) } catch (e: Exception) {}
 
+            /* ★★ [자동마감 재예약] 2026-10-07 실운행에서 잡힌 결함.
+             *  이 함수는 WorkAutoEnd 를 **한 번도 부르지 않았다**(전수 확인). 그래서 일시정지를
+             *  풀어도 자동마감 알람이 옛 시각에 그대로 남았다. 알람 시각은 workStart 기준
+             *  벽시계였으니, 쉰 시간이 전부 근무로 계산돼 일찍 터졌다.
+             *
+             *  실측(영진, 10-07): 07:13 출근 → 16:08 정지 → 19:10 재개 → 00:49 까지 운행.
+             *  정지 3시간 2분. 15시간 알람은 22:13 에 걸렸고 그때 실근무는 11시간 58분이었다.
+             *  운행 중 유예로 22:46 에 마감돼 **일하는 중에 퇴근 처리**됐고, 52초 뒤 새 콜이
+             *  자동출근을 띄워 세션이 67분 조각으로 쪼개졌다.
+             *
+             *  여기서 newPt(늘어난 정지 누적)로 다시 예약하면 쉰 만큼 뒤로 밀린다.
+             *  멱등하다 — 발화시각이 workStart + pausedTotal + maxHours 로만 정해지므로
+             *  재개가 여러 번 일어나도 '실근무 maxHours' 라는 기준은 변하지 않는다.
+             *
+             *  maxHours<=0(기사가 자동마감을 끈 상태)이면 schedule 이 cancel 로 빠진다 —
+             *  여기서 15시간을 강제로 되살리지 않는다. */
+            try {
+                val mh = p.getInt("work_max_hours", 0)
+                com.callradar.app.WorkAutoEnd.schedule(ctx, ws, mh, newPt)
+            } catch (e: Exception) {}
+
             // 전이 후 값을 다시 읽어 보존 여부를 기록한다. 이 함수는 둘 중 어느 것도 쓰지 않으므로
             // 정상이면 before == after 다. 어긋나면 다른 경로가 같은 창에서 끼어든 것이다.
             val ownerAfter = p.getBoolean("meter_local", false)

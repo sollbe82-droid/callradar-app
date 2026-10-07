@@ -526,7 +526,7 @@ class FloatingTripService : Service() {
              *  (재부팅으로 알람이 날아간 세션을 원래 시각으로 되살리는 효과도 같은 식으로 얻는다.)
              *  maxHours<=0(기사가 끈 상태)이면 schedule 이 cancel 로 빠진다 — 15시간을 강제하지 않는다. */
             if (pushWs > 0L) {
-                try { com.callradar.app.WorkAutoEnd.schedule(this, pushWs, p.getInt("work_max_hours", 0)) } catch (e: Exception) {}
+                try { com.callradar.app.WorkAutoEnd.schedule(this, pushWs, p.getInt("work_max_hours", 0), pushPt) } catch (e: Exception) {}
             }
             val uid = userId()
             if (uid.isNotEmpty()) {

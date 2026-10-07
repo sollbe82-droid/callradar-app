@@ -1095,7 +1095,8 @@ class NaviIntentReceiver : AccessibilityService() {
                 else -> return  // 이미 근무중
             }
             try { startForegroundService(Intent(this, WorkSessionService::class.java)) } catch (e: Exception) {}
-            try { com.callradar.app.WorkAutoEnd.schedule(this, pushWs, p.getInt("work_max_hours", 15)) } catch (e: Exception) {}
+            // [일시정지 반영] 쉰 시간은 근무가 아니다 — pushPt 를 넘겨 그만큼 마감을 뒤로 민다.
+            try { com.callradar.app.WorkAutoEnd.schedule(this, pushWs, p.getInt("work_max_hours", 15), pushPt) } catch (e: Exception) {}
             val userId = p.getString("user_id", null) ?: return
             val sf = p.getInt("work_start_fare", 0)
             val fWs = pushWs; val fPt = pushPt; val fPs = pushPs

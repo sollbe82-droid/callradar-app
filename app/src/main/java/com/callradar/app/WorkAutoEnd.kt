@@ -21,11 +21,35 @@ object WorkAutoEnd {
         )
     }
 
-    // 출근 시각(workStart) + maxHours 시점에 예약. maxHours<=0 또는 workStart<=0이면 취소.
-    fun schedule(context: Context, workStart: Long, maxHours: Int) {
+    /* 출근 시각(workStart) + 일시정지 누적 + maxHours 시점에 예약.
+     * maxHours<=0 또는 workStart<=0이면 취소.
+     *
+     * ★★ [일시정지 미반영] 2026-10-07 실운행에서 잡힌 결함.
+     *   예전 식: triggerAt = workStart + maxHours
+     *   일시정지 누적을 빼지 않아 **벽시계** 기준이었다. 쉰 시간도 근무로 센 것이다.
+     *
+     *   실측(영진, 10-07):
+     *     07:13 출근 → 16:08 일시정지 → 19:10 재개 → 00:49 까지 운행
+     *     일시정지 3시간 2분. 15시간 알람은 07:13+15h = 22:13 에 걸렸고,
+     *     그 시점의 **실제 근무는 11시간 58분**이었다.
+     *     운행 중 유예(30분)로 22:46 에 마감 → 일하는 중에 퇴근 처리됐다.
+     *     그 뒤 52초 만에 새 콜이 자동출근을 띄워 세션이 쪼개졌다.
+     *
+     *   pausedTotal 을 더하면 '실근무 maxHours' 가 된다. 쉰 만큼 뒤로 밀린다.
+     *
+     * ★ 일시정지가 끝날 때마다 pausedTotal 이 커지므로 **재개 시 다시 불러야 한다.**
+     *   예전에는 WorkResume 이 WorkAutoEnd 를 한 번도 부르지 않았다(전수 확인).
+     *   그래서 재개해도 알람이 옛 시각에 그대로 남아 있었다.
+     *
+     * ★ 일시정지 중에 알람이 터지는 경우는 WorkAutoEndReceiver 가 유예로 처리한다.
+     *   거기서 끊어버리면 '쉬는 중'이 '퇴근'이 된다. 반대로 영구히 안 끊으면
+     *   런어웨이 세션을 막는 목적을 잃으므로, 유예 횟수 상한으로 끝에는 마감한다. */
+    @JvmOverloads
+    fun schedule(context: Context, workStart: Long, maxHours: Int, pausedTotalMs: Long = 0L) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         if (maxHours <= 0 || workStart <= 0L) { cancel(context); return }
-        val triggerAt = workStart + maxHours.toLong() * 3600_000L
+        val paused = pausedTotalMs.coerceAtLeast(0L)
+        val triggerAt = workStart + paused + maxHours.toLong() * 3600_000L
         try {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending(context))
         } catch (e: Exception) {
